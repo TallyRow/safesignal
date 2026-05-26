@@ -131,9 +131,10 @@ consistent `LogEvent` output without using internal APIs.
   Acceptance: Logger methods route through `EventBuilder → LevelFilter → (placeholder Sanitizer/URLScrubber/Redactor/ControlCharGuard/Freeze for US3) → Dispatcher → TelemetryBackend → SafeTransport[]`. The dispatcher exposes named, swappable pass-through seams (no-op functions) for each future security stage so Phase 5 replaces functions in place rather than restructuring `dispatcher.ts`. `src/index.ts` re-exports `createLogger`, `configureLogging`, `getRootLogger`, `ConsoleTransport`, `NoopTransport`, `createRedactor`, `scrubUrl`, and all public types listed in `contracts/public-api.md`. (NOTE: `createRedactor` and `scrubUrl` implementations land in Phase 5; this task ensures the re-export wiring is present and the contract test in T019 verifies it.)
   Parallel: No
 
-- [ ] T019 [US1] Add public-API and logger-behavior contract tests in `tests/contract/public-api.contract.test.ts`, `tests/contract/log-event.contract.test.ts`, and `tests/contract/level-behavior.contract.test.ts`
+- [X] T019 [US1] Add public-API and logger-behavior contract tests in `tests/contract/public-api.contract.test.ts`, `tests/contract/log-event.contract.test.ts`, and `tests/contract/level-behavior.contract.test.ts`
   Acceptance: PA-1..PA-9, LE-1..LE-11, and LC-1..LC-11 from the contracts are verified. Tests prove method-shape constancy, message-string-only behavior, package-assigned timestamps, separated `attributes` vs `context`, environment-aware level defaults, and that `getRootLogger()` returns a usable logger before `configureLogging()`.
   Parallel: No
+  **Phase 5 follow-up**: LE-5 (sanitization), LE-8 (redaction), LE-9 (URL scrubbing), LE-10 (control-char escaping) carry `it.todo()` markers — they activate when T031–T035 ship the pipeline-stage bodies (security suite at T041–T049 will be the substantive coverage).
 
 - [ ] T020 [US1] Add negative API-shaping tests in `tests/contract/public-api.contract.test.ts` and `tests/unit/event-builder.test.ts`
   Acceptance: TypeScript tests fail (or `expectError`-pass) if a `logger.dump`, `logger.raw`, or `logger.log(obj)` style API is added. Runtime tests fail if a consumer-supplied `timestamp` is honored or if per-call `attributes` mutate `context.attributes`.
