@@ -319,9 +319,15 @@ context.
 - **SC-009**: Consumers can follow package documentation to emit structured logs with
   contextual data without relying on raw object dumping or undocumented protective
   behavior.
-- **SC-010**: In production-mode usage, the documented default path reduces
-  lower-value log volume and accidental sensitive-data exposure risk without removing
-  baseline `warn` and `error` coverage.
+- **SC-010**: Under the package's default production configuration — with no
+  consumer-supplied level overrides and no consumer-supplied redaction overrides —
+  automated contract or security validation confirms all of the following:
+  (a) `debug` and `info` events are not delivered to any configured transport unless
+  explicitly enabled; (b) `warn` and `error` events are delivered to every configured
+  transport; and (c) when input events carry raw secrets, credentials, access or
+  refresh tokens, session identifiers, authorization values, cookies, or URL
+  query/fragment secrets, none of those raw values are present in the event payload
+  delivered to any transport.
 
 ## Risks & Open Questions
 
