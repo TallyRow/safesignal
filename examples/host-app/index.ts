@@ -9,10 +9,10 @@
  *     `info` opt-in via `level`).
  *   - Per-emit `correlation()` for cheap, synchronous dynamic context
  *     (trace id, route).
- *   - Built-in `ConsoleTransport` for browsers / development.
- *
- * For body-only HTTP / beacon delivery, see the shared transport at
- * `examples/shared/beacon-transport.ts` (lands in T029).
+ *   - Body-only beacon delivery via the canonical shared transport in
+ *     `examples/shared/beacon-transport.ts` — the same transport the
+ *     federated-module example wires up in T056.
+ *   - Built-in `ConsoleTransport` alongside for visible local output.
  *
  * Run:
  *   cd examples/host-app
@@ -26,12 +26,20 @@ import {
   createLogger,
 } from '@your-org/frontend-logging-sdk';
 
+import { makeBeaconTransport } from '../shared/beacon-transport.js';
+
 // 1. Configure once at app startup. Pass `environment` explicitly — the
 //    package never reads `process.env.NODE_ENV` or `import.meta.env`.
+//    The beacon transport delivers events POST-body-only over HTTPS —
+//    NEVER as URL query params. See `examples/shared/beacon-transport.ts`
+//    and `docs/safe-logging.md` for the security contract.
 configureLogging({
   application: { name: 'checkout-web', version: '2025.05.0' },
   environment: 'production',
-  transports: [ConsoleTransport()],
+  transports: [
+    makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+    ConsoleTransport(),
+  ],
   // Optional per-emit dynamic context. Must be cheap and synchronous.
   correlation: () => ({
     attributes: {
@@ -81,6 +89,21 @@ requestLog.info('fetching cart');
 //        level: { production: 'info', development: 'debug', test: 'warn' },
 //        transports: [ConsoleTransport()],
 //      });
+//
+// 6. Verify any custom transport against the security contract using
+//    the `./testing` subpath helper. Run this inside your consumer's
+//    test suite — NEVER in production code:
+//
+//      import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+//      import { makeBeaconTransport } from '../shared/beacon-transport.js';
+//
+//      await assertTransportContract(
+//        makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+//      );
+//
+//    The helper asserts T-S1..T-S5: no event data in URL paths /
+//    queries / fragments, body-only delivery, HTTPS cross-origin,
+//    transport never mutates the event, flush/shutdown idempotent.
 
 // ANTI-PATTERNS — do NOT do any of these in real consumer code. They
 // are listed here as references for code reviewers; uncomment to see

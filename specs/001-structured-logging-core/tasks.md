@@ -186,7 +186,7 @@ events, etc.) fails the published contract helper.
   Acceptance: Uses `assertTransportContract` against (a) a sample beacon-style transport (must pass) and (b) a deliberately bad URL-based transport that pushes event data via `fetch('https://x?evt=...')` (must fail with a clear diagnostic). Asserts the bad transport's events never reach the network. Verifies T-S1..T-S5.
   Parallel: Yes
 
-- [ ] T029 [US2] Document transport-boundary security requirements in `README.md`, `docs/safe-logging.md`, and `examples/shared/beacon-transport.ts`
+- [X] T029 [US2] Document transport-boundary security requirements in `README.md`, `docs/safe-logging.md`, and `examples/shared/beacon-transport.ts`
   Acceptance: Consumer guidance explicitly requires body-only delivery (POST/PUT JSON or `sendBeacon` `Blob`), forbids URL-based delivery, requires HTTPS cross-origin, and shows `assertTransportContract` usage in a sample consumer test. The shared beacon transport at `examples/shared/beacon-transport.ts` is the canonical body-only sample; `examples/host-app/` imports it, and `examples/federated-module/` will reuse the same file in T056. Examples do NOT normalize URL-based or backend-vendor-specific patterns.
   Parallel: No
 
