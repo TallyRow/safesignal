@@ -178,7 +178,7 @@ events, etc.) fails the published contract helper.
   Acceptance: Verifies T-1..T-9 from `contracts/transport.md`. Includes a "swap transports mid-flight" test proving existing logger references continue to work, a multi-transport fan-out test proving one transport's failure does not block others, and a `NoopTransport` auto-install test when `transports` is undefined or `[]`.
   Parallel: No
 
-- [ ] T027 [US2] Add failure-safety contract test in `tests/contract/failure-safety.contract.test.ts`
+- [X] T027 [US2] Add failure-safety contract test in `tests/contract/failure-safety.contract.test.ts`
   Acceptance: Verifies FS-1..FS-17 from `contracts/failure-safety.md`, including the 1000-emission stress test (throwing transport, rejecting transport, throwing `correlation()`, custom redactor throwing on ~half of events, oversized cyclic input) that completes in under 100ms with no exception escape and no unhandled rejection.
   Parallel: No
 
