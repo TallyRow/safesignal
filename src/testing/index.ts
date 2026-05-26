@@ -3,16 +3,18 @@
  * package's `exports` map. Helpers here are intended for consumer test
  * suites — they MUST NOT be imported by runtime code.
  *
- * As task T025 lands, this file will re-export:
- *   - assertTransportContract  — runs the documented Transport contract battery
- *                                against any user-provided Transport
- *                                (T-1..T-S5 from contracts/transport.md)
- *   - makeSecretFixture        — stable bag of password/JWT/bearer/session/
- *                                cookie/credit-card-shaped values for use in
- *                                consumer redaction tests
- *
- * This module MUST NOT re-export anything from the runtime entrypoint
- * (`src/index.ts`); helpers may import from internal paths only where
- * absolutely required to verify the package's own contracts.
+ * Exports:
+ *   - assertTransportContract  — runs the documented Transport contract
+ *                                battery against any user-provided
+ *                                Transport (T-S1..T-S5 from
+ *                                contracts/transport.md)
+ *   - makeSecretFixture        — stable bag of password/JWT/bearer/
+ *                                session/cookie/credit-card-shaped
+ *                                values for redaction and leakage tests
+ *   - FIXTURE_VALUES           — flat array of every fixture value, for
+ *                                quick `.includes()` scans of captured
+ *                                URLs or payloads
  */
-export {};
+
+export { assertTransportContract } from './assert-transport-contract.js';
+export { FIXTURE_VALUES, makeSecretFixture } from './secret-fixtures.js';

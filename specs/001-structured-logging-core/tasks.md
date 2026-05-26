@@ -170,7 +170,7 @@ events, etc.) fails the published contract helper.
   Acceptance: `OtelLogsBackend.init()` failures fall back silently to `NoopBackend` and emit one `onInternalError`. `Backend.handle()` exceptions are caught by the dispatcher, which delivers the event to transports through a direct fallback path. No path propagates a throw or rejection to the logger call site.
   Parallel: No
 
-- [ ] T025 [P] [US2] Implement transport-contract test helpers in `src/testing/assert-transport-contract.ts` and `src/testing/secret-fixtures.ts`
+- [X] T025 [P] [US2] Implement transport-contract test helpers in `src/testing/assert-transport-contract.ts` and `src/testing/secret-fixtures.ts`
   Acceptance: `assertTransportContract(transport)` runs T-1..T-S5 from `contracts/transport.md` — including a hook that intercepts global `fetch` and `navigator.sendBeacon`, asserts no URL contains event-shaped data, asserts every cross-origin call uses HTTPS with POST/PUT body or a `Blob` `sendBeacon`, asserts event immutability, asserts `flush()`/`shutdown()` idempotency. `secret-fixtures.ts` exports `makeSecretFixture()` returning a stable bag of passwords, JWTs, bearer tokens, session IDs, cookies, and credit-card-shaped numbers.
   Parallel: Yes
 
