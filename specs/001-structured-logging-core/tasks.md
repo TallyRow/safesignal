@@ -48,7 +48,7 @@ documentation skeletons.
   Acceptance: Helpers expose a configurable throwing/rejecting transport, an unhandled-rejection assertion utility (browser + Node), and reusable `LogEvent` fixtures. Helpers do not import from `src/internal/**` or `@opentelemetry/*`.
   Parallel: Yes
 
-- [ ] T004 [P] Create documentation and example scaffolding in `README.md`, `docs/safe-logging.md`, `examples/host-app/`, and `examples/federated-module/`
+- [X] T004 [P] Create documentation and example scaffolding in `README.md`, `docs/safe-logging.md`, `examples/host-app/`, and `examples/federated-module/`
   Acceptance: `README.md` and `docs/safe-logging.md` exist with section placeholders matching `quickstart.md`. Each example directory contains its own `package.json` and `index.ts` skeleton so the host-app and federated-module examples can be built independently.
   Parallel: Yes
 
