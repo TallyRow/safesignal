@@ -174,7 +174,7 @@ events, etc.) fails the published contract helper.
   Acceptance: `assertTransportContract(transport)` runs T-1..T-S5 from `contracts/transport.md` — including a hook that intercepts global `fetch` and `navigator.sendBeacon`, asserts no URL contains event-shaped data, asserts every cross-origin call uses HTTPS with POST/PUT body or a `Blob` `sendBeacon`, asserts event immutability, asserts `flush()`/`shutdown()` idempotency. `secret-fixtures.ts` exports `makeSecretFixture()` returning a stable bag of passwords, JWTs, bearer tokens, session IDs, cookies, and credit-card-shaped numbers.
   Parallel: Yes
 
-- [ ] T026 [US2] Add transport contract tests in `tests/contract/transport.contract.test.ts`
+- [X] T026 [US2] Add transport contract tests in `tests/contract/transport.contract.test.ts`
   Acceptance: Verifies T-1..T-9 from `contracts/transport.md`. Includes a "swap transports mid-flight" test proving existing logger references continue to work, a multi-transport fan-out test proving one transport's failure does not block others, and a `NoopTransport` auto-install test when `transports` is undefined or `[]`.
   Parallel: No
 
