@@ -32,6 +32,8 @@ planning
 
 ## Notes
 
-- Validation passed on initial review.
-- Risks and open questions were captured explicitly without blocking readiness for
+- Validation passed after the secure-logging and sensitive-data protection update.
+- The spec now treats sensitive-data exposure as a first-class failure mode and keeps
+  implementation choices out of scope.
+- Risks and open questions remain captured explicitly without blocking readiness for
   planning.
