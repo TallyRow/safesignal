@@ -136,7 +136,7 @@ consistent `LogEvent` output without using internal APIs.
   Parallel: No
   **Phase 5 follow-up**: LE-5 (sanitization), LE-8 (redaction), LE-9 (URL scrubbing), LE-10 (control-char escaping) carry `it.todo()` markers — they activate when T031–T035 ship the pipeline-stage bodies (security suite at T041–T049 will be the substantive coverage).
 
-- [ ] T020 [US1] Add negative API-shaping tests in `tests/contract/public-api.contract.test.ts` and `tests/unit/event-builder.test.ts`
+- [X] T020 [US1] Add negative API-shaping tests in `tests/contract/public-api.contract.test.ts` and `tests/unit/event-builder.test.ts`
   Acceptance: TypeScript tests fail (or `expectError`-pass) if a `logger.dump`, `logger.raw`, or `logger.log(obj)` style API is added. Runtime tests fail if a consumer-supplied `timestamp` is honored or if per-call `attributes` mutate `context.attributes`.
   Parallel: No
 

@@ -183,6 +183,58 @@ describe('public API contract (PA-1..PA-9)', () => {
     });
   });
 
+  describe('Negative API shape (T020): no raw-payload APIs on Logger', () => {
+    // These `// @ts-expect-error` blocks fail to typecheck if someone adds
+    // `dump`, `raw`, `log`, or unsupported level names to the Logger
+    // interface — preventing the "easy unsafe path" the constitution and
+    // plan explicitly prohibit. We REFERENCE each forbidden property
+    // (without invoking it) so TypeScript still errors but the runtime
+    // doesn't throw.
+    it('Logger has no `dump` method (type-level + runtime)', () => {
+      const logger = root.createLogger();
+      // @ts-expect-error — `dump` is intentionally not part of the API
+      void logger.dump;
+      expect((logger as unknown as Record<string, unknown>).dump).toBeUndefined();
+    });
+    it('Logger has no `raw` method (type-level + runtime)', () => {
+      const logger = root.createLogger();
+      // @ts-expect-error — `raw` is intentionally not part of the API
+      void logger.raw;
+      expect((logger as unknown as Record<string, unknown>).raw).toBeUndefined();
+    });
+    it('Logger has no `log` method (type-level + runtime)', () => {
+      const logger = root.createLogger();
+      // @ts-expect-error — `log` is intentionally not part of the API
+      void logger.log;
+      expect((logger as unknown as Record<string, unknown>).log).toBeUndefined();
+    });
+    it('Logger has no `trace`, `fatal`, `verbose`, or other unsupported levels', () => {
+      const logger = root.createLogger();
+      // @ts-expect-error — trace is not a supported level
+      void logger.trace;
+      // @ts-expect-error — fatal is not a supported level
+      void logger.fatal;
+      // @ts-expect-error — verbose is not a supported level
+      void logger.verbose;
+      const record = logger as unknown as Record<string, unknown>;
+      expect(record.trace).toBeUndefined();
+      expect(record.fatal).toBeUndefined();
+      expect(record.verbose).toBeUndefined();
+    });
+    it('Logger exposes ONLY the six documented methods', () => {
+      const logger = root.createLogger();
+      const keys = Object.keys(logger).sort();
+      expect(keys).toEqual([
+        'child',
+        'debug',
+        'error',
+        'info',
+        'warn',
+        'withContext',
+      ]);
+    });
+  });
+
   describe('PA-9: /testing helpers are not reachable through the root entry', () => {
     it('the root entry does NOT export assertTransportContract or makeSecretFixture', () => {
       const rootKeys = Object.keys(root);
