@@ -119,7 +119,7 @@ production-safe level defaults and bounded contextual input.
 `debug`/`info`/`warn`/`error` events with structured attributes, and observes
 consistent `LogEvent` output without using internal APIs.
 
-- [ ] T016 [US1] Implement logger factories and root configuration flow in `src/api/logger.ts`
+- [X] T016 [US1] Implement logger factories and root configuration flow in `src/api/logger.ts`
   Acceptance: `configureLogging()`, `createLogger()`, and `getRootLogger()` exist. Calls before `configureLogging()` use safe defaults (`warn`+, `NoopTransport`, env-unknown) and never throw. Re-calling `configureLogging()` shuts down the previous backend and transports, then installs the new config atomically without breaking existing logger references.
   Parallel: No
 
