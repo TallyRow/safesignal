@@ -1,54 +1,33 @@
 /**
  * Reusable `LogEvent` fixtures for tests.
  *
- * Local type stubs mirror `contracts/log-event.md`. They will be replaced with
- * `import type { LogEvent, LogLevel, ... } from '../../src/api/types'` once
- * T005 lands the canonical public types.
+ * Type stubs were replaced with imports from the canonical public surface
+ * (`src/api/types.ts`) once T005 landed. Types are re-exported for
+ * convenience so test files can import both fixtures and types from one
+ * helper path.
  */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+import type {
+  AppIdentity,
+  Attributes,
+  AttributeValue,
+  ErrorInfo,
+  LogContext,
+  LogEvent,
+  LogLevel,
+  ModuleIdentity,
+} from '../../src/api/types.js';
 
-export type AttributeValue =
-  | string
-  | number
-  | boolean
-  | null
-  | AttributeValue[]
-  | { [key: string]: AttributeValue };
-
-export type Attributes = Record<string, AttributeValue>;
-
-export interface AppIdentity {
-  name: string;
-  version?: string;
-}
-
-export interface ModuleIdentity {
-  name: string;
-  version?: string;
-}
-
-export interface LogContext {
-  application?: AppIdentity;
-  module?: ModuleIdentity;
-  environment?: string;
-  attributes?: Attributes;
-}
-
-export interface ErrorInfo {
-  name: string;
-  message: string;
-  stack?: string;
-}
-
-export interface LogEvent {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  attributes: Attributes;
-  context: LogContext;
-  error?: ErrorInfo;
-}
+export type {
+  AppIdentity,
+  Attributes,
+  AttributeValue,
+  ErrorInfo,
+  LogContext,
+  LogEvent,
+  LogLevel,
+  ModuleIdentity,
+};
 
 export const LEVELS: readonly LogLevel[] = ['debug', 'info', 'warn', 'error'];
 

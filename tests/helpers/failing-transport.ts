@@ -2,19 +2,14 @@
  * Configurable failing-transport helpers for failure-safety, transport-contract,
  * and stress tests.
  *
- * Local `Transport` and `LogEvent` stubs mirror `contracts/transport.md` /
- * `contracts/log-event.md`. They will be replaced with imports from
- * `src/api/types` once T005 lands.
+ * Type stubs were replaced with imports from the canonical public surface
+ * (`src/api/types.ts`) once T005 landed. `Transport` and `LogEvent` are
+ * re-exported for convenience.
  */
 
-import type { LogEvent } from './event-fixtures.js';
+import type { LogEvent, Transport } from '../../src/api/types.js';
 
-export interface Transport {
-  name: string;
-  send(event: LogEvent): void | Promise<void>;
-  flush?(): Promise<void>;
-  shutdown?(): Promise<void>;
-}
+export type { LogEvent, Transport };
 
 export interface FailingTransportController {
   /** All events the transport's `send` was *called* with (regardless of outcome). */
