@@ -140,7 +140,7 @@ consistent `LogEvent` output without using internal APIs.
   Acceptance: TypeScript tests fail (or `expectError`-pass) if a `logger.dump`, `logger.raw`, or `logger.log(obj)` style API is added. Runtime tests fail if a consumer-supplied `timestamp` is honored or if per-call `attributes` mutate `context.attributes`.
   Parallel: No
 
-- [ ] T021 [US1] Add browser-runtime integration coverage in `tests/integration/emit-flow.integration.test.ts`
+- [X] T021 [US1] Add browser-runtime integration coverage in `tests/integration/emit-flow.integration.test.ts`
   Acceptance: All four levels emit synchronously without throwing under `happy-dom`. Production-mode defaults drop `debug`/`info`. Re-configuring transports mid-test does not break logger references.
   Parallel: No
 
