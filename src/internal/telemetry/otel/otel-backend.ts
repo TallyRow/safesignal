@@ -83,7 +83,7 @@ export class OtelLogsBackend implements TelemetryBackend {
         this.onInternalError(
           wrapAsPackageError(
             'backend_handle_failed',
-            'OtelLogsBackend.handle failed; routing this and subsequent events via fallback for this emission only.',
+            'OtelLogsBackend.handle threw; delivering this event directly to transports via the NoopBackend fallback. Future events will retry OTel emission. This notice fires once per session.',
             err,
           ),
         );
