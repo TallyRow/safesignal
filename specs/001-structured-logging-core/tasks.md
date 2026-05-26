@@ -123,7 +123,7 @@ consistent `LogEvent` output without using internal APIs.
   Acceptance: `configureLogging()`, `createLogger()`, and `getRootLogger()` exist. Calls before `configureLogging()` use safe defaults (`warn`+, `NoopTransport`, env-unknown) and never throw. Re-calling `configureLogging()` shuts down the previous backend and transports, then installs the new config atomically without breaking existing logger references.
   Parallel: No
 
-- [ ] T017 [P] [US1] Implement event building and level filtering in `src/pipeline/event-builder.ts` and `src/pipeline/level-filter.ts`
+- [X] T017 [P] [US1] Implement event building and level filtering in `src/pipeline/event-builder.ts` and `src/pipeline/level-filter.ts`
   Acceptance: `EventBuilder` assigns `timestamp` from `new Date().toISOString()` (consumer cannot supply). `LevelFilter` resolves effective level per `contracts/logger-config.md` (per-logger → root → `LevelMap[env]` → env default → `warn` fallback) and short-circuits drops before sanitize/redact run.
   Parallel: Yes
 

@@ -26,28 +26,19 @@ import { mergeContexts } from '../context/context-merge.js';
 import type { TelemetryBackend } from '../internal/telemetry/backend.js';
 import { OtelLogsBackend } from '../internal/telemetry/otel/otel-backend.js';
 import { wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import { buildLogEvent } from '../pipeline/event-builder.js';
+import { passesLevelFilter } from '../pipeline/level-filter.js';
 import { NoopTransport } from '../transport/noop-transport.js';
 import { SafeTransport } from '../transport/safe-transport.js';
 import type {
   Attributes,
   CreateLoggerOptions,
-  ErrorInfo,
   LogContext,
-  LogEvent,
   Logger,
   LoggerConfig,
   LogLevel,
   Transport,
 } from './types.js';
-
-// Internal numeric severity used only for level comparison. Matches
-// `data-model.md` and is deliberately not exported.
-const LEVEL_NUMBER: Readonly<Record<LogLevel, number>> = {
-  debug: 10,
-  info: 20,
-  warn: 30,
-  error: 40,
-};
 
 interface ModuleState {
   readonly config: NormalizedConfig;
@@ -142,9 +133,11 @@ function makeLogger(
     errorValue?: unknown,
   ): void {
     const current = ensureState();
-    const effectiveLevel = options.level ?? current.config.level;
-    if (LEVEL_NUMBER[level] < LEVEL_NUMBER[effectiveLevel]) {
-      return; // filtered
+
+    // Level filter — runs first so a filtered-out emission performs no
+    // work beyond a constant-time numeric comparison.
+    if (!passesLevelFilter(level, options.level, current.config.level)) {
+      return;
     }
 
     // Root identity carried at the LoggerConfig top level becomes the
@@ -185,22 +178,19 @@ function makeLogger(
       correlation,
     );
 
-    const event: LogEvent = {
-      timestamp: new Date().toISOString(),
+    const event = buildLogEvent({
       level,
       message,
-      attributes: attributes ?? {},
+      attributes,
       context,
-    };
-    if (errorValue !== undefined) {
-      event.error = reduceError(errorValue);
-    }
+      errorValue,
+    });
 
-    // T017/T018 will route through `src/pipeline/dispatcher.ts` and the
-    // security-stage seams; for T016 we call the backend directly.
-    // `backend.handle` itself is defensive (`OtelLogsBackend` falls back
-    // to `NoopBackend` on failure), but wrap once more to honor the
-    // outer no-throw invariant.
+    // T018 will route through `src/pipeline/dispatcher.ts` with the
+    // security-stage seams; for now we call the backend directly.
+    // `backend.handle` is defensive (`OtelLogsBackend` falls back to
+    // `NoopBackend` on failure), but wrap once more to honor the outer
+    // no-throw invariant.
     try {
       current.backend.handle(event);
     } catch {
@@ -228,14 +218,4 @@ function makeLogger(
       return makeLogger(options, [...chainedContexts, context]);
     },
   };
-}
-
-/** Reduce any `unknown` error value to the documented `ErrorInfo` shape. */
-function reduceError(value: unknown): ErrorInfo {
-  if (value instanceof Error) {
-    const info: ErrorInfo = { name: value.name, message: value.message };
-    if (value.stack !== undefined) info.stack = value.stack;
-    return info;
-  }
-  return { name: 'NonError', message: String(value) };
 }
