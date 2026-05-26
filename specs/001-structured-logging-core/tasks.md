@@ -89,7 +89,7 @@ boundaries, transports, and contract-level guards required by every story.
   Acceptance: `SafeTransport` catches sync throws and Promise rejections from any wrapped transport; emits one `onInternalError` per transport per session on first failure. `ConsoleTransport` calls `console[level](event.message, event)` (object as second arg, never interpolated) and falls back to `console.log(event.message, event)` only when `console[level]` is not a function. `NoopTransport` is a silent fire-and-forget.
   Parallel: Yes
 
-- [ ] T012 Reserve transport bridges directory in `src/transport/bridges/.gitkeep`
+- [X] T012 Reserve transport bridges directory in `src/transport/bridges/.gitkeep`
   Acceptance: Empty placeholder directory exists so the future application/platform ingestion adapters have a documented home without exporting anything in v1.
   Parallel: No
 
