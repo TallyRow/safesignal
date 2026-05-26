@@ -148,11 +148,10 @@ consistent `LogEvent` output without using internal APIs.
   Acceptance: Docs and host-app example show structured-attribute usage, fixed-string messages (no template-interpolation of values), and the safe-defaults posture without referencing internal telemetry. No example logs whole objects, DOM nodes, or framework objects.
   Parallel: No
 
-- [ ] T023 Review boundary: validate public API safety and bounded context entry across `src/api/`, `src/pipeline/`, `src/index.ts`, `README.md`, `examples/host-app/`, and `tests/contract/`
+- [X] T023 Review boundary: validate public API safety and bounded context entry across `src/api/`, `src/pipeline/`, `src/index.ts`, `README.md`, `examples/host-app/`, and `tests/contract/`
   Acceptance: Reviewer confirms the public logger API steers consumers toward safe usage, public-export contract is exact, and no "dump everything" easy path exists. Constitution Principles I, III, V hold.
   Parallel: No
-
-**Checkpoint**: US1 is independently functional and safe-by-default at the public API layer.
+  **Approved 2026-05-26**: Public exports exactly match `contracts/public-api.md` (5 functions + 2 transport factories + 18 types); host-app example typechecks against the real published surface. No "dump everything" easy path: `Logger.error`'s optional `error` arg is the only `unknown` in the surface; `Attributes` is a constrained recursive union excluding `unknown`/`object`/class instances; `Logger` has exactly 6 methods (T020 negative-shape tests + structural `Object.keys` check verify). README and host-app example demonstrate structured-attribute usage with explicit DO/DON'T patterns; no example logs whole objects/DOM nodes/framework objects. Gates I, III, V hold; Gate IV deliberately Phase-5 scope.
 
 ---
 
