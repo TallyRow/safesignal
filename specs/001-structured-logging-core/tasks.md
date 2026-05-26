@@ -97,8 +97,8 @@ boundaries, transports, and contract-level guards required by every story.
   Acceptance: `declarations-surface.test.ts` fails if generated `.d.ts` contains the strings `opentelemetry` or `@opentelemetry`, or if forbidden public names (`SeverityNumber`, `LoggerProvider`, `Span`, `Trace*`, `Exporter`, `Processor`, etc.) appear in the root entry's declarations. `no-ambient-state.test.ts` scans `src/**` (excluding `src/internal/telemetry/otel/**`) for direct reads of `process.env`, `import.meta.env`, `window.location`, `document.cookie`, and fails if any are found.
   Parallel: No
 
-- [ ] T014 Add source-tree boundary scan in `tests/contract/internal-import-boundary.test.ts`
-  Acceptance: Test fails if any source file outside `src/internal/telemetry/otel/**` imports from `@opentelemetry/*`, or if any source file outside `src/api/` and `src/index.ts` is re-exported from `src/index.ts`.
+- [X] T014 Add source-tree boundary scan in `tests/contract/internal-import-boundary.test.ts`
+  Acceptance: Test fails if any source file outside `src/internal/telemetry/otel/**` imports from `@opentelemetry/*`, or if any source file outside `src/api/` and `src/index.ts` is re-exported from `src/index.ts`. **Implementation note**: the "outside src/api/" clause conflicts with T018's design (which re-exports `ConsoleTransport`/`scrubUrl`/etc. from `src/transport/` and `src/pipeline/` per `contracts/public-api.md`). The test enforces the architectural intent — no `src/internal/**` or `src/testing/**` leakage from `src/index.ts`, and no `src/internal/**` leakage from `src/testing/index.ts` — while leaving the exact public surface lock to T019's contract test. See the file's header comment for full rationale.
   Parallel: No
 
 - [ ] T015 Review boundary: validate foundational surface and package boundaries against `src/api/`, `src/config/`, `src/context/`, `src/internal/`, `src/transport/`, and `tests/contract/`
