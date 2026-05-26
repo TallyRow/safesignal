@@ -182,7 +182,7 @@ events, etc.) fails the published contract helper.
   Acceptance: Verifies FS-1..FS-17 from `contracts/failure-safety.md`, including the 1000-emission stress test (throwing transport, rejecting transport, throwing `correlation()`, custom redactor throwing on ~half of events, oversized cyclic input) that completes in under 100ms with no exception escape and no unhandled rejection.
   Parallel: No
 
-- [ ] T028 [P] [US2] Add transport security contract test in `tests/security/transport-contract.security.test.ts`
+- [X] T028 [P] [US2] Add transport security contract test in `tests/security/transport-contract.security.test.ts`
   Acceptance: Uses `assertTransportContract` against (a) a sample beacon-style transport (must pass) and (b) a deliberately bad URL-based transport that pushes event data via `fetch('https://x?evt=...')` (must fail with a clear diagnostic). Asserts the bad transport's events never reach the network. Verifies T-S1..T-S5.
   Parallel: Yes
 
