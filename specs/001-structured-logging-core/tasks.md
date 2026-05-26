@@ -61,7 +61,7 @@ boundaries, transports, and contract-level guards required by every story.
 
 **⚠️ CRITICAL**: No user story work begins until this phase is complete.
 
-- [ ] T005 Define public types in `src/api/types.ts`
+- [X] T005 Define public types in `src/api/types.ts`
   Acceptance: Exports `Logger`, `LogLevel`, `LogEvent`, `LogContext`, `AppIdentity`, `ModuleIdentity`, `Attributes`, `AttributeValue`, `ErrorInfo`, `LoggerConfig`, `CreateLoggerOptions`, `LevelMap`, `SanitizerLimits`, `Transport`, `TransportFactory`, `Redactor`, `RedactionRule`, `ScrubUrlOptions`. `Attributes` is a recursive constrained union (no `unknown`/`object`). The only `unknown` parameter in the public surface is the optional `error` arg of `logger.error()`.
   Parallel: No
 
