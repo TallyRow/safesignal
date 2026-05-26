@@ -24,7 +24,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
+    "typecheck:src": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json",
     "test": "vitest run",
     "test:contract": "vitest run tests/contract",
     "test:security": "vitest run tests/security",
@@ -38,6 +40,7 @@
     "@opentelemetry/sdk-logs": "^0.57.0"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^2.1.0",
     "happy-dom": "^15.0.0",
     "tsup": "^8.3.0",

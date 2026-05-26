@@ -19,8 +19,9 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": []
   },
-  "include": ["src/**/*", "tests/**/*", "global.d.ts"],
+  "include": ["src/**/*", "global.d.ts"],
   "exclude": ["dist", "node_modules"]
 }
