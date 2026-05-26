@@ -81,11 +81,11 @@ boundaries, transports, and contract-level guards required by every story.
   Acceptance: `TelemetryBackend` interface declares `init`, `handle`, `shutdown`. `NoopBackend` forwards events directly to transports and does NOT import `@opentelemetry/*`.
   Parallel: Yes
 
-- [ ] T010 [P] Implement the OTel adapter in `src/internal/telemetry/otel/otel-backend.ts`, `src/internal/telemetry/otel/event-bridge.ts`, and `src/internal/telemetry/otel/mapping.ts`
+- [X] T010 [P] Implement the OTel adapter in `src/internal/telemetry/otel/otel-backend.ts`, `src/internal/telemetry/otel/event-bridge.ts`, and `src/internal/telemetry/otel/mapping.ts`
   Acceptance: All `@opentelemetry/*` imports live ONLY in these three files. `mapping.ts` exposes `toLogRecord(event)` and `fromLogRecord(record)`. `event-bridge.ts` is a `LogRecordProcessor` that converts records back to `LogEvent` and forwards to the configured transports. `otel-backend.ts` catches all init errors and reports them via `onInternalError` so `OtelLogsBackend` can fall back to `NoopBackend`.
   Parallel: Yes
 
-- [ ] T011 [P] Implement transport wrappers and built-ins in `src/transport/safe-transport.ts`, `src/transport/console-transport.ts`, and `src/transport/noop-transport.ts`
+- [X] T011 [P] Implement transport wrappers and built-ins in `src/transport/safe-transport.ts`, `src/transport/console-transport.ts`, and `src/transport/noop-transport.ts`
   Acceptance: `SafeTransport` catches sync throws and Promise rejections from any wrapped transport; emits one `onInternalError` per transport per session on first failure. `ConsoleTransport` calls `console[level](event.message, event)` (object as second arg, never interpolated) and falls back to `console.log(event.message, event)` only when `console[level]` is not a function. `NoopTransport` is a silent fire-and-forget.
   Parallel: Yes
 
