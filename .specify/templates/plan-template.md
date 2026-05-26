@@ -4,7 +4,8 @@
 
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Note**: This template is filled in by the `/speckit-plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+**Note**: This template is filled in by the `/speckit-plan` command. See
+`.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
@@ -18,29 +19,46 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Language/Version**: [e.g., TypeScript 5.x or NEEDS CLARIFICATION]
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., build tooling, runtime libraries, or NEEDS CLARIFICATION]
 
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Storage**: [if applicable, e.g., browser memory, IndexedDB, remote ingestion, or N/A]
 
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Testing**: [e.g., Vitest, Playwright, contract tests, or NEEDS CLARIFICATION]
 
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Target Platform**: [e.g., modern browsers, SSR-compatible browser package, or NEEDS CLARIFICATION]
 
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+**Project Type**: [e.g., reusable frontend package/library]
 
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Performance Goals**: [domain-specific, e.g., bounded client overhead, non-blocking log emission]
 
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
+**Constraints**: [domain-specific, e.g., browser-safe, privacy-safe, transport failure tolerant]
 
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Scale/Scope**: [domain-specific, e.g., multi-app reuse, federated modules, package consumers]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- API Stability: Identify every consumer-facing API, config, type, and behavior
+  touched by this work. Document compatibility impact, migration needs, and how
+  internal details remain hidden behind the package interface.
+- Browser Resilience: Show how the design remains safe in browser runtimes and how
+  failures in transports, ingestion endpoints, or optional integrations degrade
+  without breaking rendering, navigation, or user interactions.
+- Neutrality & Portability: Confirm the design avoids framework-specific,
+  application-specific, backend-specific, and vendor-locked assumptions. Describe how
+  host apps and federated modules can consume the result through the same stable API.
+- Structured Observability: Define the structured event model, level behavior,
+  metadata expectations, and production defaults. Explain how future transport or
+  backend changes avoid consumer call-site rewrites.
+- Privacy & Safe Data Handling: Identify sensitive data risks, redaction or omission
+  rules, and any documentation or example updates required to preserve safe logging
+  patterns.
+- Test & Documentation Coverage: List the contract, unit, integration, and failure
+  tests required to prove compliance, plus any setup or integration docs that must
+  change with the implementation.
 
 ## Project Structure
 
@@ -60,44 +78,26 @@ specs/[###-feature]/
 <!--
   ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
   for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  real paths (e.g., packages/sdk, examples/host-app). The delivered plan must
   not include Option labels.
 -->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── api/
+├── config/
+├── context/
+├── transports/
+└── internal/
 
 tests/
 ├── contract/
 ├── integration/
 └── unit/
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+examples/
+├── host-app/
+└── federated-module/
 ```
 
 **Structure Decision**: [Document the selected structure and reference the real
@@ -109,5 +109,5 @@ directories captured above]
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| [e.g., extra abstraction layer] | [current need] | [why direct composition is insufficient] |
+| [e.g., optional vendor adapter] | [specific problem] | [why base transport contract alone is insufficient] |
