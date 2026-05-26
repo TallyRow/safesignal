@@ -24,7 +24,7 @@ import { LoggerProvider } from '@opentelemetry/sdk-logs';
 
 import type { LogEvent } from '../../../api/types.js';
 import type { NormalizedConfig } from '../../../config/config.js';
-import { wrapAsPackageError } from '../../errors/internal-errors.js';
+import { safeNotify, wrapAsPackageError } from '../../errors/internal-errors.js';
 import type { TelemetryBackend } from '../backend.js';
 import { NoopBackend } from '../noop-backend.js';
 import { EventBridge } from './event-bridge.js';
@@ -59,7 +59,8 @@ export class OtelLogsBackend implements TelemetryBackend {
       this.useFallback = false;
     } catch (err) {
       this.useFallback = true;
-      this.onInternalError(
+      safeNotify(
+        this.onInternalError,
         wrapAsPackageError(
           'backend_init_failed',
           'OtelLogsBackend init failed; falling back to NoopBackend.',
@@ -80,7 +81,8 @@ export class OtelLogsBackend implements TelemetryBackend {
       // Per-event fallback. Notify once per session to avoid log spam.
       if (!this.notifiedRuntimeFailure) {
         this.notifiedRuntimeFailure = true;
-        this.onInternalError(
+        safeNotify(
+          this.onInternalError,
           wrapAsPackageError(
             'backend_handle_failed',
             'OtelLogsBackend.handle threw; delivering this event directly to transports via the NoopBackend fallback. Future events will retry OTel emission. This notice fires once per session.',
@@ -99,7 +101,8 @@ export class OtelLogsBackend implements TelemetryBackend {
       try {
         await this.provider.shutdown();
       } catch (err) {
-        this.onInternalError(
+        safeNotify(
+          this.onInternalError,
           wrapAsPackageError(
             'backend_init_failed',
             'OtelLogsBackend.shutdown failed.',

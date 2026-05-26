@@ -92,3 +92,24 @@ export function wrapAsPackageError(
   }
   return new PackageError(code, message, options);
 }
+
+/**
+ * Invoke a consumer-supplied `onInternalError` callback inside an isolating
+ * try/catch. Required by the constitution and the failure-safety contract:
+ * NO path inside the package may propagate a throw to a consumer logging
+ * call site — including throws from the diagnostics hook itself.
+ *
+ * This is the single helper every internal site must use when notifying
+ * `onInternalError`; bare invocations are a hazard.
+ */
+export function safeNotify(
+  onInternalError: (err: Error) => void,
+  err: PackageError,
+): void {
+  try {
+    onInternalError(err);
+  } catch {
+    // Consumer-supplied onInternalError threw. Nothing further we can do
+    // without violating the no-throw invariant — swallow.
+  }
+}

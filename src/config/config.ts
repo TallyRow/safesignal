@@ -21,7 +21,7 @@ import type {
   Transport,
 } from '../api/types.js';
 
-import { PackageError } from '../internal/errors/internal-errors.js';
+import { PackageError, safeNotify } from '../internal/errors/internal-errors.js';
 
 import {
   DEFAULT_SANITIZER_LIMITS,
@@ -135,7 +135,8 @@ function resolveSanitizerLimits(
     const bounds = SANITIZER_LIMIT_BOUNDS[key];
     if (requested > bounds.max) {
       limits[key] = bounds.max;
-      onInternalError(
+      safeNotify(
+        onInternalError,
         new PackageError(
           'sanitizer_limit_clamped',
           `sanitizerLimits.${key} value ${String(requested)} exceeds max ${String(bounds.max)}; clamped to ${String(bounds.max)}`,
@@ -143,7 +144,8 @@ function resolveSanitizerLimits(
       );
     } else if (requested < bounds.min) {
       limits[key] = bounds.min;
-      onInternalError(
+      safeNotify(
+        onInternalError,
         new PackageError(
           'sanitizer_limit_clamped',
           `sanitizerLimits.${key} value ${String(requested)} is below min ${String(bounds.min)}; clamped to ${String(bounds.min)}`,

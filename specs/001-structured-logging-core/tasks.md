@@ -166,7 +166,7 @@ logger call sites; failures in backend or transport behavior never break host
 application behavior; a misbehaving transport (URL-based delivery, mutating
 events, etc.) fails the published contract helper.
 
-- [ ] T024 [US2] Implement backend-failure isolation in `src/pipeline/dispatcher.ts` and `src/internal/telemetry/otel/otel-backend.ts`
+- [X] T024 [US2] Implement backend-failure isolation in `src/pipeline/dispatcher.ts` and `src/internal/telemetry/otel/otel-backend.ts`
   Acceptance: `OtelLogsBackend.init()` failures fall back silently to `NoopBackend` and emit one `onInternalError`. `Backend.handle()` exceptions are caught by the dispatcher, which delivers the event to transports through a direct fallback path. No path propagates a throw or rejection to the logger call site.
   Parallel: No
 

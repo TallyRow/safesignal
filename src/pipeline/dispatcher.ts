@@ -29,7 +29,7 @@
 import type { LogEvent } from '../api/types.js';
 import type { NormalizedConfig } from '../config/config.js';
 import type { TelemetryBackend } from '../internal/telemetry/backend.js';
-import { wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import { safeNotify, wrapAsPackageError } from '../internal/errors/internal-errors.js';
 import { controlCharGuard } from './control-char-guard.js';
 import { freezeInDev } from './freeze.js';
 import { redact } from './redactor.js';
@@ -77,7 +77,8 @@ export function dispatch(
   } catch (err) {
     // Fail-closed: a thrown pipeline stage drops the event entirely
     // and routes the error via `onInternalError`.
-    config.onInternalError(
+    safeNotify(
+      config.onInternalError,
       wrapAsPackageError(
         'redactor_failed',
         'A pipeline stage threw; the event was dropped (fail-closed).',
@@ -90,12 +91,44 @@ export function dispatch(
   try {
     backend.handle(current);
   } catch (err) {
-    config.onInternalError(
+    // FS-7 direct fallback: when the backend itself throws, deliver the
+    // post-pipeline event directly to the configured transports. The
+    // transports were SafeTransport-wrapped at configureLogging() time
+    // (in logger.ts installState), so each delivery is independently
+    // isolated and a throwing transport cannot break sibling delivery.
+    safeNotify(
+      config.onInternalError,
       wrapAsPackageError(
         'backend_handle_failed',
-        'backend.handle threw outside the OTel adapter; the event was dropped.',
+        'backend.handle threw; delivering the event directly to transports via the dispatcher fallback path.',
         err,
       ),
     );
+    deliverDirectlyToTransports(current, config);
+  }
+}
+
+/**
+ * FS-7 direct-fallback delivery path. Iterates configured transports and
+ * invokes `send()` on each. Each transport is already SafeTransport-wrapped
+ * by `installState()`, so synchronous throws and rejected Promises are
+ * isolated inside the wrapper. Any residual escape (defensive belt) is
+ * caught here so a single transport never affects siblings.
+ */
+function deliverDirectlyToTransports(
+  event: LogEvent,
+  config: NormalizedConfig,
+): void {
+  for (const transport of config.transports) {
+    try {
+      const result = transport.send(event);
+      if (result instanceof Promise) {
+        result.then(undefined, () => undefined);
+      }
+    } catch {
+      // SafeTransport already catches; this is a defensive belt for
+      // unwrapped transports (e.g., when a test passes a raw transport
+      // into the dispatcher directly).
+    }
   }
 }

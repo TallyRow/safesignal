@@ -16,6 +16,7 @@
 import type { LogEvent, Transport } from '../api/types.js';
 import {
   type PackageErrorCode,
+  safeNotify,
   wrapAsPackageError,
 } from '../internal/errors/internal-errors.js';
 
@@ -65,7 +66,8 @@ export class SafeTransport implements Transport {
   private notify(cause: unknown, code: PackageErrorCode): void {
     if (this.notified) return;
     this.notified = true;
-    this.onInternalError(
+    safeNotify(
+      this.onInternalError,
       wrapAsPackageError(
         code,
         `Transport '${this.name}' failed: ${describe(cause)}`,

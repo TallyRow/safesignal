@@ -25,7 +25,7 @@ import { normalizeConfig, type NormalizedConfig } from '../config/config.js';
 import { mergeContexts } from '../context/context-merge.js';
 import type { TelemetryBackend } from '../internal/telemetry/backend.js';
 import { OtelLogsBackend } from '../internal/telemetry/otel/otel-backend.js';
-import { wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import { safeNotify, wrapAsPackageError } from '../internal/errors/internal-errors.js';
 import { dispatch } from '../pipeline/dispatcher.js';
 import { buildLogEvent } from '../pipeline/event-builder.js';
 import { passesLevelFilter } from '../pipeline/level-filter.js';
@@ -161,7 +161,8 @@ function makeLogger(
       try {
         correlation = current.config.correlation();
       } catch (err) {
-        current.config.onInternalError(
+        safeNotify(
+          current.config.onInternalError,
           wrapAsPackageError(
             'correlation_failed',
             'correlation() callback threw; its output is dropped for this event.',
