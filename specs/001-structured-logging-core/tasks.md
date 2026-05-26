@@ -40,7 +40,7 @@ documentation skeletons.
   Acceptance: `package.json` declares browser-targeted ESM + CJS dual output via `tsup`, `sideEffects: false`, exports map exposes only `.` (root) and `./testing` subpaths, and Vitest is configured with `happy-dom`. `tsup.config.ts` injects a build-time global `__DEV__` via `define` (`true` for dev builds, `false` for production) — `__DEV__` is the only build-time flag the runtime code may consult, and the package source never reads `process.env`. `tsconfig.json` declares `__DEV__` in a `global.d.ts` so it is statically typed. Test scripts run all four suites (`contract`, `security`, `integration`, `unit`) and exit non-zero on missing coverage targets.
   Parallel: No
 
-- [ ] T002 [P] Create root and testing entrypoints in `src/index.ts` and `src/testing/index.ts`
+- [X] T002 [P] Create root and testing entrypoints in `src/index.ts` and `src/testing/index.ts`
   Acceptance: `src/index.ts` is the ONLY public runtime entry. `src/testing/index.ts` is reachable only via the `./testing` subpath of the `exports` map. Nothing under `src/internal/**` is re-exported from either entry.
   Parallel: Yes
 
