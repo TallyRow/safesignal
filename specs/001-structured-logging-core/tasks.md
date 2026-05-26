@@ -36,7 +36,7 @@ independently testable. Review-boundary tasks gate each phase.
 **Purpose**: Project scaffolding, build/test configuration, source/test trees,
 documentation skeletons.
 
-- [ ] T001 Create package scaffolding in `package.json`, `tsconfig.json`, `tsup.config.ts`, `vitest.config.ts`, `src/`, and `tests/` directories
+- [X] T001 Create package scaffolding in `package.json`, `tsconfig.json`, `tsup.config.ts`, `vitest.config.ts`, `src/`, and `tests/` directories
   Acceptance: `package.json` declares browser-targeted ESM + CJS dual output via `tsup`, `sideEffects: false`, exports map exposes only `.` (root) and `./testing` subpaths, and Vitest is configured with `happy-dom`. `tsup.config.ts` injects a build-time global `__DEV__` via `define` (`true` for dev builds, `false` for production) — `__DEV__` is the only build-time flag the runtime code may consult, and the package source never reads `process.env`. `tsconfig.json` declares `__DEV__` in a `global.d.ts` so it is statically typed. Test scripts run all four suites (`contract`, `security`, `integration`, `unit`) and exit non-zero on missing coverage targets.
   Parallel: No
 
