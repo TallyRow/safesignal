@@ -65,19 +65,19 @@ boundaries, transports, and contract-level guards required by every story.
   Acceptance: Exports `Logger`, `LogLevel`, `LogEvent`, `LogContext`, `AppIdentity`, `ModuleIdentity`, `Attributes`, `AttributeValue`, `ErrorInfo`, `LoggerConfig`, `CreateLoggerOptions`, `LevelMap`, `SanitizerLimits`, `Transport`, `TransportFactory`, `Redactor`, `RedactionRule`, `ScrubUrlOptions`. `Attributes` is a recursive constrained union (no `unknown`/`object`). The only `unknown` parameter in the public surface is the optional `error` arg of `logger.error()`.
   Parallel: No
 
-- [ ] T006 [P] Implement environment defaults and config normalization in `src/config/config.ts` and `src/config/env-defaults.ts`
+- [X] T006 [P] Implement environment defaults and config normalization in `src/config/config.ts` and `src/config/env-defaults.ts`
   Acceptance: Unknown/missing environment resolves to `warn`. `SanitizerLimits` values above documented Max clamp to Max and below Min clamp to Min, both emitting one `onInternalError` notice per `configureLogging()` call. The package never reads `process.env`, `import.meta.env`, `location`, or `document.cookie`.
   Parallel: Yes
 
-- [ ] T007 [P] Implement context identity and merge in `src/context/identity.ts` and `src/context/context-merge.ts`
+- [X] T007 [P] Implement context identity and merge in `src/context/identity.ts` and `src/context/context-merge.ts`
   Acceptance: Merge precedence (`configureLogging.context` → `createLogger.context` → `logger.child` chain → `correlation()` return) is deterministic and tested at unit level. Shallow merge for `application`/`module`/`environment`, deep merge for `context.attributes`.
   Parallel: Yes
 
-- [ ] T008 [P] Implement internal error markers in `src/internal/errors/internal-errors.ts`
+- [X] T008 [P] Implement internal error markers in `src/internal/errors/internal-errors.ts`
   Acceptance: A private symbol marker distinguishes package-internal errors from consumer-thrown errors so the dispatcher can route them via `onInternalError` without losing stack info.
   Parallel: Yes
 
-- [ ] T009 [P] Define the telemetry backend interface and noop backend in `src/internal/telemetry/backend.ts` and `src/internal/telemetry/noop-backend.ts`
+- [X] T009 [P] Define the telemetry backend interface and noop backend in `src/internal/telemetry/backend.ts` and `src/internal/telemetry/noop-backend.ts`
   Acceptance: `TelemetryBackend` interface declares `init`, `handle`, `shutdown`. `NoopBackend` forwards events directly to transports and does NOT import `@opentelemetry/*`.
   Parallel: Yes
 
