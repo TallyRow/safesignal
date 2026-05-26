@@ -190,7 +190,7 @@ events, etc.) fails the published contract helper.
   Acceptance: Consumer guidance explicitly requires body-only delivery (POST/PUT JSON or `sendBeacon` `Blob`), forbids URL-based delivery, requires HTTPS cross-origin, and shows `assertTransportContract` usage in a sample consumer test. The shared beacon transport at `examples/shared/beacon-transport.ts` is the canonical body-only sample; `examples/host-app/` imports it, and `examples/federated-module/` will reuse the same file in T056. Examples do NOT normalize URL-based or backend-vendor-specific patterns.
   Parallel: No
 
-- [ ] T030 Review boundary: validate transport delivery safety, failure isolation, and the `/testing` subpath across `src/transport/`, `src/testing/`, `src/internal/telemetry/`, `tests/contract/`, `tests/security/`, `README.md`, and `docs/safe-logging.md`
+- [X] T030 Review boundary: validate transport delivery safety, failure isolation, and the `/testing` subpath across `src/transport/`, `src/testing/`, `src/internal/telemetry/`, `tests/contract/`, `tests/security/`, `README.md`, and `docs/safe-logging.md`
   Acceptance: Reviewer confirms FS-1..FS-17 and T-1..T-S5 are testable and tested. `/testing` is reachable only via the `./testing` subpath. Constitution Principles II, VI hold for this phase.
   Parallel: No
 
