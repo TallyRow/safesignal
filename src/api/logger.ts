@@ -26,6 +26,7 @@ import { mergeContexts } from '../context/context-merge.js';
 import type { TelemetryBackend } from '../internal/telemetry/backend.js';
 import { OtelLogsBackend } from '../internal/telemetry/otel/otel-backend.js';
 import { wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import { dispatch } from '../pipeline/dispatcher.js';
 import { buildLogEvent } from '../pipeline/event-builder.js';
 import { passesLevelFilter } from '../pipeline/level-filter.js';
 import { NoopTransport } from '../transport/noop-transport.js';
@@ -186,16 +187,11 @@ function makeLogger(
       errorValue,
     });
 
-    // T018 will route through `src/pipeline/dispatcher.ts` with the
-    // security-stage seams; for now we call the backend directly.
-    // `backend.handle` is defensive (`OtelLogsBackend` falls back to
-    // `NoopBackend` on failure), but wrap once more to honor the outer
-    // no-throw invariant.
-    try {
-      current.backend.handle(event);
-    } catch {
-      // Final safety net. The contract requires no throw to escape.
-    }
+    // Route through the locked pipeline order in src/pipeline/dispatcher.ts:
+    //   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze → backend.
+    // The dispatcher owns its own try/catch around every stage and around
+    // backend.handle, so no error can escape into this caller.
+    dispatch(event, current.config, current.backend);
   }
 
   return {

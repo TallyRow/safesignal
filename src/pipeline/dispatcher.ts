@@ -1,0 +1,101 @@
+/**
+ * Dispatcher — runs an already-built `LogEvent` through the locked
+ * security pipeline order and hands off to the configured backend.
+ *
+ *   level filter (in logger.ts, upstream)
+ *     ↓
+ *   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze → backend.handle
+ *
+ * Each stage is a separate module (`sanitizer.ts`, `url-scrubber.ts`,
+ * `redactor.ts`, `control-char-guard.ts`, `freeze.ts`). T018 creates
+ * those modules as pass-through stubs; Phase 5 (T031–T035) fills in
+ * the bodies without modifying `dispatcher.ts`. This is the "named,
+ * swappable seams" pattern from T018's acceptance.
+ *
+ * Stage semantics:
+ *   - Each stage receives the in-flight event + the normalized config.
+ *   - A stage MAY return a transformed event, the same event, or
+ *     `null` to **drop the event** (used by the redactor for
+ *     fail-closed handling per `contracts/redaction.md`).
+ *
+ * Error semantics:
+ *   - Any uncaught throw from a stage is caught here and routed
+ *     through `config.onInternalError`. The event is dropped in that
+ *     case (fail-closed: we don't emit partially-processed data).
+ *   - `backend.handle()` runs inside the same try/catch so the final
+ *     no-throw invariant holds.
+ */
+
+import type { LogEvent } from '../api/types.js';
+import type { NormalizedConfig } from '../config/config.js';
+import type { TelemetryBackend } from '../internal/telemetry/backend.js';
+import { wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import { controlCharGuard } from './control-char-guard.js';
+import { freezeInDev } from './freeze.js';
+import { redact } from './redactor.js';
+import { sanitize } from './sanitizer.js';
+import { urlScrub } from './url-scrubber.js';
+
+/**
+ * Pipeline-stage function signature. Returning `null` drops the event.
+ *
+ * Stages are pure with respect to the `config` argument (read-only).
+ * Mutation of the in-flight `event` is allowed within a stage but
+ * discouraged — returning a new object keeps stages composable.
+ */
+export type PipelineStage = (
+  event: LogEvent,
+  config: NormalizedConfig,
+) => LogEvent | null;
+
+/**
+ * Run an event through every pipeline stage in order and hand off to
+ * the backend. Pre-pipeline level filtering happens in `logger.ts` so
+ * a filtered-out emission never reaches this function.
+ */
+export function dispatch(
+  event: LogEvent,
+  config: NormalizedConfig,
+  backend: TelemetryBackend,
+): void {
+  let current: LogEvent | null;
+  try {
+    current = sanitize(event, config);
+    if (current === null) return;
+
+    current = urlScrub(current, config);
+    if (current === null) return;
+
+    current = redact(current, config);
+    if (current === null) return;
+
+    current = controlCharGuard(current, config);
+    if (current === null) return;
+
+    current = freezeInDev(current, config);
+    if (current === null) return;
+  } catch (err) {
+    // Fail-closed: a thrown pipeline stage drops the event entirely
+    // and routes the error via `onInternalError`.
+    config.onInternalError(
+      wrapAsPackageError(
+        'redactor_failed',
+        'A pipeline stage threw; the event was dropped (fail-closed).',
+        err,
+      ),
+    );
+    return;
+  }
+
+  try {
+    backend.handle(current);
+  } catch (err) {
+    config.onInternalError(
+      wrapAsPackageError(
+        'backend_handle_failed',
+        'backend.handle threw outside the OTel adapter; the event was dropped.',
+        err,
+      ),
+    );
+  }
+}

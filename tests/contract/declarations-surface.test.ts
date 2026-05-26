@@ -54,14 +54,32 @@ const FORBIDDEN_NAMES = [
 interface DtsCheck {
   label: string;
   path: string;
+  /** Raw file contents (or undefined if the file is missing). */
   source: string | undefined;
+  /** `source` with line and block comments stripped. */
+  code: string | undefined;
+}
+
+/**
+ * Strip block (`/* … *​/`) and JSDoc (`/** … *​/`) comments, plus line
+ * comments. JSDoc text frequently documents the rules this test enforces
+ * (e.g., "MUST NOT mention `@opentelemetry/*`") and `tsup` preserves
+ * JSDoc in the published declarations for IDE tooltips. Scanning only
+ * the code part removes those false positives while still catching
+ * real OTel API references in type signatures.
+ */
+function stripComments(source: string): string {
+  let stripped = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  stripped = stripped.replace(/\/\/.*$/gm, '');
+  return stripped;
 }
 
 function loadDts(path: string, label: string): DtsCheck {
   if (!existsSync(path)) {
-    return { label, path, source: undefined };
+    return { label, path, source: undefined, code: undefined };
   }
-  return { label, path, source: readFileSync(path, 'utf8') };
+  const source = readFileSync(path, 'utf8');
+  return { label, path, source, code: stripComments(source) };
 }
 
 const checks: ReadonlyArray<DtsCheck> = [
@@ -82,10 +100,10 @@ describe('public .d.ts surface', () => {
       it.each(FORBIDDEN_STRINGS)(
         'does not contain the forbidden substring %s',
         (forbidden) => {
-          if (check.source === undefined) return;
+          if (check.code === undefined) return;
           expect(
-            check.source.toLowerCase().includes(forbidden.toLowerCase()),
-            `${check.label} contains forbidden substring '${forbidden}'`,
+            check.code.toLowerCase().includes(forbidden.toLowerCase()),
+            `${check.label} contains forbidden substring '${forbidden}' (comments stripped)`,
           ).toBe(false);
         },
       );
@@ -93,11 +111,11 @@ describe('public .d.ts surface', () => {
       it.each(FORBIDDEN_NAMES)(
         'does not expose the OTel name %s',
         (name) => {
-          if (check.source === undefined) return;
+          if (check.code === undefined) return;
           const regex = new RegExp(`\\b${name}\\b`);
           expect(
-            regex.test(check.source),
-            `${check.label} exposes forbidden OTel name '${name}'`,
+            regex.test(check.code),
+            `${check.label} exposes forbidden OTel name '${name}' (comments stripped)`,
           ).toBe(false);
         },
       );

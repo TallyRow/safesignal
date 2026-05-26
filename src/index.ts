@@ -1,20 +1,48 @@
 /**
  * Public runtime entrypoint for the frontend logging package.
  *
- * This is the ONLY module consumers may import at runtime. Internal modules
- * (`src/internal/**`, `src/pipeline/**`, `src/transport/**` implementation
- * details, `src/api/**` types only — see below) MUST NOT be re-exported from
- * here, and the `package.json` `exports` map restricts public access to this
- * file and `./testing` only.
+ * This is the ONLY module consumers may import at runtime. The
+ * `package.json` `exports` map restricts public access to this file and
+ * `./testing`; nothing under `src/internal/**` is reachable, and the
+ * source-tree boundary scan in `tests/contract/internal-import-boundary.test.ts`
+ * (T014) fails the build if a forbidden re-export is introduced.
  *
- * As tasks T016–T035 land, this file will re-export:
- *   - createLogger, configureLogging, getRootLogger          (T016, T018)
- *   - ConsoleTransport, NoopTransport                        (T011, T018)
- *   - createRedactor, scrubUrl                               (T032, T035)
- *   - Public types per contracts/public-api.md               (T005, T018)
- *
- * Nothing else may be added without a SemVer-aware contract update; the
- * public surface is locked by tests/contract/public-api.contract.test.ts
- * (T019) and tests/contract/declarations-surface.test.ts (T013).
+ * Exact public surface — locked by `contracts/public-api.md` (PA-1..PA-9)
+ * and verified by `tests/contract/public-api.contract.test.ts` (T019,
+ * Phase 3).
  */
-export {};
+
+// Functions ----------------------------------------------------------------
+export {
+  createLogger,
+  configureLogging,
+  getRootLogger,
+} from './api/logger.js';
+export { createRedactor } from './pipeline/redactor.js';
+export { scrubUrl } from './pipeline/url-scrubber.js';
+
+// Built-in transport factories ---------------------------------------------
+export { ConsoleTransport } from './transport/console-transport.js';
+export { NoopTransport } from './transport/noop-transport.js';
+
+// Types --------------------------------------------------------------------
+export type {
+  AppIdentity,
+  Attributes,
+  AttributeValue,
+  CreateLoggerOptions,
+  ErrorInfo,
+  LevelMap,
+  LogContext,
+  LogEvent,
+  Logger,
+  LoggerConfig,
+  LogLevel,
+  ModuleIdentity,
+  Redactor,
+  RedactionRule,
+  SanitizerLimits,
+  ScrubUrlOptions,
+  Transport,
+  TransportFactory,
+} from './api/types.js';

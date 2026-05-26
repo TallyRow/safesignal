@@ -127,7 +127,7 @@ consistent `LogEvent` output without using internal APIs.
   Acceptance: `EventBuilder` assigns `timestamp` from `new Date().toISOString()` (consumer cannot supply). `LevelFilter` resolves effective level per `contracts/logger-config.md` (per-logger → root → `LevelMap[env]` → env default → `warn` fallback) and short-circuits drops before sanitize/redact run.
   Parallel: Yes
 
-- [ ] T018 [US1] Implement the dispatcher and wire the emit path in `src/pipeline/dispatcher.ts`, `src/api/logger.ts`, and `src/index.ts`
+- [X] T018 [US1] Implement the dispatcher and wire the emit path in `src/pipeline/dispatcher.ts`, `src/api/logger.ts`, and `src/index.ts`
   Acceptance: Logger methods route through `EventBuilder → LevelFilter → (placeholder Sanitizer/URLScrubber/Redactor/ControlCharGuard/Freeze for US3) → Dispatcher → TelemetryBackend → SafeTransport[]`. The dispatcher exposes named, swappable pass-through seams (no-op functions) for each future security stage so Phase 5 replaces functions in place rather than restructuring `dispatcher.ts`. `src/index.ts` re-exports `createLogger`, `configureLogging`, `getRootLogger`, `ConsoleTransport`, `NoopTransport`, `createRedactor`, `scrubUrl`, and all public types listed in `contracts/public-api.md`. (NOTE: `createRedactor` and `scrubUrl` implementations land in Phase 5; this task ensures the re-export wiring is present and the contract test in T019 verifies it.)
   Parallel: No
 
