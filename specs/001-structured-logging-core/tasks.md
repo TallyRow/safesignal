@@ -44,7 +44,7 @@ documentation skeletons.
   Acceptance: `src/index.ts` is the ONLY public runtime entry. `src/testing/index.ts` is reachable only via the `./testing` subpath of the `exports` map. Nothing under `src/internal/**` is re-exported from either entry.
   Parallel: Yes
 
-- [ ] T003 [P] Create shared test helpers in `tests/helpers/failing-transport.ts`, `tests/helpers/assert-no-unhandled.ts`, and `tests/helpers/event-fixtures.ts`
+- [X] T003 [P] Create shared test helpers in `tests/helpers/failing-transport.ts`, `tests/helpers/assert-no-unhandled.ts`, and `tests/helpers/event-fixtures.ts`
   Acceptance: Helpers expose a configurable throwing/rejecting transport, an unhandled-rejection assertion utility (browser + Node), and reusable `LogEvent` fixtures. Helpers do not import from `src/internal/**` or `@opentelemetry/*`.
   Parallel: Yes
 
