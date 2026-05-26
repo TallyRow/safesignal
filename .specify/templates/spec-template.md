@@ -97,8 +97,14 @@ fully tested by [specific action] and delivers [specific value]"]
 - **Migration Notes**: [Required only when consumer-visible behavior changes]
 - **Host/Module Usage Impact**: [How host apps and federated or modular consumers are
   affected]
-- **Privacy Considerations**: [Sensitive data handling, redaction, or logging safety
-  implications]
+- **Security & Privacy Considerations**: [Sensitive data risks, secure defaults,
+  redaction or omission behavior, fail-closed handling, and any change that could
+  affect what data is captured, serialized, or transmitted. State explicitly when
+  there is no impact.]
+- **Log Integrity Considerations**: [Any behavior that drops, samples, batches,
+  reorders, or transforms events; impact on machine-parseability, origin
+  attribution, and downstream monitoring/forensic use. State explicitly when
+  there is no impact.]
 
 ## Requirements *(mandatory)*
 
@@ -115,11 +121,20 @@ fully tested by [specific action] and delivers [specific value]"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 - **FR-006**: System MUST preserve browser runtime safety and failure resilience for
-  all new behavior.
+  all new behavior, including fail-closed handling when redaction, serialization,
+  or transport delivery fails.
 - **FR-007**: System MUST keep consumer-visible behavior framework-neutral and
   implementation details hidden behind the package interface.
 - **FR-008**: System MUST define structured logging metadata, level behavior, and
   privacy-safe handling expectations for any new or changed logging behavior.
+- **FR-009**: System MUST be secure by default: any new or changed default
+  behavior MUST NOT expose secrets, credentials, tokens, session identifiers,
+  authorization headers, cookies, or unnecessary personal data, and MUST NOT
+  encourage unsafe patterns (raw object dumping, disabling redaction) in defaults
+  or examples.
+- **FR-010**: System MUST preserve log integrity and monitoring suitability for
+  any new or changed event production: events remain structured, machine-parseable,
+  origin-attributable, and any drop/sample/batch/transform behavior is documented.
 
 *Example of marking unclear requirements:*
 

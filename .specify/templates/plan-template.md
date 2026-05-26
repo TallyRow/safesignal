@@ -43,22 +43,42 @@
 
 - API Stability: Identify every consumer-facing API, config, type, and behavior
   touched by this work. Document compatibility impact, migration needs, and how
-  internal details remain hidden behind the package interface.
-- Browser Resilience: Show how the design remains safe in browser runtimes and how
-  failures in transports, ingestion endpoints, or optional integrations degrade
-  without breaking rendering, navigation, or user interactions.
+  internal details remain hidden behind the package interface. Confirm the design
+  keeps the safe path the easy path (defaults, examples, and ergonomic call
+  signatures favor safe, structured, minimal logging).
+- Browser Resilience & Failure Safety: Show how the design remains safe in browser
+  runtimes and how failures in transports, ingestion endpoints, optional
+  integrations, redaction, formatting, or serialization degrade without breaking
+  rendering, navigation, or user interactions. Confirm no internal path can
+  propagate a throw or rejected Promise into a consumer call site, and that
+  redaction failures fail closed (drop or sanitize) rather than emit unredacted
+  data.
 - Neutrality & Portability: Confirm the design avoids framework-specific,
   application-specific, backend-specific, and vendor-locked assumptions. Describe how
-  host apps and federated modules can consume the result through the same stable API.
+  host apps and federated modules can consume the result through the same stable
+  API and the same security posture.
 - Structured Observability: Define the structured event model, level behavior,
-  metadata expectations, and production defaults. Explain how future transport or
-  backend changes avoid consumer call-site rewrites.
-- Privacy & Safe Data Handling: Identify sensitive data risks, redaction or omission
-  rules, and any documentation or example updates required to preserve safe logging
-  patterns.
-- Test & Documentation Coverage: List the contract, unit, integration, and failure
-  tests required to prove compliance, plus any setup or integration docs that must
-  change with the implementation.
+  metadata expectations, and production defaults. Confirm output is structured
+  only (no raw object dumping or uncontrolled serialization) with documented
+  shape, bounded depth, and bounded size. Explain how future transport or backend
+  changes avoid consumer call-site rewrites.
+- Secure Logging by Default & Sensitive Data Minimization: Confirm defaults do not
+  expose secrets, credentials, tokens, session identifiers, authorization headers,
+  cookies, or unnecessary personal data. Describe the redaction / omission /
+  safe-handling mechanism applied uniformly to attributes, context, and serialized
+  errors. Identify any new path that could leak sensitive data and how it is
+  prevented. State explicitly that the change does not silently downgrade security
+  guarantees based on environment, build mode, transport, or vendor integration.
+- Log Integrity & Monitoring Suitability: Confirm events emitted by the change are
+  stable, machine-parseable, attributable (application, module, environment,
+  correlation), and that any behavior that drops, samples, batches, reorders, or
+  transforms events is documented for downstream monitoring and forensic use.
+  Confirm application/platform-owned integrity controls remain pluggable and are
+  not undermined by package internals.
+- Test & Documentation Coverage: List the contract, unit, integration, failure,
+  and security-and-privacy tests required to prove compliance, plus any setup or
+  integration docs that must change with the implementation. Confirm docs and
+  examples continue to model safe logging behavior.
 
 ## Project Structure
 

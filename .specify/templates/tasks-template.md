@@ -72,9 +72,15 @@ Examples of foundational tasks (adjust based on your project):
 
 - [ ] T005 Define exported package API and compatibility guardrails
 - [ ] T006 [P] Setup browser-safe transport and failure-handling infrastructure
+  (including fail-closed redaction and SafeTransport-style isolation)
 - [ ] T007 [P] Define structured event schema, level handling, and metadata model
-- [ ] T008 Implement redaction/privacy guardrails and safe defaults
+  with bounded depth, bounded size, and no raw object dumping
+- [ ] T008 Implement secure-by-default redaction/privacy guardrails and safe
+  defaults (default sensitive-key denylist, fail-closed handling, applied uniformly
+  to attributes, context, and serialized error data)
 - [ ] T009 Setup environment configuration management
+- [ ] T009a [P] Establish log integrity & monitoring suitability guardrails
+  (stable structure, origin attribution, documented drop/sample/batch behavior)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -164,11 +170,18 @@ independently
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX [P] Documentation updates in docs/ (must model safe logging; no
+  insecure-pattern normalization in examples)
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests in tests/unit/
-- [ ] TXXX Security hardening
+- [ ] TXXX Security & Privacy validation pass: verify secure defaults, redaction
+  coverage on attributes/context/error data, fail-closed behavior, and that no new
+  path leaks secrets, credentials, tokens, session identifiers, or unnecessary
+  personal data
+- [ ] TXXX Log integrity validation pass: verify event structure, origin
+  attribution, and that any drop/sample/batch/transform behavior is documented and
+  tested
 - [ ] TXXX Validate consumer migration notes and package API docs
 - [ ] TXXX Run quickstart.md validation
 
