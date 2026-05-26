@@ -6,9 +6,9 @@
 interface LogEvent {
   timestamp: string;          // ISO-8601, package-assigned
   level: LogLevel;            // 'debug' | 'info' | 'warn' | 'error'
-  message: string;            // consumer-provided, required
-  attributes: Attributes;     // per-call structured fields, always present
-  context: LogContext;        // merged context (app, module, env, correlation)
+  message: string;            // consumer-provided, required, sanitized + escaped
+  attributes: Attributes;     // per-call structured fields, sanitized + redacted
+  context: LogContext;        // merged context, sanitized + redacted
   error?: ErrorInfo;          // only present from logger.error(msg, attrs, err)
 }
 
@@ -19,34 +19,48 @@ interface ErrorInfo {
 }
 ```
 
-## Sanitization rules
+## Pipeline-applied transformations
 
-The pipeline normalizes `attributes` before redaction. Rules apply recursively.
+By the time `LogEvent` reaches any transport:
+
+1. `timestamp` was assigned by the pipeline (consumer cannot supply).
+2. `attributes` and `context.attributes` have been **sanitized** per
+   `contracts/sanitization.md` and **redacted** per `contracts/redaction.md`.
+3. URL-shaped string values in attributes/context have been scrubbed of
+   sensitive query/fragment params.
+4. `message`, all attribute/context string values, and `error.message` /
+   `error.stack` have been control-char-escaped (every ASCII control char
+   except `\t`, `\n`, `\r`, plus U+2028 and U+2029).
+5. In development builds, the event has been recursively `Object.freeze`d.
+
+## Sanitization rules (summary; full table in `contracts/sanitization.md`)
 
 | Input type                          | Output |
 |-------------------------------------|--------|
-| `string`                            | kept as-is, truncated to 8192 chars if longer |
-| `number` (finite)                   | kept as-is |
-| `number` (`NaN`, `Infinity`)        | replaced with `null` |
-| `bigint`                            | replaced with `String(value)` |
-| `boolean`                           | kept as-is |
-| `null` / `undefined`                | `null` (undefined keys dropped at top level) |
-| `Date`                              | replaced with `value.toISOString()` |
-| `Error`                             | replaced with `{ name, message, stack? }` |
-| `Array<AttributeValue>`             | recursed |
-| Plain object (`{}.constructor`)     | recursed |
-| Class instance / function / symbol  | replaced with `"[Unserializable]"` |
-| Cyclic reference                    | replaced with `"[Circular]"` |
-| Object/array depth > 8              | replaced with `"[MaxDepth]"` |
-
-The same rules apply to `context.attributes`.
+| `string`                            | kept; truncated to `maxStringLength` |
+| `number` (finite)                   | kept |
+| `NaN` / `Infinity`                  | `null` |
+| `bigint`                            | `String(value)` |
+| `boolean`                           | kept |
+| `null`                              | kept |
+| `undefined`                         | dropped (key removed) |
+| `Date`                              | `value.toISOString()` |
+| `Error`                             | `{ name, message, stack? }` |
+| `Array<AttributeValue>`             | recursed; truncated to `maxArrayLength` |
+| plain object                        | recursed; capped by `maxAttributeCount` |
+| class instance / DOM node / framework object | `"[<TypeTag>]"` (NOT recursed) |
+| function                            | `"[Function]"` |
+| symbol                              | `"[Symbol]"` |
+| cyclic reference                    | `"[Circular]"` |
+| depth > `maxDepth`                  | `"[MaxDepth]"` |
+| > `maxAttributeCount` total keys    | excess keys replaced with one `"[Truncated: <N> keys omitted]"` marker |
 
 ## Required fields
 
 | Field       | Required | Source |
 |-------------|----------|--------|
 | `timestamp` | yes      | assigned by `EventBuilder` |
-| `level`     | yes      | from the called method (`debug` / `info` / `warn` / `error`) |
+| `level`     | yes      | from the called method |
 | `message`   | yes      | consumer-provided; empty string allowed |
 | `attributes`| yes      | always an object, may be `{}` |
 | `context`   | yes      | merged from config + logger chain + correlation |
@@ -59,9 +73,10 @@ The same rules apply to `context.attributes`.
 
 ## Immutability
 
-Events are frozen with `Object.freeze` before reaching transports in
-development builds (NODE_ENV !== 'production'). Production builds skip the
-freeze for performance. Transports MUST treat events as immutable regardless.
+Events are recursively frozen with `Object.freeze` before reaching transports
+in development builds (`NODE_ENV !== 'production'`). Production builds skip
+the freeze for performance. Transports MUST treat events as immutable
+regardless.
 
 ## Tested behavior
 
@@ -73,4 +88,8 @@ freeze for performance. Transports MUST treat events as immutable regardless.
 | LE-4 | `context` always contains the merged result per the merge algorithm |
 | LE-5 | Sanitization rules table above is honored |
 | LE-6 | `error` is populated only when an error value is passed |
-| LE-7 | Per-call attribute keys override context.attributes keys of the same name in the consumer's view of `attributes`, but `context.attributes` is not mutated |
+| LE-7 | Per-call `attributes` keys do not mutate `context.attributes` |
+| LE-8 | Sensitive keys in `attributes`, `context.attributes`, `message`, and `error.*` are masked per `contracts/redaction.md` |
+| LE-9 | URL-shaped string values are query/fragment-scrubbed per `scrubUrl` defaults |
+| LE-10 | Control characters in every string value are escaped before reaching transports |
+| LE-11 | A consumer cannot supply `timestamp` (input ignored, package always assigns) |

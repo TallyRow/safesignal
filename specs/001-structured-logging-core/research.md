@@ -12,70 +12,66 @@ All `NEEDS CLARIFICATION` items from Technical Context are resolved below.
 
 **Decision**: Use `@opentelemetry/api-logs` + `@opentelemetry/sdk-logs` as the
 internal foundation, hidden behind a `TelemetryBackend` interface and never
-exposed in public types.
+exposed in public types. Sanitization and redaction sit **upstream** of the
+backend, so swapping the backend cannot weaken security guarantees.
 
-**Rationale**:
-- Provides a well-defined structured log record shape (severity, body,
-  attributes, instrumentation scope, timestamps) that maps cleanly to our
-  canonical `LogEvent`.
-- Opens a future path to OTLP-based ingestion, trace correlation, and existing
-  OTel processors without a second migration.
-- Internal-only use means breaking OTel changes do not break consumers.
+**Rationale**: Structured log record model maps cleanly to our `LogEvent`;
+opens a path to OTLP/trace correlation without a second migration; isolation
+prevents OTel API churn from breaking consumers.
 
 **Alternatives considered**:
-- *Roll our own emitter only.* Simpler, but forfeits OTel ecosystem reuse and
-  forces us to rebuild processor/exporter patterns ourselves. Rejected.
-- *`pino` browser build.* Designed for Node, awkward for browsers, no native
-  structured context model that matches OTel semantic conventions. Rejected.
-- *`loglevel` + custom plugin layer.* Too thin; we would re-invent everything
-  the SDK already gives us. Rejected.
+- Roll our own emitter — forfeits ecosystem reuse. Rejected.
+- `pino` browser build — Node-centric, awkward in browsers. Rejected.
+- `loglevel` + custom plugins — too thin; we'd re-invent the SDK. Rejected.
 
 ---
 
 ## R2. Isolating the experimental OTel Logs API
 
-**Decision**: Restrict all `@opentelemetry/*` imports to
-`src/internal/telemetry/otel/**`. Enforce with a test that scans the source
-tree, and a `d.ts` contract test that fails if `opentelemetry` appears in the
-public type declaration output.
+**Decision**: All `@opentelemetry/*` imports restricted to
+`src/internal/telemetry/otel/**`. Enforced by a source-tree scan test and a
+`.d.ts` contract test that fails if `opentelemetry` appears in published
+declarations.
 
-**Rationale**:
-- Single chokepoint means breaking OTel API changes touch one directory.
-- A `NoopBackend` fallback keeps the package fully functional if OTel init
-  fails or if the package is consumed without the OTel deps loaded.
-
-**Alternatives considered**:
-- *Document the boundary informally.* Too easy to break; rejected in favor of
-  an automated guard test.
-- *Make OTel a peer dependency.* Increases consumer burden and exposes them
-  to OTel version churn. Rejected; ship as a direct internal dependency.
+**Rationale**: One chokepoint for breaking changes; `NoopBackend` fallback
+keeps the package functional if OTel init fails or deps are absent.
 
 ---
 
-## R3. Public API shape
+## R3. Public API shape & safe-path-is-easy-path design
 
-**Decision**: One `Logger` interface with `debug|info|warn|error|child|withContext`.
-Two factory functions: `createLogger(options?)` and `configureLogging(config)`.
-Built-in `ConsoleTransport` and `NoopTransport`. `LogLevel` is a string union
-(`'debug' | 'info' | 'warn' | 'error'`), not an enum, to keep the published
-type artifact small and tree-shakeable.
+**Decision**:
+- One `Logger` interface (`debug|info|warn|error|child|withContext`).
+- Factories: `createLogger(options?)`, `configureLogging(config)`,
+  `getRootLogger()`.
+- Built-in `ConsoleTransport`, `NoopTransport`.
+- Security helpers: `createRedactor()`, `scrubUrl()`.
+- `LogLevel` is a string union for tree-shaking and to avoid OTel
+  `SeverityNumber` naming.
+- `message` is always `string` (never `unknown`).
+- `attributes` is typed as `Record<string, AttributeValue>` where
+  `AttributeValue` is a constrained recursive union — no `unknown`, no
+  `object`. This makes raw object dumping type-friction without forbidding it
+  outright (the sanitizer still coerces stragglers).
+- `error` arg on `logger.error()` is the **only** `unknown` parameter; it is
+  immediately reduced to `{name, message, stack?}`.
+- No `logger.dump`, `logger.raw`, or any "log this object" easy path exists.
 
-**Rationale**:
-- Mirrors widely understood logger patterns (`console`, `pino`, `winston`).
-- Avoids OTel naming (`SeverityNumber`, `LoggerProvider`, etc.).
-- `child()` matches a familiar convention for derived context loggers.
+**Rationale**: Mirrors familiar logger ergonomics while making the unsafe path
+deliberately awkward. Spec FR-013, FR-016, FR-025 require the safe path to be
+the default and easy.
 
 **Alternatives considered**:
-- *Class-based `Logger`.* Less ergonomic for tree-shaking and harder to mock.
-  Rejected in favor of an interface implemented by a small internal class.
-- *Numeric severity model.* Better for OTel mapping but worse for DX.
-  Rejected; internal mapping handles the translation.
+- Class-based `Logger` — worse tree-shaking and mocking. Rejected.
+- Numeric severity model — internal mapping handles that. Rejected.
+- Loose `attributes: Record<string, unknown>` — invites unsafe dumping at the
+  type level. Rejected; constrain the type.
 
 ---
 
 ## R4. Environment-aware level defaults
 
-**Decision**: Production-safe defaults baked into a table:
+**Decision**:
 
 | Environment   | Default minimum level |
 |---------------|------------------------|
@@ -84,165 +80,245 @@ type artifact small and tree-shakeable.
 | `test`        | `warn`                 |
 | unknown       | `warn`                 |
 
-Resolution: explicit `level` (single or per-environment map) → env default →
-hard fallback `warn`.
+Resolution order: per-logger `level` → root `LoggerConfig.level` (single or
+per-env map) → env default → hard fallback `warn`. Environment is **never**
+auto-detected.
 
-**Rationale**: Spec FR-004 and SC-005 require `warn`/`error` baseline in
-production with lower levels configurable. Treating unknown as `warn` is the
-safest default for a package that cannot infer the environment.
-
-**Alternatives considered**:
-- *Auto-read `process.env.NODE_ENV` / `import.meta.env.MODE`.* Couples the
-  package to specific bundlers. Rejected; require explicit `environment`.
+**Rationale**: Satisfies FR-004, FR-021, SC-005. Treating unknown as `warn`
+is the safest default for a package that cannot infer the environment.
 
 ---
 
 ## R5. Identity and correlation flow
 
-**Decision**: Three fixed slots on `LogContext` —
-`application: { name, version? }`, `module: { name, version? }`, plus a free
-`attributes: Record<string, unknown>` slot for correlation values (trace ids,
-user pseudonymous ids, route name). A `correlation()` callback is invoked on
-every emit for dynamic data.
+**Decision**: Three fixed slots on `LogContext` — `application`, `module`,
+`environment` — plus a free `attributes: Attributes` slot for correlation
+values (trace ids, route, etc.). A `correlation()` callback fires per-emit
+for dynamic data. The callback runs inside the dispatcher's try/catch and
+cannot crash emit.
 
-**Rationale**:
-- Three explicit slots cover the spec's distinct concerns (host app, federated
-  module, environment) without inviting consumers to invent ad-hoc keys for
-  the same concept.
-- A free `attributes` slot keeps correlation extensible.
-- A callback (not just static config) lets consumers attach per-emit data such
-  as the current route or trace id.
-
-**Alternatives considered**:
-- *Flat string keys only.* Less self-documenting; rejected.
-- *Required `userId` slot.* Privacy hazard; rejected.
+**Rationale**: Three explicit slots address the spec's three concerns (host,
+module, environment) without inviting ad-hoc keys. The free slot keeps
+correlation extensible. Per-emit callback covers dynamic values without
+forcing static config to know them.
 
 ---
 
 ## R6. Sensitive-data redaction strategy
 
-**Decision**: A `Redactor` is a pure function
-`(event: LogEvent) => LogEvent | null`. Built-in `createRedactor()` returns a
-default redactor that masks values for known sensitive keys (case-insensitive
-match): `password`, `passwd`, `token`, `accessToken`, `refreshToken`,
-`authorization`, `auth`, `cookie`, `set-cookie`, `secret`, `apiKey`, `api_key`,
-`sessionId`, `ssn`, `creditCard`, `cardNumber`, `cvv`. Custom redactor wholly
-replaces the default unless the consumer composes them.
+**Decision**: A `Redactor` is `(event: LogEvent) => LogEvent | null`,
+synchronous. Built-in `createRedactor()` returns a redactor that walks
+`attributes`, `context.attributes`, `message`, and the serialized `error`
+object, masking values whose **key** matches the denylist
+**and** values whose **shape** matches a known sensitive pattern (JWT,
+common API-key prefixes, credit card / SSN digits).
 
-If a redactor throws, the event is **dropped** (fail-closed).
+Default denylist keys (case-insensitive regex match, key-name only — never
+value substring):
 
-**Rationale**: Privacy is a constitutional principle. Fail-closed prevents
-accidental leakage during failures. A function-typed redactor is the smallest
-extensible surface and avoids encoding a DSL.
+```
+^password$ | ^passwd$
+^token$ | access[_-]?token | refresh[_-]?token | bearer[_-]?token
+^authorization$ | ^auth$
+^cookie$ | ^set-cookie$
+^secret$ | api[_-]?key
+session[_-]?id | sid
+^ssn$ | credit[_-]?card | ^cardNumber$ | ^cvv$
+^email$ (configurable; off by default — too lossy for many apps)
+```
+
+Default shape rules:
+- JWT-shape: `^[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}$`
+- Bearer prefix: `^Bearer\s+[A-Za-z0-9._\-]+$`
+- Generic long high-entropy key (>= 32 char base64/hex): masked when key name
+  also suggests a credential (intersection rule, to keep false positives low)
+
+If a redactor throws, the dispatcher drops the event and invokes
+`onInternalError` (**fail-closed**).
+
+**Rationale**: Key-name matching avoids false positives in safe value text
+(e.g., a product called `"tokenizer"` is not mangled). Shape rules catch
+common credentials regardless of key name. Fail-closed prevents accidental
+leakage during failures. Email is off by default because most apps log it
+intentionally.
 
 **Alternatives considered**:
-- *Allowlist instead of denylist.* Better safety but worse adoption; consumers
-  would have to enumerate every safe key. Rejected for v1; can be added later
-  by a custom `Redactor`.
-- *Async redactor.* Adds Promise plumbing to a hot path; rejected. Redaction
-  must be synchronous.
+- Allowlist instead of denylist — better safety, worse adoption. Rejected for
+  v1; consumers can layer it via custom `Redactor`.
+- Async redactor — adds Promise plumbing to a hot path. Rejected.
+- Substring matching on values — catches more secrets but produces many
+  false positives. Rejected; documented limitation.
 
 ---
 
-## R7. Transport abstraction
+## R7. Safe serialization & sanitizer
 
-**Decision**: A `Transport` is `{ send(event: LogEvent): void | Promise<void>;
-flush?(): Promise<void>; shutdown?(): Promise<void>; name: string }`. All
-transports are wrapped by `SafeTransport` which catches sync throws and Promise
-rejections. Multiple transports may be configured; they receive the same event.
+**Decision**: Add a `Sanitizer` stage to the pipeline that runs **before** the
+redactor. Sanitization rules:
 
-**Rationale**: Smallest possible delivery contract. Async `send` allows HTTP
-delivery without forcing it. `flush`/`shutdown` are optional hooks for batching
-transports and page-unload paths.
+| Input                         | Output |
+|-------------------------------|--------|
+| Primitives                    | kept (with NaN/Infinity → null, bigint → String) |
+| `Date`                        | ISO string |
+| `Error`                       | `{name, message, stack?}` |
+| Plain object                  | recursed (capped by depth, count) |
+| Array                         | recursed (capped at 1000 elements) |
+| Class instance, DOM node, framework object (Event, Promise, Map, Set, Window, etc.) | `"[<TypeTag>]"` — never recursed |
+| Function                      | `"[Function]"` |
+| Symbol                        | `"[Symbol]"` |
+| Cyclic                        | `"[Circular]"` |
+| Depth > 8                     | `"[MaxDepth]"` |
+| > 256 total attribute keys    | excess replaced with one `"[Truncated]"` marker |
+| String > 8192 chars           | truncated + `"...[truncated]"` suffix |
+
+Sanitization **never throws** — every branch has a fallback. Consumers can
+**tighten** limits via `LoggerConfig.sanitizerLimits` but cannot raise them
+above the documented maxima (attempts clamp and emit one `onInternalError`).
+
+**Rationale**: Spec FR-015, FR-016, FR-017, FR-018 require conservative safe
+handling of unknown/oversized input. Type-tagging framework objects (instead
+of recursing) avoids accidental traversal of large object graphs and avoids
+invoking side-effectful getters (which is the path by which a `password`
+getter could leak through a class instance).
 
 **Alternatives considered**:
-- *Stream-based delivery.* More complex than needed; rejected.
-- *Single transport only.* Limits use cases like "console in dev + HTTP in
-  prod". Rejected.
+- Reject unknown input — too disruptive; rejected.
+- Use `JSON.stringify` with a replacer — fails on cyclic refs and BigInt;
+  weaker control over depth/size. Rejected.
 
 ---
 
-## R8. Behavior when no transport is configured
-
-**Decision**: `NoopTransport` is installed automatically when `transports`
-is undefined or empty. Emission still runs the full pipeline (so tests of the
-pipeline behave the same in both modes). A one-time `onInternalError` notice
-is emitted in `production` to alert the consumer.
-
-**Rationale**: Matches spec FR-011 (degrade safely) and spec assumption that
-logging may be dropped when delivery is unavailable.
-
-**Alternatives considered**:
-- *Throw on missing transport.* Violates Browser Resilience principle.
-  Rejected.
-
----
-
-## R9. Federated/module compatibility
-
-**Decision**: The package has no module-level singletons that touch globals.
-`configureLogging()` writes to a module-scoped variable; each loaded copy of
-the package owns its own root logger. Distinct events from distinct module
-copies are still distinguishable via `context.application.name` and
-`context.module.name`.
-
-**Rationale**: Module federation often loads the same package multiple times.
-A `window`-scoped singleton would force consumers into a sharing strategy we
-cannot guarantee.
-
-**Alternatives considered**:
-- *Shared singleton via `globalThis`.* Brittle, version-mismatch hazardous.
-  Rejected.
-
----
-
-## R10. Build, packaging, and target
+## R8. Log-injection & output safety
 
 **Decision**:
-- Build with `tsup` to produce ESM (`.mjs`) and CJS (`.cjs`) dual outputs plus
-  `.d.ts` declarations.
-- Target ES2020, browser only (no `node` builtins polyfilled).
-- `package.json` `exports` map exposes only the root entry; subpath imports
-  into `dist/internal/**` are not exported.
-- `sideEffects: false` for tree-shaking.
+- `LogEvent` is the only thing transports receive. The package never emits a
+  single concatenated newline-delimited string.
+- A `ControlCharGuard` step in the pipeline escapes ASCII control characters
+  (`\x00`–`\x1F` except `\t`, `\n`, `\r`) and the U+2028 / U+2029 line
+  separators in every string value.
+- Built-in `ConsoleTransport` passes the event as the **second argument** to
+  `console[level]`. The first argument is the (escaped) `message` string.
+  This prevents a user-controlled newline from forging a second log record in
+  log files that pipe `console` output.
+- Docs explicitly recommend `logger.info("payment failed", { code })` over
+  template-string interpolation of values into the message.
 
-**Rationale**: Standard, low-friction setup for a TypeScript browser package.
-Restricting `exports` prevents consumers from reaching internals.
-
----
-
-## R11. Testing toolchain
-
-**Decision**: `vitest` with `happy-dom` environment for browser-like tests.
-Contract tests import only from `dist/` (or from `src/index.ts` via the
-package's published `exports` map) to verify the actual public surface.
-
-**Rationale**: Vitest gives fast TS-first testing with good ESM support.
-Importing from the public entry catches accidental internal leaks.
+**Rationale**: Spec FR-016, FR-017 require structured-only output and clean
+boundaries between intended fields and untrusted input. Control-char escaping
+is cheap and addresses the most common log-injection vector in browser
+contexts (untrusted form input flowing into log messages).
 
 ---
 
-## R12. Performance envelope
+## R9. Transport & transmission safety
 
-**Decision**: Emission must be O(1) excluding attribute copy. The hot path is:
-synchronous level check → context merge → redact → backend dispatch. Transport
-work is deferred (transports decide whether to batch). The package itself does
-no batching in v1.
+**Decision**: The package does NOT ship an HTTP/beacon transport in v1.
+`contracts/transport.md` requires consumer transports to:
 
-**Rationale**: Spec FR-010 requires no interruption to rendering or
-interaction. Keeping the pipeline synchronous and bounded matches that.
+- Use request body (POST/PUT JSON, or `navigator.sendBeacon` with a
+  `Blob('...', { type: 'application/json' })`).
+- NEVER place `LogEvent` data in URL paths, query strings, or fragments.
+- Use HTTPS for any cross-origin delivery.
+- Treat the received `LogEvent` as immutable.
+- Tolerate multiple `flush()`/`shutdown()` calls.
+
+The package supplies a test helper, `assertTransportContract(transport)`,
+that consumer test suites can run to verify these properties — including a
+hook that intercepts `fetch` and asserts no URL contains event-shaped data.
+
+**Rationale**: Spec FR-013, FR-022, FR-023 require avoiding query-string
+secret leakage and supporting application-owned ingestion. Not shipping an
+HTTP transport keeps the public API small and the security contract explicit
+at the transport boundary, where it can be tested.
+
+**Alternatives considered**:
+- Ship an HTTP transport — useful but locks in delivery shape. Rejected for
+  v1; revisit in a future feature once ingestion patterns are firmer.
 
 ---
 
-## R13. Documentation and examples scope (for Phase 1)
+## R10. Behavior when no transport is configured
 
-**Decision**: Phase 1 produces a `quickstart.md` (consumer onboarding) and
-`contracts/*.md` (machine-readable-enough contracts for the public API,
-transport, log event, config, and failure safety). Two example projects
-(`examples/host-app`, `examples/federated-module`) are scaffolded at Phase 2.
+**Decision**: `NoopTransport` installed automatically when `transports` is
+undefined or empty. Pipeline still runs (so sanitize/redact stay
+observable in tests). One-time `onInternalError` notice in `production`.
 
-**Rationale**: Quickstart aligns docs with actual API; contracts give
-downstream task generators a structured input.
+**Rationale**: Matches FR-011, FR-019, FR-020. Pipeline running through noop
+keeps the behavior predictable across environments.
+
+---
+
+## R11. Federated/module compatibility
+
+**Decision**: No module-level singletons that touch globals.
+`configureLogging()` writes to a module-scoped variable; each loaded copy of
+the package owns its own root logger. Events stay distinguishable via
+`context.application.name` and `context.module.name`.
+
+**Rationale**: Module federation often loads the same package multiple times.
+A `window`-scoped singleton would impose a sharing strategy we cannot
+guarantee.
+
+---
+
+## R12. Build, packaging, and target
+
+**Decision**:
+- `tsup` ESM + CJS dual output, `.d.ts` declarations.
+- ES2020 browser target.
+- `package.json` `exports` map:
+  - `.` → public runtime entry (no `internal/**` reachable).
+  - `./testing` → test helpers (`assertTransportContract`,
+    `makeSecretFixture`).
+- `sideEffects: false`.
+
+**Rationale**: Standard low-friction setup. Restricted `exports` prevents
+consumers from reaching internals. Separate `/testing` subpath isolates test
+helpers from runtime bundles.
+
+---
+
+## R13. Testing toolchain & security test discipline
+
+**Decision**: `vitest` with `happy-dom`. Contract tests import only from the
+package public entry. A dedicated `tests/security/` group ties every security
+behavior to one or more FR/SC IDs from the spec. Coverage gates:
+- 100% of public API exports executed by contract tests.
+- 100% line coverage in `src/pipeline/sanitizer.ts`, `redactor.ts`,
+  `url-scrubber.ts`, `control-char-guard.ts`.
+- ≥ 90% line coverage in the rest of `src/pipeline/`, `src/transport/`,
+  `src/internal/`.
+
+**Rationale**: Security-critical code paths warrant 100% coverage gates so
+regressions surface immediately. Tying each test to an FR/SC keeps audit
+mapping cheap.
+
+---
+
+## R14. Performance envelope
+
+**Decision**: Emission is O(N) in the size of the (bounded) attributes
+object. The hot path is: level check → event-builder → sanitize → URL scrub →
+redact → control-char guard → dispatch. Transport work is fire-and-forget.
+No batching in v1.
+
+**Rationale**: Spec FR-010, FR-020 require non-interruption of rendering /
+interactions. The bounded sanitizer guarantees the cost is bounded even when
+input is hostile.
+
+---
+
+## R15. Documentation and examples scope
+
+**Decision**: Phase 1 produces `quickstart.md` (consumer onboarding) and
+`contracts/*.md` (machine-readable-enough contracts: public-api, transport,
+log-event, logger-config, failure-safety, redaction, sanitization). Two
+example projects (`examples/host-app`, `examples/federated-module`) are
+scaffolded at Phase 2. Both example HTTP transports use body-only delivery;
+the quickstart includes a "Logging safely" section calling out anti-patterns.
+
+**Rationale**: Per Principle V, examples that model unsafe behavior are
+themselves a security defect — must be planned alongside the code.
 
 ---
 

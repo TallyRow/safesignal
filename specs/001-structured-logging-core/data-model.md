@@ -1,9 +1,9 @@
 # Phase 1 Data Model: Core Structured Logging API
 
 This document defines the canonical entities that flow through the package
-pipeline. Field names here are the names used in the package's public TypeScript
-types and in the runtime objects passed between layers. They are stable and form
-part of the consumer contract.
+pipeline. Field names here are the names used in the package's public
+TypeScript types and in the runtime objects passed between layers. They are
+stable and form part of the consumer contract.
 
 ---
 
@@ -15,16 +15,35 @@ A string union, in increasing severity order:
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 ```
 
-Ordering (used for filtering):
+Internal numeric values (not exported):
 
-| Level   | Numeric (internal only) |
-|---------|--------------------------|
+| Level   | Numeric |
+|---------|---------|
 | `debug` | 10 |
 | `info`  | 20 |
 | `warn`  | 30 |
 | `error` | 40 |
 
-Internal numeric values are not exported.
+---
+
+## Entity: `AttributeValue` and `Attributes`
+
+```ts
+type AttributeValue =
+  | string
+  | number
+  | boolean
+  | null
+  | AttributeValue[]
+  | { [key: string]: AttributeValue };
+
+type Attributes = Record<string, AttributeValue>;
+```
+
+The recursive `AttributeValue` union deliberately **excludes** `unknown`,
+`object`, and class instances at the type level. TypeScript cannot fully
+prevent a consumer from passing a `Date`, `Error`, or class instance, but the
+sanitizer normalizes those before they reach the redactor or any transport.
 
 ---
 
@@ -43,28 +62,18 @@ interface LogEvent {
   /** Human-readable message. Required. May be empty string. */
   message: string;
 
-  /** Per-call structured attributes. Always present, may be empty. */
+  /** Per-call structured attributes. Always present, may be empty. Sanitized + redacted. */
   attributes: Attributes;
 
-  /** Merged context (app, module, env, correlation). Always present. */
+  /** Merged context. Always present. Sanitized + redacted. */
   context: LogContext;
 
   /**
    * Optional captured error info. Populated only by `logger.error(msg, attrs, err)`.
-   * Contains `name`, `message`, and `stack` if available. Never the raw Error.
+   * Sanitized + redacted. Never the raw Error instance.
    */
   error?: ErrorInfo;
 }
-
-type Attributes = Record<string, AttributeValue>;
-
-type AttributeValue =
-  | string
-  | number
-  | boolean
-  | null
-  | AttributeValue[]
-  | { [key: string]: AttributeValue };
 
 interface ErrorInfo {
   name: string;
@@ -77,22 +86,34 @@ interface ErrorInfo {
 
 - `timestamp` is assigned by `EventBuilder` using `new Date().toISOString()`.
   Never accepted from consumer input.
-- `attributes` is always an object (never undefined). Non-serializable values
-  (functions, symbols, class instances other than `Date`/`Error`, circular
-  references) are coerced to `"[Unserializable]"` or removed; rules documented in
-  `contracts/log-event.md`.
-- Maximum attribute object depth: 8. Deeper branches are replaced with
-  `"[MaxDepth]"`.
-- Maximum string value length: 8192 chars. Longer values are truncated and
-  suffixed with `"...[truncated]"`.
-- `error` is built from any `unknown` value passed to `logger.error()`; non-Error
-  inputs are coerced to `{ name: 'NonError', message: String(input) }`.
+- `attributes` and `context` are run through the sanitizer (depth, size,
+  count, type-tagging) and then the redactor (key + shape matching) before
+  being attached. They are always plain `AttributeValue` trees.
+- `message` is treated as a single string field. It is sanitized for length
+  (truncated to 8192 chars), then run through the redactor (which may mask
+  shape-based matches like JWTs inside the string), then control-char
+  escaped.
+- `error` is built from any `unknown` value passed to `logger.error()`.
+  Non-Error inputs are coerced to `{ name: 'NonError', message: String(input) }`.
+  The stack string is also sanitized for length and control-char-escaped.
+
+### Bounds (locked by `contracts/sanitization.md`)
+
+| Bound                                | Default | Min | Max |
+|--------------------------------------|---------|-----|-----|
+| `maxDepth`                           | 8       | 1   | 16  |
+| `maxStringLength` (chars)            | 8192    | 64  | 65536 |
+| `maxArrayLength`                     | 1000    | 1   | 10000 |
+| `maxAttributeCount` (total leaf+intermediate keys) | 256 | 1 | 4096 |
+
+Consumers may tighten via `LoggerConfig.sanitizerLimits`. Attempts to raise
+above the max clamp to the max and emit one `onInternalError`.
 
 ### Validation
 
 Validation is internal-only and never throws. Invalid values are sanitized or
-dropped. The pipeline emits a `LogEvent` for every accepted call (subject to
-level filtering and redaction).
+dropped. The pipeline produces a `LogEvent` for every accepted call (subject
+to level filtering and redaction).
 
 ---
 
@@ -104,8 +125,8 @@ Merged context attached to every emitted `LogEvent`.
 interface LogContext {
   application?: AppIdentity;
   module?: ModuleIdentity;
-  environment?: string;        // 'production' | 'development' | 'test' | string
-  attributes?: Attributes;     // free-form correlation slot (e.g., traceId, route)
+  environment?: string;
+  attributes?: Attributes;
 }
 
 interface AppIdentity {
@@ -121,30 +142,23 @@ interface ModuleIdentity {
 
 ### Merge algorithm (deterministic, tested)
 
-Given sources in this precedence order (later wins):
+Sources in this precedence order (later wins):
 
-1. `configureLogging({ context })` (root static context)
-2. `createLogger({ context })` (per-logger context)
-3. `logger.child(context)` / `logger.withContext(context)` (chain context)
-4. `correlation()` return value (per-emit dynamic)
+1. `configureLogging({ context })`
+2. `createLogger({ context })`
+3. `logger.child(context)` / `logger.withContext(context)`
+4. `correlation()` return value
 
-Merge is **shallow per top-level key**, **deep-merged** for the nested
-`attributes` map:
+Merge is shallow per top-level key (`application`, `module`, `environment`),
+deep-merged for `attributes`.
 
-- `application`, `module`, `environment` are replaced wholesale by later
-  sources if defined.
-- `attributes` from each source is shallow-merged key-by-key.
-
-The per-call `attributes` argument to `logger.info(message, attributes)` is
-**not** part of `LogContext`; it lives on `LogEvent.attributes` and is kept
-separate so context can be inspected independently in transports.
+The per-call `attributes` argument is **not** part of `LogContext`; it lives
+on `LogEvent.attributes` and is kept separate so transports can inspect
+context independently.
 
 ---
 
 ## Entity: `LoggerConfig`
-
-Top-level configuration passed once via `configureLogging()` or per-logger via
-`createLogger()` (where per-logger options layer on top of the root config).
 
 ```ts
 interface LoggerConfig {
@@ -156,32 +170,41 @@ interface LoggerConfig {
   correlation?: () => Partial<LogContext>;
   transports?: Array<Transport | TransportFactory>;
   redactor?: Redactor;
+  sanitizerLimits?: Partial<SanitizerLimits>;
   onInternalError?: (err: Error) => void;
 }
 
 type LevelMap = Partial<Record<'production' | 'development' | 'test', LogLevel>>;
 
+interface SanitizerLimits {
+  maxDepth: number;
+  maxStringLength: number;
+  maxArrayLength: number;
+  maxAttributeCount: number;
+}
+
 interface CreateLoggerOptions {
-  name?: string;                       // optional logger name (free string)
-  module?: ModuleIdentity;             // override for this logger only
-  context?: Partial<LogContext>;       // additional context for this logger
-  level?: LogLevel;                    // per-logger level override
+  name?: string;
+  module?: ModuleIdentity;
+  context?: Partial<LogContext>;
+  level?: LogLevel;
 }
 ```
 
 ### Default resolution
 
-| Field             | If unset                                              |
-|-------------------|-------------------------------------------------------|
-| `application`     | `undefined` (allowed)                                 |
-| `module`          | `undefined` (allowed)                                 |
-| `environment`     | `undefined` → treated as "unknown" → defaults to `warn` |
-| `level`           | env-aware default table (see plan §Configuration)     |
-| `context`         | `{}`                                                  |
-| `correlation`     | `undefined` (skipped on emit)                         |
-| `transports`      | `[NoopTransport()]`                                   |
-| `redactor`        | `createRedactor()` (built-in default)                 |
-| `onInternalError` | `undefined` (silent)                                  |
+| Field               | If unset |
+|---------------------|----------|
+| `application`       | `undefined` (allowed) |
+| `module`            | `undefined` (allowed) |
+| `environment`       | `undefined` → treated as "unknown" → defaults to `warn` |
+| `level`             | env-aware default table |
+| `context`           | `{}` |
+| `correlation`       | `undefined` (skipped on emit) |
+| `transports`        | `[NoopTransport()]` |
+| `redactor`          | `createRedactor()` (built-in default) |
+| `sanitizerLimits`   | documented defaults |
+| `onInternalError`   | `undefined` (silent) |
 
 ---
 
@@ -189,16 +212,9 @@ interface CreateLoggerOptions {
 
 ```ts
 interface Transport {
-  /** Stable identifier for diagnostics. */
   name: string;
-
-  /** Receive a finished LogEvent. May be sync or async. Errors are isolated. */
   send(event: LogEvent): void | Promise<void>;
-
-  /** Optional flush hook for batching transports. */
   flush?(): Promise<void>;
-
-  /** Optional shutdown hook. */
   shutdown?(): Promise<void>;
 }
 
@@ -207,11 +223,11 @@ type TransportFactory = () => Transport;
 
 ### Contract notes
 
-- The consumer's `send()` MUST NOT throw to break the caller. If it does, the
-  package's `SafeTransport` wrapper catches and reports via `onInternalError`.
-- A transport MUST treat the received `LogEvent` as immutable. The package
-  freezes events with `Object.freeze` before dispatch in development builds
-  (a no-op in production builds).
+- Consumer `send()` MUST NOT throw to break the caller. `SafeTransport`
+  catches anyway.
+- Transports MUST treat received `LogEvent` as immutable; dev builds freeze.
+- Transports MUST NOT place `LogEvent` data in URL paths, query strings, or
+  fragments (see `contracts/transport.md`).
 
 ---
 
@@ -221,8 +237,8 @@ type TransportFactory = () => Transport;
 type Redactor = (event: LogEvent) => LogEvent | null;
 ```
 
-- Receives the **post-merge, pre-dispatch** `LogEvent`.
-- Returns a transformed event, or `null` to drop the event entirely.
+- Receives the **post-sanitize, pre-control-char-guard** `LogEvent`.
+- Returns transformed event, or `null` to drop entirely.
 - Must be synchronous.
 - If it throws, the event is dropped (fail-closed) and `onInternalError` is
   invoked.
@@ -231,8 +247,10 @@ type Redactor = (event: LogEvent) => LogEvent | null;
 
 ```ts
 interface RedactionRule {
-  /** Case-insensitive key match anywhere in attributes/context attributes. */
-  key: string | RegExp;
+  /** Case-insensitive key match anywhere in the event tree. */
+  key?: string | RegExp;
+  /** Value-shape match (applied regardless of key name). */
+  shape?: RegExp;
   /** Replacement string. Default: '[REDACTED]'. */
   replacement?: string;
 }
@@ -240,21 +258,26 @@ interface RedactionRule {
 function createRedactor(rules?: RedactionRule[]): Redactor;
 ```
 
-Default rules (used when `rules` is omitted):
+Default rules listed in `contracts/redaction.md`.
+
+---
+
+## Entity: `ScrubUrlOptions`
 
 ```ts
-const DEFAULT_RULES: RedactionRule[] = [
-  { key: /^password$|^passwd$/i },
-  { key: /^token$|access[_-]?token|refresh[_-]?token/i },
-  { key: /^authorization$|^auth$/i },
-  { key: /^cookie$|^set-cookie$/i },
-  { key: /^secret$/i },
-  { key: /api[_-]?key/i },
-  { key: /session[_-]?id/i },
-  { key: /^ssn$/i },
-  { key: /credit[_-]?card|^cardNumber$|^cvv$/i },
-];
+interface ScrubUrlOptions {
+  /** Additional query-param names to scrub (case-insensitive). */
+  extraParams?: ReadonlyArray<string | RegExp>;
+  /** Whether to also scrub the URL fragment. Default: true. */
+  fragment?: boolean;
+}
+
+function scrubUrl(url: string, options?: ScrubUrlOptions): string;
 ```
+
+Returns the input unchanged if it does not parse as an http(s) URL. Otherwise
+returns the URL with matching query and (optionally) fragment params replaced
+by `<name>=[REDACTED]`.
 
 ---
 
@@ -275,10 +298,12 @@ interface Logger {
 ### Behavior
 
 - Each call returns synchronously and never throws.
-- A call that fails the level filter is a no-op (and skips redaction and
-  dispatch).
-- `child()` and `withContext()` return a new `Logger` instance whose context is
-  layered over the parent's. Parents are unaffected. Aliases.
+- A call failing the level filter is a no-op (skips sanitize, redact, dispatch).
+- `child()` and `withContext()` return a new `Logger` instance with context
+  layered over the parent's; parents are unaffected. Aliases.
+- `message` is always `string` — no other shape is accepted at the type level.
+- `error` is the only `unknown` parameter; the pipeline reduces it
+  immediately to `ErrorInfo`.
 
 ---
 
@@ -295,14 +320,12 @@ interface TelemetryBackend {
 ```
 
 Implementations: `OtelLogsBackend` (default), `NoopBackend` (fallback). The
-pipeline never knows which is active. Failures inside `handle()` cause the
-dispatcher to fall back to direct transport delivery for that event.
+pipeline never knows which is active. Backends only ever receive
+already-sanitized-and-redacted events.
 
 ---
 
 ## State transitions
-
-The package has very little runtime state. The lifecycle is:
 
 ```text
 [unconfigured]
@@ -312,19 +335,18 @@ The package has very little runtime state. The lifecycle is:
    │ backend.init() ok
    ▼
 [configured]
-   │ each emission ─▶ pipeline ─▶ backend.handle() ─▶ transports
+   │ each emission ─▶ pipeline (sanitize, redact, guard) ─▶ backend.handle() ─▶ transports
    │
-   │ configureLogging(newConfig)   (allowed; reconfigures atomically)
+   │ configureLogging(newConfig)   (reconfigures atomically)
    ▼
 [configured]
    │ shutdown() (optional)
    ▼
-[shut-down]   (further emissions become noops; transports flushed)
+[shut-down]   (further emissions noop; transports flushed)
 ```
 
-Reconfiguration is allowed and atomic at the module level: it shuts down the
-previous backend, installs the new config, and initializes the new backend. In
-flight `Promise<void>` from a previous `send()` is left to its own resolution.
+Reconfiguration is atomic at the module level: previous backend shut down,
+new config installed, new backend initialized.
 
 ---
 
@@ -332,18 +354,21 @@ flight `Promise<void>` from a previous `send()` is left to its own resolution.
 
 ```text
 LoggerConfig ──┐
-               ├── (normalized at configureLogging)
-Logger ───────┴── EventBuilder ── LogEvent ── LevelFilter ── Redactor ── Dispatcher
-                                                                            │
-                                                                            ▼
-                                                                    TelemetryBackend
-                                                                            │
-                                                                            ▼
-                                                                   SafeTransport[]
-                                                                            │
-                                                                            ▼
-                                                                      Transport[]
+               ├── (normalized at configureLogging — includes sanitizer-limit clamp)
+Logger ───────┴── EventBuilder ── LogEvent
+                  │
+                  ▼
+              LevelFilter ── Sanitizer ── URLScrubber ── Redactor ── ControlCharGuard ── Freeze(dev) ── Dispatcher
+                                                                                                          │
+                                                                                                          ▼
+                                                                                                  TelemetryBackend
+                                                                                                          │
+                                                                                                          ▼
+                                                                                                  SafeTransport[]
+                                                                                                          │
+                                                                                                          ▼
+                                                                                                     Transport[]
 ```
 
-All public types are stable and form the consumer contract. All internal types
+All public types are stable and form the consumer contract. Internal types
 may evolve without a public version bump.

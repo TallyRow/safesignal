@@ -1,16 +1,19 @@
 # Contract: Public API Surface
 
-This contract enumerates every export from the package root. Implementations
-MUST match these names and signatures exactly. Contract tests verify each item.
+This contract enumerates every export from the package root (and the
+`/testing` subpath). Implementations MUST match these names and signatures
+exactly. Contract tests verify each item.
 
-## Module entry
+## Module entries
 
-The only public entry is the package root (`./` in `package.json` `exports`).
-Subpath imports into compiled `internal/`, `pipeline/`, or `transport/`
-directories are NOT exported and MUST NOT be added later without a major version
-bump.
+- `.` (package root) — runtime API for application code.
+- `./testing` — test helpers (must NOT be imported by runtime code).
 
-## Exports
+Subpath imports into compiled `internal/`, `pipeline/`, `transport/`,
+`config/`, `context/` directories are NOT exported and MUST NOT be added
+later without a major version bump.
+
+## Root exports
 
 ### Functions
 
@@ -19,6 +22,7 @@ export function createLogger(options?: CreateLoggerOptions): Logger;
 export function configureLogging(config: LoggerConfig): void;
 export function getRootLogger(): Logger;
 export function createRedactor(rules?: RedactionRule[]): Redactor;
+export function scrubUrl(url: string, options?: ScrubUrlOptions): string;
 ```
 
 ### Values (transport factories)
@@ -44,39 +48,59 @@ export type {
   LoggerConfig,
   CreateLoggerOptions,
   LevelMap,
+  SanitizerLimits,
   Transport,
   TransportFactory,
   Redactor,
   RedactionRule,
+  ScrubUrlOptions,
 };
+```
+
+## `./testing` exports
+
+```ts
+export function assertTransportContract(t: Transport): Promise<void>;
+export function makeSecretFixture(): Record<string, string>;
 ```
 
 ## Forbidden in the public surface
 
-- Anything from `@opentelemetry/*`. A contract test scans the generated `.d.ts`
-  for the strings `opentelemetry` and `@opentelemetry`; the test fails if either
-  is present.
+- Anything from `@opentelemetry/*`. A contract test scans the generated
+  `.d.ts` for `opentelemetry` / `@opentelemetry`; the test fails if either
+  string is present.
 - Internal types: `TelemetryBackend`, `NormalizedConfig`, `SafeTransport`,
-  `EventBuilder`, `LevelFilter`, `Dispatcher`, anything under `src/internal/**`.
-- Any concept named "span", "trace", "tracer", "meter", "exporter", "processor"
-  in a public name.
+  `EventBuilder`, `LevelFilter`, `Sanitizer`, `ControlCharGuard`,
+  `Dispatcher`, anything under `src/internal/**`.
+- Concepts named "span", "trace", "tracer", "meter", "exporter", "processor"
+  in any public name.
+- Any function or method that accepts a single arbitrary `unknown` payload
+  as the primary log input (no `logger.dump`, `logger.raw`, `logger.log(obj)`).
+  The only `unknown` in the public surface is the optional `error` argument
+  of `logger.error()`.
 
 ## Stability guarantees
 
-- Names and signatures listed here are SemVer-stable. Removals or signature
-  changes require a major version bump and a migration note.
+- Names and signatures listed here are SemVer-stable.
 - Adding new optional fields to `LoggerConfig`, `CreateLoggerOptions`,
-  `LogEvent.context`, or `Attributes` is a minor-version change.
-- Adding new transport factories or new public functions is a minor-version
-  change.
+  `SanitizerLimits`, `RedactionRule`, `ScrubUrlOptions`, `LogEvent.context`,
+  or `Attributes` is a minor-version change.
+- Adding new transport factories, new public functions, or new `/testing`
+  helpers is a minor-version change.
+- Loosening the security default of any built-in (e.g., removing entries
+  from the default redaction denylist) requires a major-version change and
+  documented migration.
 
 ## Tested behavior
 
 | ID | Behavior |
 |----|----------|
-| PA-1 | All listed names are exported from the package root |
+| PA-1 | All listed names are exported from the package root and `/testing` |
 | PA-2 | Each listed function has the documented arity and return type |
-| PA-3 | `Logger` instances from `createLogger()` have all six methods (`debug`, `info`, `warn`, `error`, `child`, `withContext`) |
+| PA-3 | `Logger` instances from `createLogger()` have all six methods |
 | PA-4 | `ConsoleTransport()` and `NoopTransport()` return a `Transport` |
 | PA-5 | Published `.d.ts` contains no `opentelemetry` / `@opentelemetry` strings |
 | PA-6 | Public surface does not expose any name from the "Forbidden" list |
+| PA-7 | `Logger` methods accept `message: string` only; passing `object` to `message` is a TypeScript error |
+| PA-8 | `logger.error` accepts an optional third `unknown` argument and reduces it to `ErrorInfo` before any transport sees it |
+| PA-9 | `/testing` helpers are not reachable through the root entry |
