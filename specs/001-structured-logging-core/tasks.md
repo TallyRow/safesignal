@@ -101,9 +101,10 @@ boundaries, transports, and contract-level guards required by every story.
   Acceptance: Test fails if any source file outside `src/internal/telemetry/otel/**` imports from `@opentelemetry/*`, or if any source file outside `src/api/` and `src/index.ts` is re-exported from `src/index.ts`. **Implementation note**: the "outside src/api/" clause conflicts with T018's design (which re-exports `ConsoleTransport`/`scrubUrl`/etc. from `src/transport/` and `src/pipeline/` per `contracts/public-api.md`). The test enforces the architectural intent — no `src/internal/**` or `src/testing/**` leakage from `src/index.ts`, and no `src/internal/**` leakage from `src/testing/index.ts` — while leaving the exact public surface lock to T019's contract test. See the file's header comment for full rationale.
   Parallel: No
 
-- [ ] T015 Review boundary: validate foundational surface and package boundaries against `src/api/`, `src/config/`, `src/context/`, `src/internal/`, `src/transport/`, and `tests/contract/`
+- [X] T015 Review boundary: validate foundational surface and package boundaries against `src/api/`, `src/config/`, `src/context/`, `src/internal/`, `src/transport/`, and `tests/contract/`
   Acceptance: Reviewer confirms public types match `contracts/public-api.md`, the OTel adapter is isolated, no ambient state is read, sanitizer-limit clamping is in place, and `Transport` / `TelemetryBackend` interfaces match the plan. Constitution gates I, II, III, IV, VI all hold for the foundational layer.
   Parallel: No
+  **Approved 2026-05-26**: All 18 public types present per `contracts/public-api.md`; OTel imports confined to the three permitted adapter files (5 imports total) and locked by T013/T014; no `src/**` file reads `process.env`/`import.meta.env`/`location`/`document.cookie`; `resolveSanitizerLimits()` clamps to documented Min/Max and emits a `PackageError('sanitizer_limit_clamped')` per clamp; `Transport` and `TelemetryBackend` shapes match `plan.md` and `data-model.md`. Gate IV holds at the type/seam level; runtime sanitizer/redactor land in Phase 5 as planned. 67/67 contract tests green; build + both tsconfig typechecks clean.
 
 **Checkpoint**: Foundational layer ready; user-story work can begin.
 
