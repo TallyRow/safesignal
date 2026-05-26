@@ -3,9 +3,11 @@
 A reusable browser-first structured logging package for web applications,
 including federated host/module architectures.
 
-> **Status**: in development. This README is a scaffold; consumer-facing
-> sections are filled in as user stories land (see
-> `specs/001-structured-logging-core/tasks.md`).
+> **Status**: in development. US1 is functional end-to-end (public API,
+> level filtering, pluggable transports, failure isolation). US3
+> (sanitization, redaction, URL scrubbing, control-char escaping) lands
+> in Phase 5; until then the security pipeline stages are documented
+> pass-through stubs. See `specs/001-structured-logging-core/tasks.md`.
 
 ## What this package gives you
 
@@ -15,7 +17,7 @@ including federated host/module architectures.
   `info` are opt-in.
 - A pluggable transport boundary — bring your own HTTP/beacon/file delivery.
 - Secure-by-default sanitization and redaction applied **before** any transport
-  sees an event.
+  sees an event _(US3, Phase 5)_.
 - Failure isolation: a misbehaving transport never breaks the host app.
 
 ## What this package does NOT do (in v1)
@@ -36,19 +38,82 @@ npm install @your-org/frontend-logging-sdk
 
 ## Quickstart
 
-See `specs/001-structured-logging-core/quickstart.md` for the full tour.
-Minimal example (lands in T020 / T022):
+```ts
+import {
+  configureLogging,
+  createLogger,
+  ConsoleTransport,
+} from '@your-org/frontend-logging-sdk';
+
+configureLogging({
+  application: { name: 'checkout-web', version: '2025.05.0' },
+  environment: 'production',
+  transports: [ConsoleTransport()],
+});
+
+const log = createLogger();
+
+log.info('checkout opened', { cartItems: 3 });
+log.warn('coupon rejected', { code: 'SUMMER25', reason: 'expired' });
+log.error('payment failed', { provider: 'acme-pay' }, new Error('declined'));
+```
+
+In `production`, `debug` and `info` are dropped by default. Raise the
+threshold per environment:
 
 ```ts
-// Code example will be filled in once T016–T022 implement the public API.
-// Until then, see specs/001-structured-logging-core/quickstart.md.
+configureLogging({
+  environment: 'production',
+  level: { production: 'info', development: 'debug', test: 'warn' },
+  transports: [ConsoleTransport()],
+});
 ```
 
 ## Logging safely
 
-See `docs/safe-logging.md` (filled in by T050) for DO/DON'T patterns,
-`scrubUrl()` usage, custom redactors, and the full enumeration of every
-behavior that drops or transforms events.
+The constitution requires the **safe path** to be the **easy path**. A few
+patterns the package's types and pipeline enforce:
+
+### DO — structured attributes, fixed-string messages
+
+```ts
+log.info('order placed', {
+  orderId: order.id,
+  total:   order.total,
+  currency: order.currency,
+});
+
+log.warn('payment declined', { reason: 'insufficient_funds', code: 'PD-12' });
+```
+
+### DON'T — interpolate values into the message string
+
+```ts
+// BAD — values disappear into a string the package can't structure.
+log.info(`order placed by ${user.email}`);
+
+// GOOD — values stay structured and reviewable.
+log.info('order placed', { userId: user.id });
+```
+
+### DON'T — dump whole objects, DOM nodes, or framework objects
+
+```ts
+// BAD — the sanitizer (T031) will type-tag classes / DOM / Event /
+// Promise rather than recurse, so this won't even produce useful data
+// AND it risks pulling fields you didn't intend to log.
+log.info('order placed', { order });
+log.error('click handler failed', { event });           // DOM Event
+log.error('reducer failed', { state });                  // full app state
+
+// GOOD — extract the fields you actually want.
+log.info('order placed', { orderId: order.id, total: order.total });
+```
+
+The plan and `docs/safe-logging.md` cover the full enumeration of `DO`/
+`DON'T` patterns, the sanitizer's bounded-input rules, the redactor's
+default denylist, `scrubUrl()` usage, and every behavior that drops or
+transforms events.
 
 ## Examples
 

@@ -144,7 +144,7 @@ consistent `LogEvent` output without using internal APIs.
   Acceptance: All four levels emit synchronously without throwing under `happy-dom`. Production-mode defaults drop `debug`/`info`. Re-configuring transports mid-test does not break logger references.
   Parallel: No
 
-- [ ] T022 [US1] Update basic consumer docs in `README.md` and `examples/host-app/index.ts`
+- [X] T022 [US1] Update basic consumer docs in `README.md` and `examples/host-app/index.ts`
   Acceptance: Docs and host-app example show structured-attribute usage, fixed-string messages (no template-interpolation of values), and the safe-defaults posture without referencing internal telemetry. No example logs whole objects, DOM nodes, or framework objects.
   Parallel: No
 

@@ -5,6 +5,9 @@ build/
 coverage/
 *.tsbuildinfo
 
+# Example projects are illustrative — don't track their lockfiles
+examples/*/package-lock.json
+
 # Logs and runtime files
 *.log
 npm-debug.log*
