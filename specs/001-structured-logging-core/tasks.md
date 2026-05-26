@@ -93,7 +93,7 @@ boundaries, transports, and contract-level guards required by every story.
   Acceptance: Empty placeholder directory exists so the future application/platform ingestion adapters have a documented home without exporting anything in v1.
   Parallel: No
 
-- [ ] T013 Add declaration-surface and ambient-state guard tests in `tests/contract/declarations-surface.test.ts` and `tests/contract/no-ambient-state.test.ts`
+- [X] T013 Add declaration-surface and ambient-state guard tests in `tests/contract/declarations-surface.test.ts` and `tests/contract/no-ambient-state.test.ts`
   Acceptance: `declarations-surface.test.ts` fails if generated `.d.ts` contains the strings `opentelemetry` or `@opentelemetry`, or if forbidden public names (`SeverityNumber`, `LoggerProvider`, `Span`, `Trace*`, `Exporter`, `Processor`, etc.) appear in the root entry's declarations. `no-ambient-state.test.ts` scans `src/**` (excluding `src/internal/telemetry/otel/**`) for direct reads of `process.env`, `import.meta.env`, `window.location`, `document.cookie`, and fails if any are found.
   Parallel: No
 
