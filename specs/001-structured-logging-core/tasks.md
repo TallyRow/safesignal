@@ -222,11 +222,11 @@ sanitized, redacted output — or safe event dropping.
   Acceptance: `scrubUrl(url, options?)` strips query/fragment parameters whose names match the default denylist (case-insensitive); accepts `ScrubUrlOptions.extraParams` and `ScrubUrlOptions.fragment`. Returns input unchanged if it does not parse as an http(s) URL. Pipeline integration runs the scrubber against every string value before redaction. `scrubUrl` is re-exported from `src/index.ts`.
   Parallel: Yes
 
-- [ ] T033 [P] [US3] Implement dev-only deep freeze in `src/pipeline/freeze.ts`
+- [X] T033 [P] [US3] Implement dev-only deep freeze in `src/pipeline/freeze.ts`
   Acceptance: The freeze module gates its behavior on the build-time global `__DEV__` (injected by `tsup`'s `define` in T001). When `__DEV__` is `true`, it recursively `Object.freeze`s the post-redaction event before dispatch. When `__DEV__` is `false`, the bundler dead-code-eliminates the freeze body so production builds carry zero runtime cost. The source file MUST NOT read `process.env`, `import.meta.env`, or any other ambient state — `__DEV__` is the only build-time flag consulted.
   Parallel: Yes
 
-- [ ] T034 [P] [US3] Implement control-character guard in `src/pipeline/control-char-guard.ts`
+- [X] T034 [P] [US3] Implement control-character guard in `src/pipeline/control-char-guard.ts`
   Acceptance: Escapes ASCII control characters (`\x00`–`\x1F` except `\t`, `\n`, `\r`) and U+2028 / U+2029 in every string value in `event.message`, `event.attributes`, `event.context.attributes`, and `event.error.*`. Never throws.
   Parallel: Yes
 
