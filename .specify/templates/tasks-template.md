@@ -81,6 +81,12 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T009 Setup environment configuration management
 - [ ] T009a [P] Establish log integrity & monitoring suitability guardrails
   (stable structure, origin attribution, documented drop/sample/batch behavior)
+- [ ] T009b [P] Establish lightweight-`Logger` and federated-runtime guardrails:
+  cheap, side-effect-free `Logger` construction (no per-instance backend init,
+  transport open, timer, global listener, console patch, network work, or
+  ambient read); shared runtime resources configured once at the package level;
+  explicit host/module ownership of configuration; and a documented
+  duplicate-package-copy contract (isolated / shared / explicitly unsupported)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -182,6 +188,12 @@ independently
 - [ ] TXXX Log integrity validation pass: verify event structure, origin
   attribution, and that any drop/sample/batch/transform behavior is documented and
   tested
+- [ ] TXXX Lightweight-`Logger` & federated-runtime validation pass: many-instance
+  scale test (creating N `Logger` instances stays linear and incurs no
+  per-instance backend/transport/timer/global-listener initialization); host vs.
+  module ownership test (a federated module cannot accidentally replace the
+  host's configured runtime); duplicate-package-copy contract verified against
+  its documented classification (isolated / shared / explicitly unsupported)
 - [ ] TXXX Validate consumer migration notes and package API docs
 - [ ] TXXX Run quickstart.md validation
 

@@ -1,36 +1,30 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.1.0
+- Version change: 1.1.0 -> 1.2.0
 - Modified principles:
-  - I. Stable Consumer API & Clear Boundaries (tightened: safe path is the easy path;
-    surface-stability gates restated as MUST)
-  - II. Browser-First Runtime Resilience (tightened: failure safety extended explicitly
-    to redaction, formatting, serialization, and optional integrations)
-  - III. Framework-Neutral Structured Observability (tightened: structured-only output;
-    raw object dumping and uncontrolled serialization prohibited)
-  - IV. Privacy-Safe Logging Data -> IV. Secure & Privacy-Safe Logging by Default
-    (materially expanded: secure defaults, sensitive-data minimization, safe-output
-    requirements, no insecure defaults, reusable security posture)
-  - V. Testable, Minimal, Maintainable Package Design (tightened: documentation and
-    examples MUST model safe logging behavior and MUST NOT normalize unsafe patterns)
+  - None renamed; Principles I–VI preserved verbatim.
 - Added sections:
-  - VI. Log Integrity & Monitoring Suitability (new principle)
-  - Security & Privacy Review (new clause under Delivery Workflow & Quality Gates)
+  - VII. Lightweight Logger Instances & Federated Runtime Discipline (new principle)
+  - Package Architecture Standards: new clause on shared runtime resources and
+    federated host/module ownership of configuration
+  - Delivery Workflow & Quality Gates: new clause "Lightweight Logger & Federated
+    Runtime Tests" requiring multi-instance and duplicate-package-copy coverage
 - Removed sections:
   - None
 - Templates requiring updates:
-  - ✅ updated .specify/templates/plan-template.md (Constitution Check expanded with
-       Secure Logging by Default and Log Integrity & Monitoring Suitability gates)
-  - ✅ updated .specify/templates/spec-template.md (renamed "Privacy Considerations"
-       to "Security & Privacy Considerations"; added FR for secure-by-default and
-       sensitive-data minimization)
-  - ✅ updated .specify/templates/tasks-template.md (Foundational phase explicitly
-       names secure-logging and integrity-suitability tasks; Polish phase explicitly
-       calls out a security/integrity validation pass)
+  - ✅ updated .specify/templates/plan-template.md (Constitution Check gains a
+       "Lightweight Logger Instances & Federated Runtime" gate covering
+       per-instance cost, shared runtime resources, and host/module ownership)
+  - ✅ updated .specify/templates/spec-template.md (Consumer Impact adds a
+       "Runtime Scale & Federated Deployment Impact" bullet; FR-011 added for
+       lightweight `Logger` creation and explicit host/module ownership)
+  - ✅ updated .specify/templates/tasks-template.md (Foundational phase gains
+       T009b for lightweight-logger and federated-runtime guardrails; Polish
+       phase adds an explicit multi-instance / federated validation pass)
 - Follow-up TODOs:
-  - None deferred. Open security questions (transport-time integrity, opt-in
-    redaction telemetry, federated context-isolation policy) are intentionally
-    routed to feature specs/plans/tasks, not the constitution.
+  - None deferred. Per-feature decisions on duplicate-package-copy strategy
+    (isolated / shared / explicitly unsupported) are intentionally routed to
+    feature plans, not the constitution.
 -->
 # Frontend Logging SDK Constitution
 
@@ -166,6 +160,66 @@ Rationale: Logs are often the primary evidence in incident response and security
 review. A reusable package that quietly mutates, loses, or obscures events would
 undermine those use cases for every consuming application.
 
+### VII. Lightweight Logger Instances & Federated Runtime Discipline
+The package MUST scale to **many `Logger` instances per page** — one per module is
+the normal case in federated and host-app deployments. Creating a `Logger` MUST be
+lightweight, deterministic, and side-effect-free: a `Logger` is a context handle
+over the already-configured shared runtime, never an initializer of the runtime
+itself. Per-`Logger` cost MUST NOT scale with the number of instances; the package
+MUST stay predictable when a page hosts tens, hundreds, or more loggers.
+
+The package MUST NOT perform any of the following at `Logger`-instance creation,
+nor at per-instance lifecycle events:
+- Initialize a telemetry backend, vendor SDK, or transport.
+- Start a queue, buffer flush loop, batching loop, retry loop, timer, interval,
+  scheduled callback, or any other recurring task.
+- Attach a global event listener; patch a global (`console`, `fetch`,
+  `XMLHttpRequest`, `navigator.sendBeacon`, `window.onerror`,
+  `window.onunhandledrejection`, history, etc.); or install any document/window
+  observer.
+- Read ambient browser state (`location`, `document.cookie`, `localStorage`,
+  `sessionStorage`, `navigator.*`, `process.env`, `import.meta.env`).
+- Issue a network request, open a socket, or perform any other I/O.
+- Allocate unbounded memory, eagerly snapshot application state, or pre-warm
+  caches sized by anything other than constant per-instance overhead.
+
+Expensive runtime resources — backend adapters, transports, batchers, correlation
+hooks, redactors, sanitizer state — MUST be configured **once at the
+runtime/package level** (e.g., via `configureLogging()`) and **shared** across every
+`Logger` instance derived from that runtime. Logger derivation (`child()`,
+`withContext()`, federated module loggers) MUST stay a constant-cost operation that
+layers context over the same shared runtime.
+
+For federated and module-federation deployments, the package MUST also:
+- **Make ownership explicit.** The host application owns the configured runtime by
+  default. Federated modules MUST NOT accidentally replace, override, or
+  re-initialize the host's configured runtime — including transports, redactors,
+  backend selection, and sanitizer limits — unless the documented contract
+  intentionally permits it, and even then only through an explicitly named API.
+- **Document duplicate-package-copy behavior.** When module bundlers cause multiple
+  copies of this package to load on a single page, the resulting behavior MUST be
+  documented as exactly one of: (a) **isolated** — each copy is independently
+  configured and its loggers cannot cross-affect another copy's runtime;
+  (b) **shared** — copies cooperate through a documented shared-runtime contract;
+  or (c) **explicitly unsupported** — with diagnostic guidance for consumers.
+  Silent reliance on copy-local globals or undocumented cross-copy coupling is
+  prohibited.
+- **Preserve attribution under concurrency.** Events from host and federated module
+  loggers MUST remain origin-distinguishable (application identity vs. module
+  identity) even when many modules instantiate loggers independently and
+  concurrently, and even when those modules race to configure the runtime.
+
+Rationale: A federated micro-frontend page can easily host dozens to hundreds of
+`Logger` instances created at module boot time. If logger construction had
+non-trivial cost — initializing backends, opening queues, patching globals,
+reading ambient state — every additional module would compound runtime weight,
+double-initialize observability infrastructure, fight the host for global state,
+and surprise consumers with non-deterministic ownership. Treating `Logger` as a
+cheap, side-effect-free handle over a shared, explicitly-owned runtime preserves
+browser performance, keeps the public contract honest about who owns
+configuration, and makes federated deployment a first-class scalability concern
+rather than an afterthought.
+
 ## Package Architecture Standards
 
 - The package MUST target reusable browser package distribution rather than a single
@@ -180,6 +234,14 @@ undermine those use cases for every consuming application.
 - Sensitive-data handling, redaction, and structured-output guarantees MUST be
   enforced inside the package, before any transport receives an event, so optional
   integrations cannot bypass them.
+- The configured runtime (backend, transports, redactor, sanitizer state, internal
+  error reporter) is a **package-level shared resource**. `Logger` instances are
+  cheap handles that read from this shared runtime; they MUST NOT own, initialize,
+  or duplicate it. Logger derivation MUST stay constant-cost (Principle VII).
+- Federated host/module configuration ownership MUST be documented as part of the
+  package contract. The duplicate-package-copy behavior MUST be classified as
+  **isolated**, **shared**, or **explicitly unsupported**, with consumer-visible
+  guidance for each (Principle VII).
 - Package decisions MUST favor portability, composability, and a uniform security
   posture across consumers over app-specific shortcuts.
 
@@ -187,7 +249,8 @@ undermine those use cases for every consuming application.
 
 - Every plan, spec, and task list MUST show how the work preserves API stability,
   browser resilience, framework neutrality, secure-by-default logging, privacy-safe
-  data handling, log integrity, and package maintainability.
+  data handling, log integrity, lightweight logger creation, federated runtime
+  discipline, and package maintainability.
 - New or changed public API behavior MUST include contract tests and migration notes
   when consumer-visible behavior changes.
 - Runtime failure modes, log level behavior, metadata handling, redaction,
@@ -201,12 +264,23 @@ undermine those use cases for every consuming application.
   unnecessary personal data, (b) redaction and fail-closed behavior still hold, and
   (c) integrity-relevant behavior is documented. This check MUST be part of the
   plan and verified by tests in the task list.
+- **Lightweight Logger & Federated Runtime Tests**: Any change that touches logger
+  construction, runtime configuration, backend or transport lifecycle, derived
+  loggers (`child()` / `withContext()`), federated module identity, or shared
+  runtime state MUST include automated tests proving (a) creating many `Logger`
+  instances per page does not incur per-instance backend, transport, timer, or
+  global-listener initialization, and does not cause unbounded memory growth;
+  (b) federated module loggers do not accidentally replace or re-initialize the
+  host's configured runtime; and (c) the duplicate-package-copy behavior matches
+  the documented classification (isolated / shared / explicitly unsupported).
 - Documentation, examples, and integration guidance for single-app and
   federated/module-based usage MUST be updated when behavior or setup expectations
-  change, and MUST continue to model safe logging behavior.
+  change, and MUST continue to model safe logging behavior and document the
+  host/module configuration ownership contract.
 - Any proposal that adds significant abstraction, dependency weight, vendor
-  coupling, or that relaxes a security or integrity guarantee MUST document why a
-  simpler package-centric and security-preserving approach is insufficient.
+  coupling, or that relaxes a security, integrity, or scalability guarantee MUST
+  document why a simpler package-centric and contract-preserving approach is
+  insufficient.
 
 ## Governance
 
@@ -226,8 +300,8 @@ Compliance review is mandatory for every spec, plan, task list, and implementati
 review. Work that violates these principles MUST not be approved without an explicit,
 documented exception and a remediation plan. Consumer-facing breaking changes require
 documented justification, migration guidance, and versioning aligned with the package
-release policy. Exceptions that relax a security, privacy, or integrity guarantee
-require an explicit, named, time-bound remediation plan and MUST be re-reviewed at
-each subsequent release.
+release policy. Exceptions that relax a security, privacy, integrity, or scalability
+guarantee require an explicit, named, time-bound remediation plan and MUST be
+re-reviewed at each subsequent release.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-26
+**Version**: 1.2.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-27

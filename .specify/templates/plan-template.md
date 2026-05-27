@@ -75,6 +75,17 @@
   transforms events is documented for downstream monitoring and forensic use.
   Confirm application/platform-owned integrity controls remain pluggable and are
   not undermined by package internals.
+- Lightweight Logger Instances & Federated Runtime: Show that the design does not
+  perform per-`Logger` initialization of telemetry backends, vendor SDKs,
+  transports, queues, batching/retry loops, timers, global listeners, console
+  patching, network work, or ambient browser reads. Confirm expensive runtime
+  resources are configured once at the package/runtime level and shared across
+  every `Logger` instance, and that derived loggers (`child()`, `withContext()`)
+  stay constant-cost. For federated/module deployments, document host/module
+  configuration ownership (host owns the runtime by default; modules MUST NOT
+  silently replace it) and the duplicate-package-copy contract — explicitly one
+  of isolated, shared, or unsupported — with consumer guidance for the chosen
+  classification.
 - Test & Documentation Coverage: List the contract, unit, integration, failure,
   and security-and-privacy tests required to prove compliance, plus any setup or
   integration docs that must change with the implementation. Confirm docs and

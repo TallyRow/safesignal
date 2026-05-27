@@ -105,6 +105,12 @@ fully tested by [specific action] and delivers [specific value]"]
   reorders, or transforms events; impact on machine-parseability, origin
   attribution, and downstream monitoring/forensic use. State explicitly when
   there is no impact.]
+- **Runtime Scale & Federated Deployment Impact**: [How the change affects
+  per-`Logger` creation cost (timers, listeners, global patches, network work,
+  ambient reads), shared runtime resource ownership, host vs. module
+  configuration responsibility, and duplicate-package-copy behavior
+  (isolated / shared / explicitly unsupported). State explicitly when there is
+  no impact.]
 
 ## Requirements *(mandatory)*
 
@@ -135,6 +141,14 @@ fully tested by [specific action] and delivers [specific value]"]
 - **FR-010**: System MUST preserve log integrity and monitoring suitability for
   any new or changed event production: events remain structured, machine-parseable,
   origin-attributable, and any drop/sample/batch/transform behavior is documented.
+- **FR-011**: System MUST keep `Logger` instance creation lightweight and
+  side-effect-free (no per-instance backend init, transport open, timer, global
+  listener, console patch, network work, or ambient browser read), MUST share
+  expensive runtime resources at the configured runtime/package level rather than
+  per `Logger`, and MUST keep host/module ownership of the configured runtime
+  explicit so federated modules do not accidentally replace host configuration.
+  The duplicate-package-copy behavior MUST be documented as one of: isolated,
+  shared, or explicitly unsupported.
 
 *Example of marking unclear requirements:*
 
