@@ -300,9 +300,47 @@ sanitized, redacted output — or safe event dropping.
   Acceptance: A "Logging safely" section enumerates DO and DON'T patterns from `quickstart.md`, demonstrates `scrubUrl()` and `createRedactor()` extension, and explicitly forbids logging raw auth/session data, DOM nodes, framework objects, and full application state. A "Documented drops, transforms, and bounded behavior" section satisfies Principle VI by enumerating: level-filter drops, redactor-fail drops, sanitizer truncation markers (depth/size/count/array), URL-scrubber query/fragment replacements, control-char escaping, `NoopTransport` swallowing, and the v1 no-batching / no-sampling stance.
   Parallel: No
 
-- [ ] T051 Review boundary: validate sanitization, redaction, injection resistance, and pipeline-order enforcement across `src/pipeline/`, `tests/security/`, `tests/unit/pipeline/`, `docs/safe-logging.md`, and `README.md`
+- [X] T051 Review boundary: validate sanitization, redaction, injection resistance, and pipeline-order enforcement across `src/pipeline/`, `tests/security/`, `tests/unit/pipeline/`, `docs/safe-logging.md`, and `README.md`
   Acceptance: Reviewer confirms FR-012..FR-021 and SC-008..SC-010 each map to at least one named test, the pipeline order is locked by T048, fail-closed redaction is verified, sanitizer limits cannot be raised above documented Max, and the safe-logging docs enumerate every drop/transform behavior. Constitution Principles IV, V, VI all hold.
   Parallel: No
+  **Approved 2026-05-27**: Phase 5 closes; US3 (secure logging) is functionally complete end-to-end.
+
+  **FR / SC → locking test map** (every requirement traceable to a named test):
+  - **FR-012** (sensitive-data exposure as first-class failure mode) → `tests/security/secret-leakage.test.ts` (T041, 61 tests). Whole-event JSON scan asserts no `FIXTURE_VALUES` entry appears in any delivered event.
+  - **FR-013** (MUST NOT log secrets/credentials/tokens by default) → T041 secret-leakage (per-key sweep covers every documented denylist key); `docs/safe-logging.md` "Logging safely" + DO/DON'T (T050).
+  - **FR-014** (safe handling before emission/delivery) → T041 + `tests/security/url-query-leakage.test.ts` (T042, 18 tests) + `tests/security/fail-closed-redaction.test.ts` (T046, 18 tests).
+  - **FR-015** (minimize accidental leakage from structured metadata) → T041 nested-attribute and context.attribute sweeps; `tests/unit/pipeline/sanitizer.test.ts` S-3 (T037) — the `password` getter on a class instance is NEVER invoked (getterCalls === 0).
+  - **FR-016** (prefer structured logs; no raw-object dumping) → `tests/security/serialization-safety.test.ts` (T044, 15 tests) — DOM nodes/Event/Promise/Map/Set/Blob/FormData/URL/Request/Response/Function/class instances all type-tagged, NOT recursed.
+  - **FR-017** (preserve safe event boundaries; control-char escape) → `tests/security/log-injection.test.ts` (T043, 13 tests) + `tests/unit/pipeline/control-char-guard.test.ts` (T039, 29 tests) + `ConsoleTransport` structured-object output (T043 verifies one console call per event, NOT one per newline-delimited segment).
+  - **FR-018** (conservative defaults for unknown/nested/malformed/cyclic input) → T044 (cyclic → `[Circular]`, depth>maxDepth → `[MaxDepth]`, oversized array/string truncation markers, Invalid Date → null, NaN/Infinity → null, bigint → String, symbol → `[Symbol]`, function → `[Function]`); T037 S-2 (sanitizer never throws).
+  - **FR-019** (fail safely when filtering/redaction throws) → T046 fail-closed (throwing redactor → event dropped + `PackageError('redactor_failed')` notice); T027 failure-safety FS-1..FS-17 (with the FS-4 it.todo now active in this same commit set).
+  - **FR-020** (failures don't break rendering/navigation/state) → T046 (no throw escapes to logger call site for any level method; surviving transports stay at zero on failure); T027 stress test (1000 emissions, throwing+rejecting transport, throwing correlation, oversized cyclic input — completes under 100ms with no escape and no unhandled rejection).
+  - **FR-021** (production-safe defaults reduce accidental sensitive-data exposure) → `tests/contract/level-behavior.contract.test.ts` LC-1..LC-11 (env-aware level defaults; production drops debug/info); T048 (LevelFilter is the FIRST stage and short-circuits filtered emissions before any event allocation).
+  - **SC-008** (sensitive data classes handled per the protective contract in 100% of acceptance-test scenarios) → T041 (every fixture value at every documented location + a whole-event JSON scan asserts zero leakage; the `error.stack` field is excluded from the scan per the contract's documented limitation).
+  - **SC-009** (consumers can follow docs to emit structured logs without raw dumping) → `docs/safe-logging.md` (T050) — DO patterns demonstrate structured attributes; DON'T patterns explicitly forbid template-interpolation, whole-object dumps, DOM/Event/Promise/Map dumps, and raw URL logging; `examples/host-app/index.ts` mirrors the DO patterns and includes commented-out anti-pattern references for reviewers.
+  - **SC-010** (under default production config, debug/info filtered, warn/error delivered, raw secrets never in payload) → T048 + T041. T048 verifies the LevelFilter short-circuit at the top of the pipeline; T041 verifies the secret-redaction contract end-to-end.
+
+  **Pipeline order locked**: `tests/security/pipeline-order.security.test.ts` (T048, 16 tests) verifies `LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor → ControlCharGuard → Freeze(dev) → Dispatcher → SafeTransport[]` via a composed snapshotting redactor (state captured AT redactor) + capturing transport (state captured AFTER all post-redactor stages) + an `Object.isFrozen(event)` check captured INSIDE the redactor (proves freeze runs AFTER redactor, not before). 500-emission count test confirms the redactor is called exactly once per emission with 1:1 transport correspondence. No transport `send()` receives an unprocessed event.
+
+  **Fail-closed redaction verified**: T046 + the now-active FS-4 contract test. A throwing redactor drops the event entirely (capturing transport stays at zero), emits `PackageError('redactor_failed')` via `onInternalError`, and never propagates the throw to `logger.{debug,info,warn,error}` call sites. Non-event/non-null returns produce the same behavior. The 11-case parameterized sweep covers undefined, primitives, empty object, array, and structurally-invalid `LogEvent` shapes.
+
+  **Sanitizer limits cannot be raised above Max**: `tests/security/sanitizer-limit-clamp.test.ts` (T047, 12 tests). Every documented `SanitizerLimits` key is tested with above-Max and below-Min values; both clamp to the documented bound and emit exactly one `onInternalError(PackageError('sanitizer_limit_clamped'))` per clamped key per `configureLogging()` call. Locks LC-10 and S-10. Verified `Number.MAX_SAFE_INTEGER` for `maxStringLength` clamps to 65536; the runtime then enforces the clamped value (a 70000-char string truncates to 65536 + `...[truncated]`).
+
+  **Safe-logging docs enumerate every drop/transform behavior**: `docs/safe-logging.md` (T050) has three tables under "Documented drops, transforms, and bounded behavior" — Drops (4 rows), Transforms (13 rows), Bounded behaviors (4 rows) — plus an explicit "things the package does NOT do (in v1)" list (no batching / no sampling / no deduplication / no reordering / no retry / no ambient browser state). Principle VI satisfied.
+
+  **Constitution gates** (v1.2.0):
+  - **Principle IV (Secure & Privacy-Safe by Default)** — HOLDS. Default redactor masks every documented sensitive key; URL scrubber strips sensitive params; control-char guard escapes injection vectors; freeze in dev makes mutation accidents impossible. Fail-closed redaction is locked; no path silently downgrades guarantees based on environment, build mode, transport choice, or vendor integration (locked by T048 + T049's vendor-neutral `.d.ts` assertion).
+  - **Principle V (Testable, Minimal, Maintainable)** — HOLDS. Per-file 100% coverage on `sanitizer.ts` / `url-scrubber.ts` / `redactor.ts` / `control-char-guard.ts`. `tests/security/` is a dedicated 9-file group with 192 security-specific tests. `docs/safe-logging.md` models safe usage with concrete DO/DON'T patterns; no example normalizes an insecure pattern.
+  - **Principle VI (Log Integrity & Monitoring Suitability)** — HOLDS. Every drop/transform/bounded behavior is enumerated in `docs/safe-logging.md` per the table above; the pipeline preserves origin attribution (application/module/environment + correlation flow into every event); transport contract requires body-only delivery (T-S1..T-S5); v1 does NOT drop, sample, batch, dedupe, reorder, or retry events post-pipeline — every accepted event reaches every configured transport unmutated.
+
+  **Coverage / scale signals**:
+  - Total tests: 625 passing, 11 todo, across 24 test files. Typecheck clean.
+  - `tests/security/` alone: 192 tests across 9 files (T041–T049).
+  - `tests/unit/pipeline/` alone: 204 tests across 4 files (T037–T040), each meeting the per-file 100% coverage gate in `vitest.config.ts`.
+  - Stress test (T027's 1000-emission run) reproducibly completes under 100ms with no exception escape and no unhandled rejection.
+
+  **Outstanding (deferred to later phases)**:
+  - The vendor-free JS bundle audit is still gated on T066 (US5 dispatcher refactor — drops `OtelLogsBackend` from the default path). Currently noted as an `it.todo` reference inside T049's bundle-shape test; T070 will activate it once T066 lands. Public `.d.ts` is already vendor-neutral (asserted by T049).
 
 **Checkpoint**: US3 is independently functional with enforced secure logging.
 
