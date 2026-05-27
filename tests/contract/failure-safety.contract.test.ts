@@ -112,12 +112,30 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
   });
 
   describe('FS-4: configured Redactor throws → event dropped (fail-closed)', () => {
-    // Wired in Phase 5 (T035). The dispatcher's try/catch already drops
-    // the event and notifies onInternalError when ANY pipeline stage
-    // throws; once the real redact stage invokes config.redactor, the
-    // throw will route through that same path. T046 owns the end-to-end
-    // assertion (capturing sibling never sees the redactor-failing event).
-    it.todo('throwing redactor drops the event and notifies onInternalError');
+    // Full end-to-end coverage lives in
+    // `tests/security/fail-closed-redaction.test.ts` (T046). This
+    // contract assertion is the load-bearing one-liner: the dispatcher
+    // routes the throw through onInternalError as fail-closed and the
+    // capturing sibling sees zero events.
+    it('throwing redactor drops the event and notifies onInternalError', () => {
+      const capturing = makeCapturingTransport('fs4-capturing');
+      const onInternalError = vi.fn();
+      configureLogging({
+        application: FIXED_APP,
+        level: 'debug',
+        transports: [capturing],
+        redactor: () => {
+          throw new Error('fs4 redactor explosion');
+        },
+        onInternalError,
+      });
+      const log = createLogger();
+      log.info('fs4 emit');
+      expect(capturing.calls).toHaveLength(0);
+      expect(onInternalError).toHaveBeenCalledTimes(1);
+      const err = onInternalError.mock.calls[0]![0] as Error & { code?: string };
+      expect(err.code).toBe('redactor_failed');
+    });
   });
 
   describe('FS-5: correlation() callback throws → callback dropped, event emitted', () => {

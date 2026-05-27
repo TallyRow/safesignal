@@ -11,8 +11,9 @@
  *
  * Behavior before `configureLogging()` is called is identical to a
  * `configureLogging({})` invocation: env-unknown defaults (`warn`+),
- * a single `NoopTransport`, and `OtelLogsBackend` initialized against
- * that empty config. All emissions return synchronously and never throw.
+ * a single `NoopTransport`, and the documented internal backend
+ * initialized against that empty config. All emissions return
+ * synchronously and never throw.
  *
  * Pipeline status: T016 calls `backend.handle(event)` directly with an
  * inline-built `LogEvent`. T017 extracts event construction into

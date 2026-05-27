@@ -258,39 +258,39 @@ sanitized, redacted output — or safe event dropping.
 
 ### Security tests (FR-012..FR-021 / SC-008..SC-010 coverage)
 
-- [ ] T041 [P] [US3] Add secret-leakage sweep in `tests/security/secret-leakage.test.ts`
+- [X] T041 [P] [US3] Add secret-leakage sweep in `tests/security/secret-leakage.test.ts`
   Acceptance: Uses `makeSecretFixture()`. Places each fixture value in `attributes`, nested `attributes`, `context.attributes`, `message`, and `error.message`. Asserts every value is masked in the `LogEvent` received by an in-memory transport. Covers FR-012, FR-014, FR-015 and SC-008.
   Parallel: Yes
 
-- [ ] T042 [P] [US3] Add URL-query leakage sweep in `tests/security/url-query-leakage.test.ts`
+- [X] T042 [P] [US3] Add URL-query leakage sweep in `tests/security/url-query-leakage.test.ts`
   Acceptance: URLs containing `?token=...`, `?session_id=...`, `?access_token=...`, and `#auth=...` placed in attributes have their sensitive params replaced via the URL scrubber. Asserts safe params on the same URL are preserved. Covers FR-013 (query-string secrets), FR-014.
   Parallel: Yes
 
-- [ ] T043 [P] [US3] Add log-injection resistance test in `tests/security/log-injection.test.ts`
+- [X] T043 [P] [US3] Add log-injection resistance test in `tests/security/log-injection.test.ts`
   Acceptance: Attribute and message values containing `\n`, `\r`, U+2028, U+2029, ANSI escapes, and forged-record-like payloads (e.g., `'\n{"level":"error","message":"forged"}\n'`) are escaped at the output boundary. Asserts `ConsoleTransport`'s output cannot produce a forged second record when parsed line-by-line. Covers FR-017.
   Parallel: Yes
 
-- [ ] T044 [P] [US3] Add serialization-safety test in `tests/security/serialization-safety.test.ts`
+- [X] T044 [P] [US3] Add serialization-safety test in `tests/security/serialization-safety.test.ts`
   Acceptance: Cyclic objects, depth > 8, arrays > 1000, strings > 8192 chars, DOM nodes (`HTMLElement`), framework objects (`Event`, `Promise`, `Map`, `Set`, `Request`, `Response`, `Blob`, `FormData`, `URL`), functions, and class instances all produce documented coercion outputs. Asserts the sanitizer never throws on any input. Covers FR-016, FR-018.
   Parallel: Yes
 
-- [ ] T045 [P] [US3] Add over-redaction test in `tests/security/over-redaction.test.ts`
+- [X] T045 [P] [US3] Add over-redaction test in `tests/security/over-redaction.test.ts`
   Acceptance: Safe values containing denylist substrings in non-key positions are NOT mangled (e.g., a string value `"tokenizer is great"` under key `"product"`, a description field saying "authorization is required"). Asserts redaction matches keys (case-insensitive) and value shapes (JWT/Bearer), never arbitrary substrings inside non-key string values. Locks R-3 from `contracts/redaction.md`.
   Parallel: Yes
 
-- [ ] T046 [P] [US3] Add fail-closed redaction test in `tests/security/fail-closed-redaction.test.ts`
+- [X] T046 [P] [US3] Add fail-closed redaction test in `tests/security/fail-closed-redaction.test.ts`
   Acceptance: A redactor that throws causes the affected event to be dropped (never partially emitted, never emitted raw) and `onInternalError` is invoked. A redactor that returns a non-event value behaves the same. Surviving transports receive zero events from those failing emissions. Covers FR-019, FR-020.
   Parallel: Yes
 
-- [ ] T047 [P] [US3] Add sanitizer-limit clamp test in `tests/security/sanitizer-limit-clamp.test.ts`
+- [X] T047 [P] [US3] Add sanitizer-limit clamp test in `tests/security/sanitizer-limit-clamp.test.ts`
   Acceptance: Setting `sanitizerLimits.maxDepth = 99` clamps to 16 and emits one `onInternalError`. Setting `maxStringLength = 0` clamps to 64 and emits the notice. The package never allows a limit above the documented Max regardless of consumer input. Locks LC-10 and S-10.
   Parallel: Yes
 
-- [ ] T048 [P] [US3] Add pipeline-order contract test in `tests/security/pipeline-order.security.test.ts`
+- [X] T048 [P] [US3] Add pipeline-order contract test in `tests/security/pipeline-order.security.test.ts`
   Acceptance: Test injects observable spies at each pipeline stage and asserts the runtime order is exactly `EventBuilder → LevelFilter → Sanitizer → URLScrubber → Redactor → ControlCharGuard → Freeze(dev) → Dispatcher`. Asserts no transport `send()` receives an event that has not passed through Sanitizer and Redactor. Locks the security boundary.
   Parallel: Yes
 
-- [ ] T049 [P] [US3] Add bundle-shape security test in `tests/security/bundle-shape.security.test.ts`
+- [X] T049 [P] [US3] Add bundle-shape security test in `tests/security/bundle-shape.security.test.ts`
   Acceptance: Runs after the build. Asserts the built `dist/index.d.ts` contains no occurrences of `opentelemetry` / `@opentelemetry` and no OTel-derived identifiers. Asserts the built `dist/index.{mjs,cjs}` does not re-export from `dist/internal/**` or `dist/testing/**`. Verifies PA-5 and the bundle-shape claim in the plan.
   Parallel: Yes
 
