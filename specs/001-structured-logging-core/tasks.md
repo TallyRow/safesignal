@@ -244,15 +244,15 @@ sanitized, redacted output — or safe event dropping.
   Acceptance: Verifies every row of the input/output table (S-1..S-9). Includes a class instance with a `password` getter and asserts the getter is NOT invoked.
   Parallel: Yes
 
-- [ ] T038 [P] [US3] Add URL-scrubber unit tests in `tests/unit/pipeline/url-scrubber.test.ts`
+- [X] T038 [P] [US3] Add URL-scrubber unit tests in `tests/unit/pipeline/url-scrubber.test.ts`
   Acceptance: Covers well-formed and malformed URLs, repeated query params, fragments, custom `extraParams`, and `fragment: false`. Asserts `scrubUrl()` never throws.
   Parallel: Yes
 
-- [ ] T039 [P] [US3] Add control-char-guard unit tests in `tests/unit/pipeline/control-char-guard.test.ts`
+- [X] T039 [P] [US3] Add control-char-guard unit tests in `tests/unit/pipeline/control-char-guard.test.ts`
   Acceptance: Covers every control-char range, U+2028, U+2029, mixed strings, and verifies `\t`/`\n`/`\r` are preserved.
   Parallel: Yes
 
-- [ ] T040 [P] [US3] Add redactor unit tests in `tests/unit/pipeline/redactor.test.ts`
+- [X] T040 [P] [US3] Add redactor unit tests in `tests/unit/pipeline/redactor.test.ts`
   Acceptance: Covers each default key rule, each default shape rule, custom rule replacement, custom rule composition pattern from the contract, and the fail-closed behavior when the redactor throws or returns a non-event value.
   Parallel: Yes
 

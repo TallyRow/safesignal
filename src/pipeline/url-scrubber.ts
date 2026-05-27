@@ -100,11 +100,11 @@ export function scrubUrl(url: string, options?: ScrubUrlOptions): string {
 
   if (!changed) return url;
 
-  try {
-    return parsed.toString();
-  } catch {
-    return url;
-  }
+  // `URL.prototype.toString` does not throw for a URL object that was
+  // constructed via `new URL()` and only mutated through `searchParams`
+  // and `hash` (both of which accept arbitrary string input without
+  // validation). No defensive belt is required here.
+  return parsed.toString();
 }
 
 // ---------------------------------------------------------------------------
@@ -151,25 +151,32 @@ function scrubSearchParams(
   parsed: URL,
   extras: ReadonlyArray<string | RegExp>,
 ): boolean {
-  const params = parsed.searchParams;
-  // Collect unique keys up-front; URLSearchParams may have repeated keys.
-  const uniqueKeys: string[] = [];
-  const seen = new Set<string>();
-  for (const key of params.keys()) {
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueKeys.push(key);
-    }
+  // Snapshot the original (name, value) sequence so we can rebuild the
+  // params in the same order — `params.delete(name)` followed by
+  // `params.append(name, REDACTED)` would otherwise move the rewritten
+  // param to the end of the search-string output, which is surprising
+  // for consumers eyeballing scrubbed URLs.
+  const entries: Array<[string, string]> = [];
+  for (const [name, value] of parsed.searchParams.entries()) {
+    entries.push([name, value]);
   }
   let changed = false;
-  for (const key of uniqueKeys) {
-    if (!isDenied(key, extras)) continue;
-    const occurrences = params.getAll(key).length;
-    params.delete(key);
-    for (let i = 0; i < occurrences; i++) params.append(key, REDACTED);
-    changed = true;
+  for (let i = 0; i < entries.length; i++) {
+    // Non-null assertion: `i < entries.length` guarantees the index is
+    // populated. Avoids a dead `undefined` branch under
+    // `noUncheckedIndexedAccess`.
+    const entry = entries[i]!;
+    if (isDenied(entry[0], extras)) {
+      entries[i] = [entry[0], REDACTED];
+      changed = true;
+    }
   }
-  return changed;
+  if (!changed) return false;
+  const uniqueKeys = new Set<string>();
+  for (const entry of entries) uniqueKeys.add(entry[0]);
+  for (const key of uniqueKeys) parsed.searchParams.delete(key);
+  for (const [name, value] of entries) parsed.searchParams.append(name, value);
+  return true;
 }
 
 function scrubHashFragment(

@@ -297,7 +297,18 @@ const VALID_LEVELS: ReadonlySet<LogLevel> = new Set<LogLevel>([
 ]);
 
 function isLogEventShape(value: unknown): value is LogEvent {
-  if (value === null || typeof value !== 'object') return false;
+  // `null` is intercepted by the upstream `result === null` check in
+  // `redact()` (a redactor returning `null` is a valid drop, not a
+  // shape failure), so the `value === null` half of the guard below
+  // is unreachable via the configured pipeline. Kept as defense in
+  // depth for any future call site that bypasses the upstream check.
+  if (
+    typeof value !== 'object' ||
+    /* v8 ignore next */
+    value === null
+  ) {
+    return false;
+  }
   const obj = value as Record<string, unknown>;
   if (typeof obj['timestamp'] !== 'string') return false;
   if (typeof obj['level'] !== 'string') return false;
