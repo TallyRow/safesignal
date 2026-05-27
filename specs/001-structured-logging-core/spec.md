@@ -74,6 +74,15 @@ enforced where logs are created.
 
 ## User Scenarios & Testing *(mandatory)*
 
+> **Priority convention**: P1..P5 reflect **delivery order** (P1 = MVP, P5 =
+> last to ship), not architectural importance. US5 carries a P5 label
+> because it is delivered after US1–US4, but its content (lightweight
+> Logger handles + shared `ConfiguredRuntime` + vendor-neutral direct
+> fan-out) is architecturally load-bearing for v1 — it is what makes the
+> many-loggers-per-page model and the federated-runtime contract testable.
+> Tasks for US5 (T058..T067) and the dispatcher refactor (T066) MUST land
+> before v1 is considered shippable.
+
 ### User Story 1 - Emit Structured Application Logs (Priority: P1)
 
 As an application developer, I need a stable package API for emitting structured
@@ -161,13 +170,13 @@ consistently.
 **Why this priority**: Shared package adoption in federated environments requires
 clear origin tracking without app-specific forks of the logging contract.
 
-**Independent Test**: A host app and a frontend module can emit logs through the same
+**Independent Test**: A host app and a federated module can emit logs through the same
 package API and produce records that remain distinguishable by origin and shared
 context.
 
 **Acceptance Scenarios**:
 
-1. **Given** a host application and a frontend module using the same package,
+1. **Given** a host application and a federated module using the same package,
    **When** both emit logs, **Then** the resulting records include sufficient context
    to distinguish event origin.
 2. **Given** contextual metadata such as application identity, module identity, or
@@ -308,7 +317,7 @@ shared delivery path.
   including application identity, environment, and correlation metadata when
   available.
 - **FR-008**: The package MUST support identifying the origin of log events across
-  host applications and independently deployed frontend modules.
+  host applications and independently deployed federated modules.
 - **FR-009**: The package MUST avoid exposing vendor-specific or delivery-specific
   implementation details in the public interface.
 - **FR-010**: The package MUST preserve browser runtime safety and MUST NOT interrupt
@@ -323,8 +332,12 @@ shared delivery path.
   credentials, access tokens, refresh tokens, session identifiers, authorization
   values, query-string secrets, or unnecessary personal or confidential data.
 - **FR-014**: The package MUST support safe handling of sensitive values before
-  emission or delivery through filtering, redaction, omission, or equivalent
-  protective behavior defined by the package contract.
+  emission or delivery through one or more of the package's documented protective
+  transformations: redaction (key-name and value-shape matching, fail-closed),
+  URL scrubbing (sensitive query/fragment parameters), sanitization (depth/size/
+  count limits + type-tagging of class/DOM/framework objects), control-character
+  escaping, and omission (key drop for `undefined`). The package contract MUST
+  NOT introduce undocumented "equivalent" transformations.
 - **FR-015**: The package MUST minimize the risk of accidental sensitive-data leakage
   when consumers supply structured metadata, derived context, or serializable input.
 - **FR-016**: The package MUST prefer structured log events suitable for downstream
@@ -345,30 +358,42 @@ shared delivery path.
   baseline active production levels.
 - **FR-022**: The package MUST support reuse across multiple web projects and
   frontend architectures while preserving a security-conscious logging contract that
-  downstream applications and platform teams can rely on.
+  downstream applications and platform teams can rely on. (Security-contract
+  aspect of reusability; the technology-neutrality aspect — no assumed framework,
+  bundler, or deployment model — is captured separately by FR-027.)
 - **FR-023**: The package MUST support downstream application or platform security
   needs without hard-coding a single backend vendor or ingestion implementation.
 - **FR-024**: The package MUST provide documentation and examples that demonstrate
   safe logging usage patterns, including how to supply structured context without
   exposing unnecessary sensitive data.
-- **FR-025**: The package MUST guide consumers toward the safe path by default
-  through its documented contract, default behavior, and examples.
+- **FR-025**: Default configuration, ergonomic call signatures, and documented
+  examples MUST make the safe path the easy path. Specifically: every default
+  setting MUST satisfy FR-021 (production-safe defaults), every published code
+  snippet and example MUST use only public exports without disabling redaction
+  or sanitizer limits, and unsafe usage MUST require an explicit consumer
+  opt-in (e.g., supplying a custom `Redactor` that intentionally relaxes
+  defaults). Verifiable through SC-009 plus the documentation audits at T069
+  and T070.
 - **FR-026**: The package MUST preserve a path for future delivery mechanisms and
   observability integrations without requiring widespread changes to consuming
   application logging call sites.
 - **FR-027**: The package MUST remain usable across multiple web projects and frontend
   architectures without assuming a single framework, bundler, or deployment model.
+  (Technology-neutrality aspect of reusability; the security-contract aspect is
+  captured separately by FR-022.)
 - **FR-028**: The package MUST preserve clear boundaries between package
   responsibilities and application- or platform-owned ingestion responsibilities.
 - **FR-029**: The package MUST keep Logger creation cheap and side-effect-free.
   Creating a Logger — including the root Logger, per-module Loggers, and derived
   Loggers from `child()` / `withContext()` — MUST NOT initialize a telemetry
-  backend, vendor SDK, transport, queue, batching loop, retry loop, timer,
-  interval, scheduled callback, global event listener, console patch (e.g.,
-  patching `console.*`, `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`,
-  `window.onerror`, `window.onunhandledrejection`), document or window observer,
-  or perform any network work. Logger creation MUST also NOT read ambient
-  browser state (location, cookies, storage, navigator, environment variables).
+  backend, any observability-vendor SDK (e.g., OpenTelemetry, Datadog, Sentry,
+  or any future vendor adapter), transport, queue, batching loop, retry loop,
+  timer, interval, scheduled callback, global event listener, console patch
+  (e.g., patching `console.*`, `fetch`, `XMLHttpRequest`,
+  `navigator.sendBeacon`, `window.onerror`, `window.onunhandledrejection`),
+  document or window observer, or perform any network work. Logger creation
+  MUST also NOT read ambient browser state (location, cookies, storage,
+  navigator, environment variables).
 - **FR-030**: Logger instances MUST share the active configured runtime
   (telemetry backend, transports, redactor, sanitizer state, internal error
   reporter) within the same package/runtime boundary. Expensive runtime
@@ -428,10 +453,15 @@ shared delivery path.
   omit, limit, or otherwise safely handle sensitive, unknown, or oversized values
   before emission or delivery.
 - **Configured Runtime**: The shared, package-level runtime state established by
-  `configureLogging` — telemetry backend, transports, redactor, sanitizer
-  limits, internal error reporter — that every Logger instance within the same
-  package/runtime boundary uses for delivery. Logger instances are cheap
-  handles over this shared runtime; they neither own it nor duplicate it.
+  `configureLogging` — transports (already wrapped), redactor, sanitizer
+  limits, internal error reporter, correlation hook — that every Logger
+  instance within the same package/runtime boundary uses for delivery. Logger
+  instances are cheap handles over this shared runtime; they neither own it
+  nor duplicate it. The internal implementation entity is `ConfiguredRuntime`
+  in `src/runtime/configured-runtime.ts` (see `plan.md` "Runtime Scale
+  Architecture"). v1 deliberately does NOT hold a telemetry backend — the
+  dispatcher fans events out directly to transports (see `plan.md`
+  "Vendor-Neutral Core Architecture").
 - **Package/Runtime Boundary**: The scope within which a Configured Runtime is
   authoritative. Normally the boundary corresponds to one physical copy of the
   package on a page; federated deployments with multiple copies define the
@@ -495,20 +525,51 @@ shared delivery path.
 
 ## Risks & Open Questions
 
-- Define which event fields are mandatory in the core contract versus optional
-  contextual metadata so the package stays minimal without becoming ambiguous.
-- Decide which sensitive-field classes require built-in protection versus consumer
-  configuration.
-- Determine how much arbitrary context the public API should accept before applying
-  protective limits or rejection behavior.
-- Define what conservative defaults should apply when consumers pass large, unknown,
-  or deeply nested objects.
-- Clarify what guarantees the package makes about filtering and redaction behavior
-  versus what remains the responsibility of consuming applications.
-- Confirm the default behavior when no delivery mechanism is configured so consumer
-  expectations are explicit before planning.
-- Clarify the minimum origin and context guarantees required for federated
-  host/module environments compared with ordinary single-app environments.
+- **Mandatory vs. optional event fields (RESOLVED)**: locked by
+  `contracts/log-event.md`. Required: `timestamp` (package-assigned),
+  `level`, `message` (empty string allowed), `attributes` (always an object,
+  may be empty), `context` (always present, merged from config + chain +
+  correlation). Optional: `error` (populated only when `Logger.error(msg,
+  attrs, err)` is called with `err`).
+- **Sensitive-field classes (RESOLVED)**: locked by `contracts/redaction.md`.
+  Built-in protection covers a documented key denylist
+  (`password`/`token`/`authorization`/`api_key`/`session_id`/`secret`/
+  `cookie` family, case-insensitive) plus shape rules (JWT and Bearer
+  tokens). Consumers extend via `createRedactor()` for project-specific
+  keys; out-of-band sensitive classes remain the consumer's responsibility
+  via custom rules.
+- **Arbitrary-context limits (RESOLVED)**: locked by
+  `contracts/sanitization.md`. `SanitizerLimits` defaults: `maxDepth=8`,
+  `maxStringLength=8192`, `maxArrayLength=1000`, `maxAttributeCount=256`
+  (cumulative across the whole event). Consumers may tighten (within
+  documented Min) but MUST NOT raise above documented Max (clamping emits
+  one `onInternalError` notice).
+- **Conservative defaults for large/unknown/deeply-nested objects
+  (RESOLVED)**: locked by `contracts/sanitization.md` type-tag rules.
+  Class instances → `"[<ConstructorName>]"`, DOM nodes →
+  `"[Element:<tagName>]"`, framework objects (Event/Promise/Map/Set/etc.)
+  → `"[<TypeTag>]"`, cyclic references → `"[Circular]"`, depth overflow →
+  `"[MaxDepth]"`, oversized arrays → final
+  `"[Truncated: <N> elements omitted]"` marker, oversized strings →
+  truncated with `"...[truncated]"` suffix.
+- **Package vs. application responsibility for filtering/redaction
+  (RESOLVED)**: locked by `contracts/redaction.md` +
+  `contracts/failure-safety.md` + `docs/safe-logging.md` (to be authored
+  in T050). Package guarantees: default key denylist, default shape rules,
+  fail-closed redaction (drop on throw), pipeline order with sanitizer
+  upstream of redactor. Application responsibility: extending the redactor
+  with project-specific keys, choosing transports, auditing attribute key
+  vocabulary, and not embedding raw secrets in `message` strings.
+- **Default behavior when no transport is configured (RESOLVED)**: locked
+  by `contracts/failure-safety.md`. `NoopTransport` is auto-installed
+  when `transports` is `undefined` or `[]`; emissions return normally; one
+  `onInternalError` notice fires when `environment === 'production'`.
+- **Minimum origin and context guarantees in federated environments
+  (RESOLVED)**: locked by US4 / US5 acceptance scenarios and
+  `data-model.md` merge rules. Merge precedence:
+  `configureLogging.context` → `createLogger.context` → `logger.child`
+  chain → `correlation()` return. Per-logger `module` identity (FR-008)
+  ensures federated origin is preserved through every layer.
 - **OpenTelemetry default-vs-optional decision (RESOLVED 2026-05-27, see
   Clarifications)**: v1 ships **vendor-neutral**. The core package has no
   observability-vendor runtime dependencies; the dispatcher fans events out
