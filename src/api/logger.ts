@@ -2,29 +2,27 @@
  * Public logger factories and root configuration flow.
  *
  *   - `configureLogging(config)` — install (or replace) the package's
- *     module-scoped configuration. Atomic: shuts down the previous
- *     backend, then installs the new config in a single assignment so
- *     existing logger references keep working without modification.
+ *     module-scoped configuration. Atomic: the new runtime is built
+ *     and installed in a single slot swap, then the previously-active
+ *     runtime is torn down in the background so existing logger
+ *     references keep working without modification.
  *   - `createLogger(options?)` — return a `Logger` whose context layers
  *     on top of the current root configuration.
  *   - `getRootLogger()` — singleton root logger created on first access.
  *
  * Behavior before `configureLogging()` is called is identical to a
  * `configureLogging({})` invocation: env-unknown defaults (`warn`+),
- * a single `NoopTransport`, and the documented internal backend
- * initialized against that empty config. All emissions return
- * synchronously and never throw.
+ * a single `NoopTransport`, and direct transport fan-out from the
+ * dispatcher. All emissions return synchronously and never throw.
  *
- * Pipeline status: T016 calls `backend.handle(event)` directly with an
- * inline-built `LogEvent`. T017 extracts event construction into
- * `src/pipeline/event-builder.ts` and `src/pipeline/level-filter.ts`,
- * and T018 introduces `src/pipeline/dispatcher.ts` with named
- * pass-through seams for the security stages that land in Phase 5.
+ * Vendor-neutrality: this module imports no observability-vendor SDK.
+ * The dispatcher fans sanitized + redacted events directly to the
+ * `SafeTransport`-wrapped consumer transports stored on the active
+ * `ConfiguredRuntime`. There is no telemetry backend in the v1
+ * default path; future vendor adapters are peer transports.
  */
 
 import { mergeContexts } from '../context/context-merge.js';
-import type { TelemetryBackend } from '../internal/telemetry/backend.js';
-import { OtelLogsBackend } from '../internal/telemetry/otel/otel-backend.js';
 import { safeNotify, wrapAsPackageError } from '../internal/errors/internal-errors.js';
 import { dispatch } from '../pipeline/dispatcher.js';
 import { buildLogEvent } from '../pipeline/event-builder.js';
@@ -47,28 +45,14 @@ import type {
   LogLevel,
 } from './types.js';
 
-/**
- * Transitional companion to the active-runtime slot exported from
- * `src/runtime/runtime-ref.ts`. The runtime slot is the single
- * source of truth for `ConfiguredRuntime`; this companion holds the
- * `TelemetryBackend` instance that the dispatcher still needs as a
- * `backend.handle()` target until T066 refactors the dispatcher to
- * direct `SafeTransport[]` fan-out.
- *
- * T058 keeps backend out of `ConfiguredRuntime` (per plan.md's
- * "Vendor-Neutral Core Architecture") while preserving the existing
- * runtime behavior. T066 drops this slot entirely.
- */
-let backendSlot: TelemetryBackend | undefined;
 let rootLogger: Logger | undefined;
 
 /**
  * Build a fresh `ConfiguredRuntime` from `config`, install it as the
- * active runtime, build + init the companion backend, and shut down
- * the previously-active runtime + backend in the background. The
- * runtime-slot swap is atomic: retained `Logger` references that
- * read through `getActiveRuntime()` at emit time see the new
- * runtime immediately.
+ * active runtime, and shut down the previously-active runtime's
+ * transports in the background. The runtime-slot swap is atomic:
+ * retained `Logger` references that read through `getActiveRuntime()`
+ * at emit time see the new runtime immediately.
  */
 function installState(config: LoggerConfig): ConfiguredRuntime {
   const runtime = buildConfiguredRuntime(config);
@@ -77,41 +61,32 @@ function installState(config: LoggerConfig): ConfiguredRuntime {
   // Logger references see the new runtime; the old runtime's
   // transports continue to flush + shutdown in the background.
   const previousRuntime = installRuntime(runtime);
-  const previousBackend = backendSlot;
 
-  const backend: TelemetryBackend = new OtelLogsBackend();
-  backend.init(runtime.config);
-  backendSlot = backend;
-
-  // Fire-and-forget teardown of the previous state. Each transport's
-  // flush/shutdown is already isolated by SafeTransport; the backend's
-  // own shutdown has internal try/catch. The `.then(undefined, …)` is
-  // a final unhandled-rejection swallow per the no-throw invariant.
+  // Fire-and-forget teardown of the previous runtime. Each transport's
+  // flush/shutdown is already isolated by SafeTransport; the
+  // `.then(undefined, …)` is a final unhandled-rejection swallow per
+  // the no-throw invariant.
   if (previousRuntime !== undefined) {
     void shutdownRuntime(previousRuntime).then(undefined, () => undefined);
-  }
-  if (previousBackend !== undefined) {
-    void previousBackend.shutdown().then(undefined, () => undefined);
   }
   return runtime;
 }
 
 /** Lazily install safe defaults so pre-configure emissions just work. */
-function ensureState(): { runtime: ConfiguredRuntime; backend: TelemetryBackend } {
+function ensureState(): ConfiguredRuntime {
   let runtime = getActiveRuntime();
-  if (runtime === undefined || backendSlot === undefined) {
+  if (runtime === undefined) {
     runtime = installState({});
   }
-  // Non-null assertion: `installState` always sets `backendSlot`.
-  return { runtime, backend: backendSlot! };
+  return runtime;
 }
 
 /**
  * Install or replace the package's configuration. Safe to call multiple
- * times — the previous runtime's transports are flushed + shut down and
- * the previous backend is shut down (both fire-and-forget) and the new
- * configuration is installed via an atomic active-runtime-slot swap, so
- * existing logger references continue to work without re-acquisition.
+ * times — the previous runtime's transports are flushed + shut down
+ * (fire-and-forget) and the new configuration is installed via an
+ * atomic active-runtime-slot swap, so existing logger references
+ * continue to work without re-acquisition.
  *
  * Per FR-031 / SC-012, the swap is observable to any subsequent emit
  * from a retained `Logger` reference: emit reads through
@@ -164,7 +139,7 @@ function makeLogger(
     attributes?: Attributes,
     errorValue?: unknown,
   ): void {
-    const { runtime, backend } = ensureState();
+    const runtime = ensureState();
     const cfg = runtime.config;
 
     // Level filter — runs first so a filtered-out emission performs no
@@ -226,12 +201,11 @@ function makeLogger(
     });
 
     // Route through the locked pipeline order in src/pipeline/dispatcher.ts:
-    //   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze → backend.
-    // The dispatcher owns its own try/catch around every stage and around
-    // backend.handle, so no error can escape into this caller. T066 will
-    // drop the `backend` argument once the dispatcher fans events out
-    // directly to the wrapped transports stored on `runtime.transports`.
-    dispatch(event, cfg, backend);
+    //   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze →
+    //   direct transport fan-out. The dispatcher owns its own try/catch
+    //   around every stage and around every transport.send() call, so no
+    //   error can escape into this caller.
+    dispatch(event, cfg);
   }
 
   return {

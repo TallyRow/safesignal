@@ -11,14 +11,12 @@
  * shared across every logger derived from a single
  * `configureLogging()` invocation.
  *
- * Per T058's acceptance and `plan.md`'s "Vendor-Neutral Core
- * Architecture", this record has **no `backend` field**. T066 will
- * refactor the dispatcher to drop the `TelemetryBackend.handle()`
- * indirection and fan out events directly to the wrapped transports
- * stored here. Until T066 lands, `src/api/logger.ts` maintains a
- * separate module-scoped backend slot in parallel with the active-
- * runtime slot exported from `runtime-ref.ts`; that transitional
- * coupling is intentional and goes away with T066.
+ * Per `plan.md`'s "Vendor-Neutral Core Architecture", this record
+ * has **no `backend` field**. The dispatcher (`pipeline/dispatcher.ts`)
+ * fans events out directly to the `SafeTransport`-wrapped transports
+ * stored here; there is no telemetry-backend indirection on the v1
+ * default path. Future vendor adapters are peer transports, not a
+ * resurrected backend slot.
  *
  * The build/shutdown helpers here are pure with respect to the
  * `runtime-ref` slot — they construct + tear down a runtime
@@ -93,8 +91,8 @@ export function buildConfiguredRuntime(config: LoggerConfig): ConfiguredRuntime 
   );
 
   // Re-build the normalized config with the wrapped transports so
-  // any downstream code that reads `config.transports` (e.g., the
-  // backend's `init()` until T066 removes it) sees the wrapped list.
+  // downstream code that reads `config.transports` (the dispatcher's
+  // direct transport fan-out) sees the wrapped list.
   const installedConfig: NormalizedConfig = {
     ...normalized,
     transports: wrapped,

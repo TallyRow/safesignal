@@ -21,15 +21,11 @@
  * (the snapshot is read-only on the event, not a replacement of the
  * default ruleset).
  *
- * v1 architectural note: the default backend (`OtelLogsBackend`)
- * round-trips events through an OTel `LogRecord` before forwarding to
- * transports, so the transport receives a structurally-identical copy
- * — not the frozen reference produced by `freezeInDev`. Freeze is
- * therefore observed at the `backend.handle()` boundary via a mock
- * backend instead of at the transport. T066 (US5 dispatcher refactor)
- * will drop the OTel indirection and make freeze directly visible at
- * the transport; this test will get a tightened assertion at that
- * time.
+ * v1 architectural note (post-T066): the dispatcher fans events out
+ * directly to the configured `SafeTransport`-wrapped transports.
+ * There is no telemetry-backend indirection on the v1 default path,
+ * so `freezeInDev` is observable at the transport boundary: a
+ * transport receives the exact reference the pipeline froze.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -201,20 +197,22 @@ describe('ControlCharGuard runs after the Redactor', () => {
 // Freeze(dev) ran AFTER ControlCharGuard
 // ---------------------------------------------------------------------------
 
-describe('Freeze(dev) runs AFTER the Redactor (asserted at the in-flight reference, since v1 OTel backend re-wraps events for transports)', () => {
+describe('Freeze(dev) runs AFTER the Redactor and is observable at the transport (post-T066 direct fan-out)', () => {
   it('the in-flight event handed to the redactor is NOT frozen at the moment the redactor runs', () => {
     const log = createLogger();
     log.info('check-freeze');
     expect(isFrozenAtRedactor).toBe(false);
   });
 
-  // NOTE: directly asserting Object.isFrozen on the transport-received
-  // event is correct AFTER the T066 dispatcher refactor (which drops
-  // the OTel round-trip). Until then, the OtelLogsBackend reconstructs
-  // a fresh (unfrozen) LogEvent from the round-tripped OTel record. The
-  // pipeline ordering — Freeze(dev) runs AFTER ControlCharGuard — is
-  // observable via the unit test for freeze.ts and asserted indirectly
-  // here by the "in-flight at redactor is unfrozen" check above.
+  it('the event the transport receives IS frozen (the dispatcher fans the frozen reference out directly — no backend round-trip)', () => {
+    const log = createLogger();
+    log.info('frozen-at-transport', { x: 1 });
+    const event = capture.calls[0]!;
+    expect(Object.isFrozen(event)).toBe(true);
+    // Deep freeze: nested attributes and context objects are also frozen.
+    expect(Object.isFrozen(event.attributes)).toBe(true);
+    expect(Object.isFrozen(event.context)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
