@@ -97,8 +97,20 @@ fully tested by [specific action] and delivers [specific value]"]
 - **Migration Notes**: [Required only when consumer-visible behavior changes]
 - **Host/Module Usage Impact**: [How host apps and federated or modular consumers are
   affected]
-- **Privacy Considerations**: [Sensitive data handling, redaction, or logging safety
-  implications]
+- **Security & Privacy Considerations**: [Sensitive data risks, secure defaults,
+  redaction or omission behavior, fail-closed handling, and any change that could
+  affect what data is captured, serialized, or transmitted. State explicitly when
+  there is no impact.]
+- **Log Integrity Considerations**: [Any behavior that drops, samples, batches,
+  reorders, or transforms events; impact on machine-parseability, origin
+  attribution, and downstream monitoring/forensic use. State explicitly when
+  there is no impact.]
+- **Runtime Scale & Federated Deployment Impact**: [How the change affects
+  per-`Logger` creation cost (timers, listeners, global patches, network work,
+  ambient reads), shared runtime resource ownership, host vs. module
+  configuration responsibility, and duplicate-package-copy behavior
+  (isolated / shared / explicitly unsupported). State explicitly when there is
+  no impact.]
 
 ## Requirements *(mandatory)*
 
@@ -115,11 +127,28 @@ fully tested by [specific action] and delivers [specific value]"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
 - **FR-006**: System MUST preserve browser runtime safety and failure resilience for
-  all new behavior.
+  all new behavior, including fail-closed handling when redaction, serialization,
+  or transport delivery fails.
 - **FR-007**: System MUST keep consumer-visible behavior framework-neutral and
   implementation details hidden behind the package interface.
 - **FR-008**: System MUST define structured logging metadata, level behavior, and
   privacy-safe handling expectations for any new or changed logging behavior.
+- **FR-009**: System MUST be secure by default: any new or changed default
+  behavior MUST NOT expose secrets, credentials, tokens, session identifiers,
+  authorization headers, cookies, or unnecessary personal data, and MUST NOT
+  encourage unsafe patterns (raw object dumping, disabling redaction) in defaults
+  or examples.
+- **FR-010**: System MUST preserve log integrity and monitoring suitability for
+  any new or changed event production: events remain structured, machine-parseable,
+  origin-attributable, and any drop/sample/batch/transform behavior is documented.
+- **FR-011**: System MUST keep `Logger` instance creation lightweight and
+  side-effect-free (no per-instance backend init, transport open, timer, global
+  listener, console patch, network work, or ambient browser read), MUST share
+  expensive runtime resources at the configured runtime/package level rather than
+  per `Logger`, and MUST keep host/module ownership of the configured runtime
+  explicit so federated modules do not accidentally replace host configuration.
+  The duplicate-package-copy behavior MUST be documented as one of: isolated,
+  shared, or explicitly unsupported.
 
 *Example of marking unclear requirements:*
 

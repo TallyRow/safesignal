@@ -1,0 +1,16 @@
+{
+  "name": "host-app-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Single-app consumer example for @your-org/frontend-logging-sdk.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@your-org/frontend-logging-sdk": "file:../.."
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
