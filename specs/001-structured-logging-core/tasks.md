@@ -585,12 +585,12 @@ emitted events.
 
 **Purpose**: Final validation, packaging, end-to-end sweeps, doc audit. Renumbered from prior Phase 7 to make room for Phase 7 (US5).
 
-- [ ] T068 [P] Add end-to-end secret sweep in `tests/integration/secret-sweep.integration.test.ts`
+- [X] T068 [P] Add end-to-end secret sweep in `tests/integration/secret-sweep.integration.test.ts`
   Acceptance: End-to-end version of the secret-leakage sweep that exercises the full default pipeline (LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor → ControlCharGuard → Freeze(dev) → direct transport fan-out → in-memory transport). Asserts every fixture value is masked. Future vendor-adapter features (OpenTelemetry, Datadog, Sentry, and any other vendor) are peers of each other; each one will ship its own equivalent sweep against its own `Transport` adapter as part of that feature's own plan/tasks. v1's core sweep does NOT exercise any vendor adapter because none is on the default path and none is bundled — the core is vendor-free (see plan.md "Vendor-Neutral Core Architecture").
   Parallel: Yes
   **Was**: prior T067 / original T058.
 
-- [ ] T069 [P] Validate quickstart and consumer docs in `specs/001-structured-logging-core/quickstart.md`, `README.md`, and `docs/safe-logging.md`
+- [X] T069 [P] Validate quickstart and consumer docs in `specs/001-structured-logging-core/quickstart.md`, `README.md`, and `docs/safe-logging.md`
   Acceptance: Doc audit confirms every code snippet uses public exports only, every snippet compiles against the built `dist/`, and no snippet normalizes an insecure pattern (no template-string value interpolation, no raw object dump, no URL-based delivery, no logging of DOM/framework objects, no vendor-specific code paths). Confirms the "Documented drops, transforms, and bounded behavior" section in `docs/safe-logging.md` is present and accurate, and that the "Configuration ownership", "Duplicate package copies", and "Vendor neutrality" sections from T065 are present and accurate.
   Parallel: Yes
   **Was**: prior T068 / original T059.
