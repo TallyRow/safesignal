@@ -246,13 +246,10 @@ function sanitizeArray(
   const len = arr.length;
   const limit = len > ctx.maxArrayLength ? ctx.maxArrayLength : len;
   for (let i = 0; i < limit; i++) {
-    const item = arr[i];
-    if (item === undefined) {
-      // Per contract: `undefined` inside arrays → `null`.
-      out.push(null);
-    } else {
-      out.push(sanitizeValue(item, depth + 1, ctx));
-    }
+    // Per contract: `undefined` inside arrays → `null`. We delegate
+    // that coercion to `sanitizeValue`'s `typeof === 'undefined'`
+    // branch so the per-item shape rules stay in one place.
+    out.push(sanitizeValue(arr[i], depth + 1, ctx));
   }
   if (len > ctx.maxArrayLength) {
     const omitted = len - ctx.maxArrayLength;
@@ -328,12 +325,14 @@ function readProperty(obj: Record<string, unknown>, key: string): unknown {
 }
 
 function isPlainObject(obj: object): boolean {
-  let proto: object | null;
-  try {
-    proto = Object.getPrototypeOf(obj) as object | null;
-  } catch {
-    return false;
-  }
+  // `Object.getPrototypeOf(obj)` can in principle throw via a Proxy's
+  // `getPrototypeOf` trap, but any such input has already thrown — and
+  // been collapsed to `'[Unserializable]'` — by an earlier `instanceof`
+  // check in `sanitizeValueImpl` (those checks also call
+  // `Object.getPrototypeOf` internally). The `sanitizeValue` outer
+  // defensive belt is the single source of truth for that recovery, so
+  // a redundant local try/catch here would only ever be dead code.
+  const proto = Object.getPrototypeOf(obj) as object | null;
   return proto === null || proto === Object.prototype;
 }
 

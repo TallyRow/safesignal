@@ -240,7 +240,7 @@ sanitized, redacted output — or safe event dropping.
 
 ### Pipeline unit tests
 
-- [ ] T037 [P] [US3] Add sanitizer unit tests in `tests/unit/pipeline/sanitizer.test.ts`
+- [X] T037 [P] [US3] Add sanitizer unit tests in `tests/unit/pipeline/sanitizer.test.ts`
   Acceptance: Verifies every row of the input/output table (S-1..S-9). Includes a class instance with a `password` getter and asserts the getter is NOT invoked.
   Parallel: Yes
 
