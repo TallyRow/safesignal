@@ -1,6 +1,6 @@
 # Implementation Plan: Core Structured Logging API
 
-**Branch**: `001-structured-logging-core` | **Date**: 2026-05-26 (revised 2026-05-27) | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-structured-logging-core` | **Date**: 2026-05-26 (revised 2026-05-27, then revised 2026-05-27 for vendor-neutral core) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/001-structured-logging-core/spec.md`
 
@@ -8,50 +8,67 @@
 
 ## Summary
 
-Deliver a browser-first, framework-neutral, reusable frontend logging package that
-exposes a small stable public API (`Logger`, levels, structured events, context,
-transport). v1's default core runtime dispatches events through the security
-pipeline directly to configured transports via `NoopBackend` — **no OpenTelemetry
-code is on the default path**. The OTel adapter is retained as a documented
-internal seam (`src/internal/telemetry/otel/**`) with its own unit-test coverage
-but is excluded from the default bundle and is not wired by any v1 public API;
-OTel integration is deferred to a future feature spec that will land the opt-in
-mechanism. Secure logging and sensitive-data minimization are **first-class
-architectural concerns**, not afterthoughts: every emission flows through
-`Sanitize → URLScrub → Redact → ControlCharGuard → Freeze(dev)` before any
-transport sees it, and the default configuration refuses to dump arbitrary
-application state.
+Deliver a **browser-first, vendor-neutral, framework-neutral logging facade and
+safety boundary**. The package is a small stable public API
+(`Logger`, levels, structured events, context, `Transport`) plus a fixed
+sanitization → URL-scrub → redaction → control-char-guard → optional-dev-freeze
+security pipeline. Its only delivery primitive is the `Transport` interface;
+the core dispatcher fans sanitized + redacted `LogEvent`s out to configured
+transports **directly**, with no telemetry-vendor SDK on the default path.
+
+The core package works **without** OpenTelemetry, Datadog, Sentry, or any
+other observability vendor SDK installed. Vendor integrations are explicitly
+**future, optional transport adapters** (or, eventually, optional backends) —
+peers of each other, with no privileged status for any one vendor — and live
+out of band of v1.
+
+Secure logging and sensitive-data minimization are **first-class architectural
+concerns**, not afterthoughts. Every emission flows through
+`LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor →
+ControlCharGuard → Freeze(dev) → Transport fan-out` before any transport
+receives an event. Transports never see raw user input. Redaction failure
+drops the affected event (fail-closed).
 
 `Logger` instances are **lightweight context handles** over a single shared
-**Configured Runtime** per package/runtime boundary. Constructing a logger does
-no backend init, no transport wrapping, no global listener setup, no network
-work, no timer/queue allocation, and no ambient state read; expensive resources
-exist once per `configureLogging()` invocation and are shared across every
-logger derived from that runtime. This is what allows the package to scale to
-the many-loggers-per-page model (one logger per federated module is normal)
-without compounded observability weight.
+**ConfiguredRuntime** per package/runtime boundary. Constructing a logger does
+no transport wrapping, no global listener setup, no network work, no
+timer/queue allocation, no ambient state read, and **no vendor-SDK
+initialization**; expensive resources exist once per `configureLogging()`
+invocation and are shared across every logger derived from that runtime. This
+is what allows the package to scale to the many-loggers-per-page model (one
+logger per federated module is normal) without compounded observability
+weight.
 
 The package degrades safely on every failure (transport, redaction,
-serialization) and preserves a stable contract so application-owned ingestion
-and future vendor backends — including the future opt-in OTel path — can be
-added without consumer call-site changes.
+serialization) and preserves a stable, vendor-neutral contract so application-
+owned ingestion and future optional vendor adapters can be added without
+consumer call-site changes.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.4+ targeting ES2020 with DOM lib; strict mode on.
 
 **Primary Dependencies**:
-- Runtime (default core path): **none**. The default core uses `NoopBackend`,
-  which forwards events directly from the security pipeline to configured
-  transports. No `@opentelemetry/*` import is reachable from `src/index.ts`.
-- Deferred / future-only (NOT bundled by default in v1): `@opentelemetry/api-logs`,
-  `@opentelemetry/sdk-logs`, `@opentelemetry/api`. Caret-locked minor versions,
-  isolated behind `src/internal/telemetry/otel/**`. Adapter code ships in the
-  source tree but no v1 public API instantiates it; the bundle-shape test
-  (T049) and the dependency-pins test (T069, renumbered Polish package
-  audit) enforce that the default built entry does not import these
-  packages and that they remain in the documented caret-locked range
-  pending the future opt-in feature.
+- Runtime: **none**. The core package has no observability-vendor runtime
+  dependencies. The default `Transport` interface ships with two built-ins
+  (`ConsoleTransport`, `NoopTransport`); consumers supply their own transports
+  for delivery. The package works with `npm install` of zero vendor SDKs.
+- **No vendor SDKs in core**: OpenTelemetry (`@opentelemetry/*`), Datadog
+  (`@datadog/*`, `dd-rum`, etc.), Sentry (`@sentry/*`), and any other
+  observability-vendor SDK are explicitly **not** required runtime
+  dependencies of the core package. The bundle-shape test (T049) and the
+  vendor-free audit (T070, renumbered Polish task) enforce that the default
+  built entry does not import or expose any vendor SDK.
+- **Vendor adapters** (future, optional): OpenTelemetry, Datadog, Sentry,
+  and other vendor integrations are treated as **future optional transport
+  adapters** — peers of each other, with no special status for any single
+  vendor. They live in separate subpaths or separate packages introduced by
+  follow-up feature specs. Existing OTel adapter code in
+  `src/internal/telemetry/otel/**` is retained as a non-default reference
+  implementation that documents the seam for the eventual OTel adapter
+  feature; it is **not** wired into v1's default path and contributes no
+  weight to the v1 core bundle (T066 dispatcher refactor + T070 vendor-free
+  audit assert this).
 - Build: `tsup` (ESM + CJS dual output, browser target, no Node built-ins).
 - Test: `vitest` with `@vitest/coverage-v8`, `happy-dom` (browser-like env).
 
@@ -87,11 +104,13 @@ package in this repo).
   or read ambient browser state. The package MUST scale to ≥1,000 logger
   instances on a single page without compounded backend/transport
   initialization (locked by SC-011).
-- Cold-load cost of the package ≤ ~15 KB minified+gzipped for the **default
-  core path**, which in v1 is the only shipped path (security pipeline +
-  `NoopBackend` + `ConsoleTransport`/`NoopTransport`). When the future
-  opt-in OTel feature ships, its bundle cost will be measured separately
-  and will not affect the default core target.
+- Cold-load cost of the package ≤ ~15 KB minified+gzipped for the **vendor-
+  free core path**, which in v1 is the only shipped path (security pipeline +
+  direct transport fan-out + `ConsoleTransport` / `NoopTransport`). Future
+  vendor adapters (OTel, Datadog, Sentry, etc.) ship as separate optional
+  transports/packages and have their **own** bundle/performance budgets
+  defined per-adapter feature spec; their cost MUST NOT be amortized against
+  the core target.
 
 **Constraints**:
 - Browser-safe: no Node-only APIs, no top-level `window` access, no eager DOM
@@ -222,29 +241,37 @@ pipeline, backend, and wrapped transports.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 0. Logger Handles  (src/api)                                │
-│    `Logger` returned by createLogger() / child() /          │
-│    withContext() / getRootLogger(). A handle is a small     │
-│    immutable object: { name?, levelOverride?,               │
-│    mergedContext, runtimeRef }. Construction does NO        │
-│    backend init / transport wrap / global patch / I/O.      │
-│    Many handles per page (one per federated module is       │
-│    normal) all reference the same runtimeRef.               │
+│ 0. App / federated module                                   │
+│    Calls logger.debug/info/warn/error(message, attrs).      │
 └────────────────────────────┬────────────────────────────────┘
-                             │ logger.debug/info/warn/error(...)
+                             │
 ┌────────────────────────────▼────────────────────────────────┐
-│ 1. ConfiguredRuntime  (src/runtime — produced by            │
+│ 1. Logger handle  (src/api)                                 │
+│    Lightweight immutable record returned by createLogger /  │
+│    child / withContext / getRootLogger:                     │
+│    { name?, levelOverride?, mergedContext, runtimeRef }.    │
+│    Construction does NO transport wrap, NO vendor-SDK init, │
+│    NO global patch, NO timer, NO I/O. Many handles per page │
+│    (one per federated module is normal) all reference the   │
+│    same runtimeRef.                                         │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│ 2. ConfiguredRuntime  (src/runtime — produced by            │
 │    configureLogging())                                      │
-│    Owns: backend, SafeTransport[] (already wrapped),        │
-│    redactor, sanitizerLimits, onInternalError,              │
+│    Owns: normalized config, SafeTransport[] (already        │
+│    wrapped), redactor, sanitizerLimits, onInternalError,    │
 │    correlation hook. ONE instance per package/runtime       │
 │    boundary; replaced atomically on re-configuration.       │
+│    Does NOT hold a telemetry backend — fan-out is direct.   │
 └────────────────────────────┬────────────────────────────────┘
                              │ raw user input + merged context
 ┌────────────────────────────▼────────────────────────────────┐
-│ 2. Pipeline Layer  (src/pipeline) — security boundary       │
-│    a. EventBuilder        (assemble canonical LogEvent)     │
-│    b. LevelFilter         (env-aware drop-fast)             │
+│ 3. Pipeline  (src/pipeline) — security boundary             │
+│    a. LevelFilter         (env-aware drop-fast; runs        │
+│                            FIRST so filtered-out events     │
+│                            never allocate an event object)  │
+│    b. EventBuilder        (assemble canonical LogEvent)     │
 │    c. Sanitizer           (depth/size/type coercion;        │
 │                            non-serializable →               │
 │                            "[Unserializable]"; cyclic →     │
@@ -257,49 +284,49 @@ pipeline, backend, and wrapped transports.
 │                            nested structures are reachable) │
 │    f. ControlCharGuard    (escape control chars in strings) │
 │    g. Freeze (dev only)   (Object.freeze recursively)       │
-│    h. Dispatcher          (call backend; catch all errors)  │
+│    h. Dispatcher          (direct transport fan-out;        │
+│                            iterates runtime.transports and  │
+│                            calls SafeTransport.send() on    │
+│                            each. NO backend layer.)         │
 └────────────────────────────┬────────────────────────────────┘
                              │ sanitized + scrubbed + redacted
                              │ + escaped + (dev-)frozen LogEvent
 ┌────────────────────────────▼────────────────────────────────┐
-│ 3. Telemetry Backend Adapter  (src/internal/telemetry)      │
-│    TelemetryBackend interface                               │
-│      - NoopBackend       (default, internal, v1 default —   │
-│                           forwards events directly to       │
-│                           wrapped transports)               │
-│      - OtelLogsBackend   (documented seam; retained in src/ │
-│                           but NOT on the v1 default path;   │
-│                           future opt-in feature)            │
-└────────────────────────────┬────────────────────────────────┘
-                             │ LogEvent
-┌────────────────────────────▼────────────────────────────────┐
-│ 4. Transport Abstraction  (src/transport)                   │
+│ 4. Transport fan-out  (src/transport)                       │
 │    SafeTransport wraps each consumer Transport at           │
-│    configureLogging() time (NOT at logger construction)     │
+│    configureLogging() time (NOT at logger construction).    │
+│    Each transport is invoked independently; sync throws     │
+│    and rejected Promises are isolated.                      │
 │      - ConsoleTransport (built-in)                          │
 │      - NoopTransport    (built-in)                          │
 │      - <consumer-provided Transport>                        │
-└────────────────────────────┬────────────────────────────────┘
-                             │ (delivery — out of scope here)
-┌────────────────────────────▼────────────────────────────────┐
-│ 5. Future Application/Platform Ingestion  (out of scope v1) │
-│    Implemented by consumers as a Transport. Guidance is     │
-│    enforced via contracts/transport.md (POST body only;     │
-│    HTTPS; no secrets in URL query/fragment).                │
+│      - <future optional vendor adapters: OTel transport,    │
+│         Datadog transport, Sentry transport — all separate, │
+│         opt-in, none privileged>                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-The locked secure pipeline order is:
+The **locked secure pipeline order** at emit time is:
 
 ```text
-EventBuilder → LevelFilter → Sanitizer → URLScrubber → Redactor →
-ControlCharGuard → Freeze(dev) → Dispatcher → backend.handle() →
-SafeTransport[]
+LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor →
+ControlCharGuard → Freeze(dev) → Dispatcher → SafeTransport.send()
 ```
 
-Tests (`tests/security/pipeline-order.security.test.ts`, T048) lock this
-order. No backend, transport, or telemetry adapter — present or future —
-may run before the sanitizer + redactor.
+This is the actual runtime order in code: `LevelFilter` runs in `logger.ts`
+before any event allocation; `EventBuilder` builds the `LogEvent`; the
+dispatcher then runs `Sanitizer → URLScrubber → Redactor → ControlCharGuard
+→ Freeze(dev)` and finally iterates `runtime.transports` invoking
+`SafeTransport.send()` on each. Tests
+(`tests/security/pipeline-order.security.test.ts`, T048) lock this order.
+
+**Security invariant**: no transport — built-in or consumer-provided or
+future vendor adapter — receives raw user input. Sanitization, URL
+scrubbing, redaction, control-character guarding, and the dev-only freeze
+all run **before** any transport's `send()` is invoked. If the redactor
+throws or returns a non-event value, the affected event is dropped
+entirely (fail-closed) and `onInternalError` is invoked — no transport
+sees a partially-processed event.
 
 ## Runtime Scale Architecture (Principle VII)
 
@@ -313,7 +340,7 @@ exactly one per package/runtime boundary).
 | Component               | Owned by             | Cost per instance | Lifetime |
 |-------------------------|----------------------|-------------------|----------|
 | `Logger` handle         | Application / module | Allocation of a small object reference; no I/O | As long as caller retains the reference |
-| `ConfiguredRuntime`     | The package (one per `configureLogging()`) | Full backend selection, transport wrapping, redactor compile, sanitizer-limit clamp, `onInternalError` install | Until next `configureLogging()` or page unload |
+| `ConfiguredRuntime`     | The package (one per `configureLogging()`) | Normalized config, `SafeTransport[]` wrapping, redactor compile, sanitizer-limit clamp, `onInternalError` install. **No telemetry backend** — fan-out goes straight from the dispatcher to the wrapped transports. | Until next `configureLogging()` or page unload |
 
 `createLogger(options?)`, `child(context)`, `withContext(context)`, and
 `getRootLogger()` return new handles that all reference the **same**
@@ -327,9 +354,11 @@ exactly one per package/runtime boundary).
 
 Handle construction MUST NOT:
 
-- Initialize a `TelemetryBackend`, invoke a `TransportFactory`, or wrap a
-  transport in `SafeTransport` (transport wrapping is a `configureLogging()`
-  responsibility).
+- Initialize **any vendor SDK** (OpenTelemetry, Datadog, Sentry, etc.) — the
+  core has no such SDKs to initialize; future vendor adapters live in their
+  own transports.
+- Invoke a `TransportFactory` or wrap a transport in `SafeTransport` —
+  transport wrapping is a `configureLogging()` responsibility.
 - Register a timer, interval, microtask, scheduled callback, or batching loop.
 - Attach a global event listener; patch a global (`console`, `fetch`,
   `XMLHttpRequest`, `navigator.sendBeacon`, `window.onerror`,
@@ -348,21 +377,21 @@ loggers on the page or the number of transports configured.
 `configureLogging()` is idempotent across the same call site and atomic across
 the active runtime:
 
-1. Construct the new `ConfiguredRuntime` (resolve config, build backend,
-   wrap each `Transport` in `SafeTransport`, compile redactor, clamp
-   sanitizer limits, install `onInternalError`).
+1. Construct the new `ConfiguredRuntime` (resolve config, wrap each
+   `Transport` in `SafeTransport`, compile redactor, clamp sanitizer limits,
+   install `onInternalError`).
 2. Atomically swap the package-level `runtimeRef` from the previous runtime
    to the new one.
-3. `shutdown()` the previous backend and call `flush()`/`shutdown()` on
-   previous wrapped transports (each call isolated; failures route to the
-   *previous* runtime's `onInternalError`).
+3. Call `flush()` then `shutdown()` on each previously-wrapped transport
+   (each call isolated; failures route to the *previous* runtime's
+   `onInternalError`).
 
 Existing `Logger` references continue to work because they read the
 package-level `runtimeRef` at emit time — they hold a reference to the
 package-level slot, not to a specific runtime snapshot. After swap, an
 event emitted through an old handle is dispatched through the new runtime
-(new pipeline → new backend → new transports). This is the documented
-behavior locked by SC-012.
+(new pipeline state → new transports). This is the documented behavior
+locked by SC-012.
 
 Calling `getRootLogger()` before `configureLogging()` returns a usable
 handle backed by the default safe-defaults runtime (warn+ level,
@@ -748,15 +777,21 @@ correlation callback never crashes emit.
 - `bridges/` (reserved, empty in v1): future application-owned ingestion
   adapters live here.
 
-### `src/internal/telemetry/` — Hidden OTel adapter
+### `src/internal/telemetry/` — Future optional vendor-adapter seam (NOT on v1 default path)
 
-- `backend.ts`: `TelemetryBackend` interface.
-- `otel/otel-backend.ts`: constructs an OTel `LoggerProvider` and emits via it.
-  Imports of `@opentelemetry/*` happen **only** here and in sibling files.
+- **Status**: retained as a documented future-adapter seam. Not constructed
+  or called by any v1 default code path; `src/index.ts` does not reach into
+  this subtree. See "Vendor-Neutral Core Architecture" for the v1 stance.
+- `backend.ts`: `TelemetryBackend` interface (reserved; not used by the
+  default dispatcher after the T066 refactor).
+- `noop-backend.ts`: no-op backend; reserved (not used by the default
+  dispatcher).
+- `otel/otel-backend.ts`: constructs an OTel `LoggerProvider` and emits via
+  it. Imports of `@opentelemetry/*` happen **only** here and in sibling
+  files. Future OTel-adapter feature work will decide whether this stays as
+  a backend, becomes a `Transport`, or is replaced.
 - `otel/mapping.ts`: bidirectional `LogEvent ↔ OTel LogRecord` mapping.
-- `otel/event-bridge.ts`: custom `LogRecordProcessor` that converts OTel
-  records back to `LogEvent` and forwards to configured transports.
-- `noop-backend.ts`: forwards `LogEvent` directly to transports.
+- `otel/event-bridge.ts`: custom `LogRecordProcessor`.
 
 ### `src/context/`, `src/config/`, `src/errors/`
 
@@ -862,9 +897,22 @@ success criterion (SC-008, SC-009, SC-010). Coverage:
   transport, expecting pass and fail respectively.
 - `sanitizer-limit-clamp.test.ts` — setting `sanitizerLimits.maxDepth = 99`
   clamps to 16 and emits one `onInternalError` notice.
-- `bundle-shape.security.test.ts` — the published `.d.ts` does not contain the
-  strings `opentelemetry` or `@opentelemetry`, and the published runtime entry
-  does not re-export anything from `src/internal/**`.
+- `bundle-shape.security.test.ts` — the published `.d.ts` does not contain
+  the strings `opentelemetry` / `@opentelemetry`, `@datadog` / `dd-rum`,
+  `@sentry`, or any other observability-vendor package name; and contains
+  no vendor-specific identifier (`SeverityNumber`, `LoggerProvider`, `Span`,
+  `Trace*`, `Exporter`, `Processor`, `Hub`, etc.). The published runtime
+  entry does not import any vendor SDK and does not re-export anything from
+  `src/internal/**`.
+- `context-through-pipeline.security.test.ts` (new in this revision):
+  asserts that every form of context input — `LoggerConfig.context`,
+  per-`createLogger` `context`, per-`child()` / `withContext()` context,
+  and `correlation()` return values — passes through the sanitizer and
+  redactor **before** any transport's `send()` is invoked. Uses
+  `makeSecretFixture()` placed in each of those four context slots and
+  confirms masking in the `LogEvent` received by an in-memory transport.
+  Complements `tests/security/context-boundary-safety.test.ts` (T055) by
+  covering every entry point in one sweep.
 
 ### Unit tests (`tests/unit/`)
 
@@ -1012,10 +1060,14 @@ named here so tasks can decide whether to land it.
 
 ### General risks (carried from v1)
 
-- **OTel Logs API is experimental** (resolved by this revision): v1 does not
-  ship OTel on the default path. Adapter code retained as documented seam
-  for the follow-up feature. Bundle target ≤15 KB applies to the OTel-free
-  default path. See "OpenTelemetry Decision" section above.
+- **Vendor-SDK weight and coupling** (resolved by this revision): the core
+  package depends on **no** observability-vendor SDKs. OpenTelemetry,
+  Datadog, Sentry, and other vendors are reframed as **future optional
+  transport adapters**, peers of each other. The previously inconsistent
+  "OTel as hidden default backend / OTel excluded from bundle target" state
+  is gone — the dispatcher fan-out is direct (T066) and the dependency-pins
+  audit (T070) asserts the core has zero vendor SDKs. See "Vendor-Neutral
+  Core Architecture" section above.
 - **Multiple package instances under module federation** (resolved by this
   revision): the package classifies duplicate-copy behavior as **isolated**
   (FR-033). Each physical copy owns an independent `ConfiguredRuntime`; no
@@ -1047,75 +1099,119 @@ named here so tasks can decide whether to land it.
 - Strict `AttributeValue` typing increases type-friction slightly but makes
   the safe path the easy path.
 
-## OpenTelemetry Decision (resolved 2026-05-27)
+## Vendor-Neutral Core Architecture (resolved 2026-05-27, second revision)
 
-Per the spec's Risks & Open Questions, the previous plan was inconsistent: it
-described OTel as the default core runtime backend while excluding "the
-optional OTel backend" from the ≤15 KB bundle target. This revision **resolves
-that inconsistency by selecting Option B** from the spec's three suggested
-resolution paths:
+### Summary of the architectural pivot
 
-> **Decision**: OTel is deferred. The v1 default core dispatches directly to
-> transports through `NoopBackend`. The OTel adapter is retained as a
-> documented internal seam (code under `src/internal/telemetry/otel/**` plus
-> its unit tests) but is **not** wired by any v1 public API. The opt-in
-> mechanism (a separate import path, an explicit factory, or a separate
-> subpath export) is deferred to a follow-up feature spec.
+The first plan revision selected "OTel deferred, NoopBackend default"
+(spec.md Option B). This second revision goes further: it removes the
+`TelemetryBackend` layer from the default emit path entirely and reframes
+OpenTelemetry as **one of several future optional transport adapters**,
+with no privileged status relative to Datadog, Sentry, or other vendors.
 
-### Why Option B (and not A or C)
+The core dispatcher's last pipeline step is **direct `SafeTransport.send()`
+fan-out** — there is no intermediate backend object. `NoopBackend` and
+`TelemetryBackend` survive in the source tree as documented seams for the
+future vendor-adapter feature work, but the v1 default code path does not
+construct or call them.
 
-| Option | Why rejected / chosen |
-|--------|----------------------|
-| **A**: OTel is the default core backend; bundle budget includes it | Conflicts with Principle VII (OTel `LoggerProvider` init counts as expensive runtime work that must not happen for the smallest scale path) and busts the documented ≤15 KB target. Rejected. |
-| **B**: OTel is optional / future; default core dispatches directly to transports | **Chosen.** Preserves the existing OTel adapter implementation (T010) as documented seam code, keeps the default bundle small, satisfies Principle VII at the default-runtime layer, and defers the public opt-in shape to a future feature where it can be designed against real consumer demand. |
-| **C**: OTel is split into a separate subpath/integration | Functionally equivalent to a fully-specified Option B and can be the eventual public-API choice in the follow-up feature; not committed here so v1 ships with the minimum surface. |
+### Why this revision (and not the prior "deferred but wrapped" framing)
+
+1. **Vendor neutrality is the contract**, not "OTel-is-the-blessed-one-pending-
+   opt-in." Treating OTel as a hidden default backend — even a no-op one —
+   privileges OTel's data model over peers. Future Datadog or Sentry adapters
+   would need to either pretend to be `TelemetryBackend`s or carve out
+   parallel paths, neither of which scales.
+2. **The simplest correct dispatcher is direct fan-out.** With sanitization
+   and redaction guaranteed by the pipeline upstream, the dispatcher's only
+   remaining job is "deliver `LogEvent` to every configured transport." A
+   backend layer between the pipeline and the transports has no behavioral
+   role in v1 — it is dead architecture.
+3. **Future vendor adapters are peers.** When the follow-up feature(s) ship
+   OTel, Datadog, Sentry, or any other vendor support, each lands as an
+   optional `Transport` (or as a separately-packaged adapter that returns a
+   `Transport`). None of them is the "default" — the host application
+   chooses by passing them in `LoggerConfig.transports`.
 
 ### What v1 actually ships
 
-1. **Default backend**: `NoopBackend`. It is not a "fallback" — it is the
-   single backend on the default code path. It forwards `LogEvent`s
-   straight from the dispatcher to the wrapped `SafeTransport[]`.
-2. **OTel adapter retained**: `src/internal/telemetry/otel/{otel-backend,
-   event-bridge, mapping}.ts` and their unit tests remain in the source
-   tree. They are dead code on the default runtime path but compile and
-   pass their unit tests as the documented seam for the future feature.
-3. **No public OTel surface**: `configureLogging()` does not expose any
-   OTel knob. The `LoggerConfig` shape from `contracts/logger-config.md`
-   does not contain a `backend` field, and the OTel adapter is not
-   reachable from `src/index.ts`. Consumers cannot opt into OTel in v1.
-4. **Bundle-shape & dependency-pins tests enforce the decision**:
+1. **No vendor SDKs in the core.** `package.json` `dependencies` carries no
+   `@opentelemetry/*`, `@datadog/*`, `@sentry/*`, or any other observability-
+   vendor package. The package works installed alone.
+2. **Direct transport fan-out from the dispatcher.** `dispatcher.ts` ends
+   with `for (transport of runtime.transports) { transport.send(event) }`
+   (each transport is `SafeTransport`-wrapped at `configureLogging()` time,
+   so sync throws and rejected Promises are isolated). The previous
+   `backend.handle(event)` call is removed from the default path by T066
+   (new refactor task — see Phase 7 in `tasks.md`).
+3. **`TelemetryBackend` and existing OTel adapter retained as documented
+   seam.** `src/internal/telemetry/backend.ts` and
+   `src/internal/telemetry/otel/{otel-backend, event-bridge, mapping}.ts`
+   remain in the source tree with their unit tests. They are dead code on
+   the default runtime path (verified by T049 / T070) but document the
+   shape the future vendor-adapter feature(s) will likely follow. If the
+   future direction makes the backend abstraction superfluous, those files
+   may be deleted entirely in that follow-up feature; this revision does
+   not commit either way.
+4. **No public vendor surface.** `LoggerConfig` carries no `backend` field
+   and no vendor-specific knob; consumers cannot opt into OTel/Datadog/
+   Sentry in v1 because there is nothing to opt into yet.
+5. **Bundle-shape & vendor-free audit enforce the contract**:
    - `tests/security/bundle-shape.security.test.ts` (T049) asserts the
-     built default entry does not import from
-     `dist/internal/telemetry/otel/**` and the built `.d.ts` contains no
-     `opentelemetry`/`@opentelemetry` strings.
-   - `tests/contract/dependency-pins.test.ts` (T069, renumbered Polish
-     package-audit task) asserts the three OTel packages stay caret-locked
-     and remain the only `@opentelemetry/*` deps; if Option B's eventual
-     public mechanism warrants moving them to `peerDependencies` or
-     `optionalDependencies`, that change lands with the follow-up feature.
-5. **Constitution alignment**: Principles I (stable API), IV (secure by
-   default — pipeline order is unchanged), VI (integrity — no behavior
-   that depends on OTel being present), and VII (lightweight loggers —
-   the default runtime no longer carries OTel init weight) all pass.
+     built default entry does not import any `@opentelemetry/*` /
+     `@datadog/*` / `@sentry/*` package and the built `.d.ts` contains no
+     vendor-specific identifier (`SeverityNumber`, `LoggerProvider`,
+     `Span`, `Trace*`, `Exporter`, `Processor`, etc.).
+   - `tests/contract/dependency-pins.test.ts` (T070, renumbered Polish
+     audit) asserts `package.json` `dependencies` contains **no**
+     `@opentelemetry/*` / `@datadog/*` / `@sentry/*` packages. If the
+     existing OTel adapter files need OTel types for their unit tests,
+     those types live in `devDependencies` only; this is verified by the
+     audit.
 
-### Mitigations carried forward (still relevant for the future opt-in)
+### Constitution alignment (v1.2.0)
 
-1. **Single chokepoint**: all `@opentelemetry/*` imports remain confined to
-   `src/internal/telemetry/otel/**` (locked by T014).
-2. **Backend abstraction**: `TelemetryBackend` is the documented seam.
-3. **Pinned versions**: caret-locked, manual-review-only bumps (locked by
-   T069 dependency-pins test).
-4. **No OTel types in public API**: enforced by `.d.ts` grep (T013).
-5. **Mapping isolation**: `LogEvent ↔ OTel LogRecord` mapping in one file.
-6. **Security guarantees independent of OTel presence**: sanitization and
-   redaction live upstream of the backend interface, so the future opt-in
-   cannot weaken them.
+- **I. Stable Consumer API**: public surface is unchanged and stays
+  vendor-neutral. No `backend`, no `exporter`, no `processor`, no
+  vendor-specific config field.
+- **II. Browser Resilience & Failure Safety**: each transport is
+  `SafeTransport`-wrapped at `configureLogging()` time; sync throws and
+  rejected Promises are isolated per transport, so direct fan-out
+  preserves the no-throw / no-reject invariant.
+- **III. Framework-Neutral Structured Observability**: removing the
+  backend layer makes neutrality literal — there is no place for a
+  vendor data model to hide.
+- **IV. Secure & Privacy-Safe Logging by Default**: pipeline order is
+  unchanged (sanitize → URL-scrub → redact → guard → freeze → fan-out);
+  fail-closed redaction still drops affected events before any transport
+  sees them.
+- **V. Testable, Minimal, Maintainable**: the dispatcher gets simpler
+  (no backend indirection), the bundle gets smaller (no vendor SDK), and
+  the test suites gain explicit vendor-free assertions.
+- **VI. Log Integrity & Monitoring Suitability**: events still reach
+  every configured transport unmutated post-pipeline; transport contract
+  (body-only, HTTPS, no URL secrets) is unchanged.
+- **VII. Lightweight Logger Instances & Federated Runtime**: handle
+  construction does no vendor-SDK init (because there is no vendor SDK
+  to init). `ConfiguredRuntime` is one object per `configureLogging()`,
+  shared by every handle.
 
-When the follow-up feature lands, the public opt-in shape will be specified
-there. Anticipated candidate: a `/otel` subpath export shipping a single
-`createOtelBackend(options)` factory that consumers pass via a new
-`LoggerConfig.backend` field. That decision is **not** committed by this
-plan.
+### Future vendor adapter strategy
+
+Each future vendor integration (OTel, Datadog, Sentry, …) ships as a
+separate feature spec that delivers:
+
+- A `Transport` implementation (or a factory returning one) that conforms
+  to `contracts/transport.md`'s safety contract.
+- Either a separate subpath export (e.g., `/otel`, `/datadog`, `/sentry`)
+  on this package, or — preferred for SDKs with significant dep weight —
+  a separately-published companion package.
+- Its own bundle/performance budget defined in its own plan.md; the v1
+  core's ≤15 KB target is **not** amortized across these.
+- Its own optional/peer-dependency declaration; the core's
+  `dependencies` stays vendor-free.
+
+None of those features are committed by this plan.
 
 ## Project Structure
 
@@ -1178,13 +1274,18 @@ src/
 │   ├── noop-transport.ts             # built-in
 │   └── bridges/                      # reserved for future ingestion adapters (empty)
 ├── internal/
-│   ├── telemetry/
-│   │   ├── backend.ts                # TelemetryBackend interface
-│   │   ├── noop-backend.ts           # OTel-free fallback
-│   │   └── otel/                     # ONLY directory permitted to import @opentelemetry/*
-│   │       ├── otel-backend.ts
-│   │       ├── event-bridge.ts       # custom LogRecordProcessor
-│   │       └── mapping.ts            # LogEvent ↔ OTel LogRecord
+│   ├── telemetry/                    # FUTURE OPTIONAL ADAPTER WORK — not
+│   │                                 # wired into v1 default path. Retained
+│   │                                 # as documented seam. Bundle-shape +
+│   │                                 # dependency-pins tests assert nothing
+│   │                                 # in src/index.ts reaches this subtree.
+│   │   ├── backend.ts                # TelemetryBackend interface (future)
+│   │   ├── noop-backend.ts           # No-op backend (future, not default)
+│   │   └── otel/                     # FUTURE OTel adapter — only directory
+│   │                                 # permitted to import @opentelemetry/*
+│   │       ├── otel-backend.ts       # (future)
+│   │       ├── event-bridge.ts       # (future)
+│   │       └── mapping.ts            # (future)
 │   └── errors/
 │       └── internal-errors.ts
 └── testing/                          # exposed via separate "/testing" subpath
@@ -1249,12 +1350,15 @@ and are exposed via the `/testing` subpath of `package.json` `exports`.
 
 ## Post-Design Constitution Re-check
 
-All seven principles (v1.2.0) PASS after the revised Phase 1 design:
+All seven principles (v1.2.0) PASS after the revised (vendor-neutral, direct-
+fan-out) Phase 1 design:
 
 - **I. Stable Consumer API**: surface is tightly scoped, safe path is the easy
   path (no `unknown` in message; constrained `Attributes`; no `dump` API).
-  Public API gains no new symbols in this revision; the `ConfiguredRuntime`
-  is internal-only.
+  Public API stays vendor-neutral: no `backend`, no `exporter`, no
+  `processor`, no vendor-specific config field. `ConfiguredRuntime` is
+  internal-only. Public surface in this revision is unchanged from the
+  prior plan revision.
 - **II. Browser Resilience & Failure Safety**: every consumer-provided callable
   wrapped; fail-closed redaction; sanitizer never throws.
 - **III. Framework-Neutral Structured Observability**: object-only output;
@@ -1281,8 +1385,9 @@ All seven principles (v1.2.0) PASS after the revised Phase 1 design:
   Locked by T058 (`ConfiguredRuntime` implementation), T059 (lightweight-
   logger contract), T060 (≥1,000-instance scale + shared-runtime-fanout),
   T061 (re-configuration semantics), T062 (child non-mutation), T063
-  (host + many module loggers), T064 (duplicate-copy isolation), and
-  T065 (consumer documentation).
+  (host + many module loggers), T064 (duplicate-copy isolation),
+  T065 (consumer documentation), T066 (dispatcher direct-fan-out
+  refactor), and T070 (vendor-free audit).
 
 ## Complexity Tracking
 

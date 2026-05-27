@@ -353,7 +353,7 @@ emitted events.
 **Independent Test**: A host configures the runtime once; many module loggers (≥1,000 instances combining root + per-module + derived) are created against that runtime; backend/`TransportFactory` initialization happens at most once; events from each module remain origin-distinguishable; existing Logger references survive re-configuration; two physical copies of the package on a page each own an independent runtime.
 
 - [ ] T058 [US5] Implement `ConfiguredRuntime` and the module-scoped active-runtime slot in `src/runtime/configured-runtime.ts` and `src/runtime/runtime-ref.ts`
-  Acceptance: `ConfiguredRuntime` is an internal record `{ config, backend, transports (already-wrapped `SafeTransport[]`), redactor, sanitizerLimits, onInternalError, correlation }`. `runtime-ref.ts` exposes module-scoped `getActiveRuntime()` / `installRuntime(rt)` that read/write a single module-private slot — **no `globalThis` access, no `Symbol.for` registry, no `window`/`document` write**. `configureLogging()` builds the new runtime, atomically swaps the slot via `installRuntime`, then calls `shutdown()`/`flush()` on the previous runtime's backend + transports (each wrapped in try/catch). `getRootLogger()` and `createLogger()` route emissions through `getActiveRuntime()` at emit time so retained Logger references automatically pick up the new runtime after a swap (locks FR-031 / SC-012).
+  Acceptance: `ConfiguredRuntime` is an internal record `{ config, transports (already-wrapped `SafeTransport[]`), redactor, sanitizerLimits, onInternalError, correlation }`. **No `backend` field** — the v1 architecture is vendor-neutral and the dispatcher fans events out directly to transports (see plan.md "Vendor-Neutral Core Architecture"; T067 does the matching dispatcher refactor). `runtime-ref.ts` exposes module-scoped `getActiveRuntime()` / `installRuntime(rt)` that read/write a single module-private slot — **no `globalThis` access, no `Symbol.for` registry, no `window`/`document` write**. `configureLogging()` builds the new runtime, atomically swaps the slot via `installRuntime`, then calls `flush()`/`shutdown()` on the previous runtime's transports (each wrapped in try/catch). `getRootLogger()` and `createLogger()` route emissions through `getActiveRuntime()` at emit time so retained Logger references automatically pick up the new runtime after a swap (locks FR-031 / SC-012).
   Parallel: No
   **Touches `src/api/logger.ts`**: moves the runtime-bag construction out of `installState()` and into `configured-runtime.ts`; the existing FR-031 atomicity behavior is preserved.
 
@@ -381,15 +381,21 @@ emitted events.
   Acceptance: Simulates two physical loads of the package via `vi.isolateModules()` (or two distinct path-aliased imports of the same source). Configures runtime A in copy 1 with transports T_A and runtime B in copy 2 with transports T_B. Asserts (a) emitting through copy 1's logger reaches only T_A, (b) emitting through copy 2's logger reaches only T_B, (c) configuring copy 1 does not affect copy 2's active runtime, (d) no `globalThis`/`window`/`document`/`Symbol.for` channel cross-routes events between copies, and (e) `Logger` references from copy 1 cannot be passed to copy 2's `configureLogging` and vice versa without breaking. Locks the **isolated** classification of FR-033.
   Parallel: Yes
 
-- [ ] T065 [US5] Document host/module configuration ownership + duplicate-package-copy classification + module-federation singleton guidance in `README.md`, `docs/safe-logging.md`, `quickstart.md`, and the federated example
-  Acceptance: A dedicated "Configuration ownership" section explains that hosts call `configureLogging()` at boot, modules use `createLogger`/`child`/`withContext`, and a module calling `configureLogging()` is a documented (non-default) override. A "Duplicate package copies" section documents the **isolated** classification: each physical copy owns an independent runtime; no global registry; for cross-copy sharing, consumers MUST configure their bundler's module-federation `shared` map to mark this package as a singleton (with a brief Webpack 5 example snippet that exists only in docs, not in the package). `examples/federated-module/` README links to the configuration-ownership section and shows a module using `createLogger` against the host's already-configured runtime. Updates `quickstart.md`'s "Logging safely" section so the federated story is internally consistent with FR-029..FR-033.
+- [ ] T065 [US5] Document host/module configuration ownership + duplicate-package-copy classification + module-federation singleton guidance + vendor-neutral core posture in `README.md`, `docs/safe-logging.md`, `quickstart.md`, and the federated example
+  Acceptance: A dedicated "Configuration ownership" section explains that hosts call `configureLogging()` at boot, modules use `createLogger`/`child`/`withContext`, and a module calling `configureLogging()` is a documented (non-default) override. A "Duplicate package copies" section documents the **isolated** classification: each physical copy owns an independent runtime; no global registry; for cross-copy sharing, consumers MUST configure their bundler's module-federation `shared` map to mark this package as a singleton (with a brief Webpack 5 example snippet that exists only in docs, not in the package). A "Vendor neutrality" section states the core has no observability-vendor SDKs and that OpenTelemetry, Datadog, Sentry, and other vendors are future optional transport adapters. `examples/federated-module/` README links to the configuration-ownership section and shows a module using `createLogger` against the host's already-configured runtime. Updates `quickstart.md`'s "Logging safely" section so the federated story is internally consistent with FR-029..FR-033.
   Parallel: No
 
-- [ ] T066 [US5] Review boundary: validate the US5 surface across `src/api/`, `src/runtime/`, `tests/performance/`, `tests/integration/{host-many-module-loggers,reconfigure-existing-references,duplicate-copy-isolation}.integration.test.ts`, `README.md`, `docs/safe-logging.md`, `quickstart.md`, and `examples/federated-module/`
-  Acceptance: Reviewer confirms (a) `Logger` construction does no init/wrap/listener/timer/network/ambient-read work (locked by T059); (b) `configureLogging()` is the **only** public API that installs a runtime; module-load of the package itself has zero side effects on the active runtime (FR-032); (c) retained Logger references survive re-configuration through the documented active-runtime slot (FR-031 / SC-012); (d) the duplicate-copy classification is **isolated** and the module-federation singleton-sharing pattern is the documented cross-copy escape hatch (FR-033); (e) Constitution v1.2.0 Principles I, II, III, IV, VI, **VII** all hold; (f) the existing security pipeline order, fail-closed redaction, and bundle-shape guarantees are not weakened by the runtime refactor. T058's logger.ts touch is reviewed in particular for FR-031 atomicity.
+- [ ] T066 [US5] Refactor dispatcher to drop the `TelemetryBackend.handle()` default-path call in favor of direct `SafeTransport` fan-out in `src/pipeline/dispatcher.ts` and `src/api/logger.ts`
+  Acceptance: `dispatcher.ts`'s post-pipeline step becomes a direct iteration over `runtime.transports` calling `transport.send(event)` (each transport `SafeTransport`-wrapped at `configureLogging()` time). The `backend: TelemetryBackend` parameter is removed from `dispatch()`'s signature and from `ConfiguredRuntime`. `src/api/logger.ts`'s emit path drops the `current.backend` argument it passes to `dispatch()`. `src/internal/telemetry/{backend,noop-backend}.ts` and `src/internal/telemetry/otel/**` remain in the source tree (reframed as future-adapter seam per plan.md "Vendor-Neutral Core Architecture") but are unreachable from `src/index.ts` and not constructed by any v1 code path. Existing T024 acceptance (backend.handle exception isolation) becomes moot for v1 because there is no backend call on the default path; the dispatcher's existing transport-error isolation (each transport wrapped in try/catch in the new direct-fan-out loop) covers the equivalent failure mode. Existing pipeline-order tests (T048), bundle-shape (T049), and the new vendor-free audit (T070) all continue to pass. Per-emission semantics unchanged from the consumer's perspective.
   Parallel: No
+  **Supersedes the OTel/backend portions of T018 and T024 on the default path** (T010 OTel adapter code is retained but reframed; see plan.md Vendor-Neutral Core Architecture). Other concerns of T018 (event-builder/level-filter wiring) and T024 (no exception propagation to caller) remain in force.
 
-**Checkpoint**: US5 is independently functional. v1's scalability, federated-ownership, and OpenTelemetry-deferred guarantees are locked.
+- [ ] T067 [US5] Review boundary: validate the US5 surface + vendor-neutral architecture across `src/api/`, `src/runtime/`, `src/pipeline/dispatcher.ts`, `tests/performance/`, `tests/integration/{host-many-module-loggers,reconfigure-existing-references,duplicate-copy-isolation}.integration.test.ts`, `README.md`, `docs/safe-logging.md`, `quickstart.md`, and `examples/federated-module/`
+  Acceptance: Reviewer confirms (a) `Logger` construction does no init/wrap/listener/timer/network/ambient-read/vendor-SDK-init work (locked by T059); (b) `configureLogging()` is the **only** public API that installs a runtime; module-load of the package itself has zero side effects on the active runtime (FR-032); (c) retained Logger references survive re-configuration through the documented active-runtime slot (FR-031 / SC-012); (d) the duplicate-copy classification is **isolated** and the module-federation singleton-sharing pattern is the documented cross-copy escape hatch (FR-033); (e) the dispatcher fan-out is direct (T066) — no `TelemetryBackend.handle()` is on the default emit path; (f) the public surface contains zero vendor-specific symbols (`SeverityNumber`, `LoggerProvider`, `Span`, `Trace*`, `Exporter`, `Processor`, `Hub`, etc.); (g) Constitution v1.2.0 Principles I, II, III, IV, VI, **VII** all hold; (h) the existing security pipeline order, fail-closed redaction, and bundle-shape guarantees are not weakened by the runtime refactor. T058 + T066's logger.ts/dispatcher.ts touches are reviewed in particular for FR-031 atomicity and direct-fan-out correctness.
+  Parallel: No
+  **Was**: prior T066, extended to cover the dispatcher refactor (T066-new) and vendor-neutral guarantees.
+
+**Checkpoint**: US5 is independently functional. v1's scalability, federated-ownership, and vendor-neutral-core guarantees are locked.
 
 ---
 
@@ -397,20 +403,20 @@ emitted events.
 
 **Purpose**: Final validation, packaging, end-to-end sweeps, doc audit. Renumbered from prior Phase 7 to make room for Phase 7 (US5).
 
-- [ ] T067 [P] Add end-to-end secret sweep in `tests/integration/secret-sweep.integration.test.ts`
-  Acceptance: End-to-end version of the secret-leakage sweep that exercises the full default pipeline (Sanitizer → URLScrubber → Redactor → ControlCharGuard → Freeze(dev) → `NoopBackend` → in-memory transport). Asserts every fixture value is masked. When the future OTel opt-in feature lands, this sweep extends to exercise the opt-in OTel backend path and re-assert masking against `OtelLogsBackend`; v1 does NOT exercise OTel because OTel is not on the default path (see plan.md "OpenTelemetry Decision").
+- [ ] T068 [P] Add end-to-end secret sweep in `tests/integration/secret-sweep.integration.test.ts`
+  Acceptance: End-to-end version of the secret-leakage sweep that exercises the full default pipeline (LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor → ControlCharGuard → Freeze(dev) → direct transport fan-out → in-memory transport). Asserts every fixture value is masked. When future vendor adapter features (OTel, Datadog, Sentry) land, each one ships its own equivalent sweep against its own transport adapter; v1's core sweep does NOT exercise any vendor adapter because none is on the default path (see plan.md "Vendor-Neutral Core Architecture").
   Parallel: Yes
-  **Was**: prior T058.
+  **Was**: prior T067 / original T058.
 
-- [ ] T068 [P] Validate quickstart and consumer docs in `specs/001-structured-logging-core/quickstart.md`, `README.md`, and `docs/safe-logging.md`
-  Acceptance: Doc audit confirms every code snippet uses public exports only, every snippet compiles against the built `dist/`, and no snippet normalizes an insecure pattern (no template-string value interpolation, no raw object dump, no URL-based delivery, no logging of DOM/framework objects). Confirms the "Documented drops, transforms, and bounded behavior" section in `docs/safe-logging.md` is present and accurate, and that the "Configuration ownership" and "Duplicate package copies" sections from T065 are present and accurate.
+- [ ] T069 [P] Validate quickstart and consumer docs in `specs/001-structured-logging-core/quickstart.md`, `README.md`, and `docs/safe-logging.md`
+  Acceptance: Doc audit confirms every code snippet uses public exports only, every snippet compiles against the built `dist/`, and no snippet normalizes an insecure pattern (no template-string value interpolation, no raw object dump, no URL-based delivery, no logging of DOM/framework objects, no vendor-specific code paths). Confirms the "Documented drops, transforms, and bounded behavior" section in `docs/safe-logging.md` is present and accurate, and that the "Configuration ownership", "Duplicate package copies", and "Vendor neutrality" sections from T065 are present and accurate.
   Parallel: Yes
-  **Was**: prior T059.
+  **Was**: prior T068 / original T059.
 
-- [ ] T069 Final package audit in `package.json`, `src/index.ts`, `src/testing/index.ts`, and `tests/contract/dependency-pins.test.ts`
-  Acceptance: `package.json` `exports` map exposes only `.` and `./testing`, `sideEffects: false`. A new contract test `tests/contract/dependency-pins.test.ts` parses `package.json` and asserts (a) the three OTel deps (`@opentelemetry/api-logs`, `@opentelemetry/sdk-logs`, `@opentelemetry/api`) each use the documented caret-locked range, (b) no other `@opentelemetry/*` deps have been added, and (c) the built default entry (`dist/index.{mjs,cjs}`) does **not** import any `@opentelemetry/*` package — locking the OpenTelemetry-deferred decision from plan.md. Built bundle size (gzipped) for the **default core path** (NoopBackend, no OTel imports) is within the plan's ≤15 KB target. All five test suites (`contract`, `security`, `integration`, `unit`, `performance`) pass and meet coverage targets (100% in `sanitizer.ts`, `redactor.ts`, `url-scrubber.ts`, `control-char-guard.ts`; ≥90% in the rest of `src/pipeline/`, `src/transport/`, `src/internal/`, `src/runtime/`; 100% of public exports executed by contract tests).
+- [ ] T070 Final package + vendor-free audit in `package.json`, `src/index.ts`, `src/testing/index.ts`, and `tests/contract/dependency-pins.test.ts`
+  Acceptance: `package.json` `exports` map exposes only `.` and `./testing`, `sideEffects: false`. A new contract test `tests/contract/dependency-pins.test.ts` parses `package.json` and asserts (a) `dependencies` contains **no** `@opentelemetry/*`, `@datadog/*` / `dd-rum`, `@sentry/*`, or any other observability-vendor package — the core is vendor-free; (b) any OTel types referenced by the documented-seam adapter code under `src/internal/telemetry/otel/**` are present only in `devDependencies`, used only by that adapter's own unit tests; (c) the built default entry (`dist/index.{mjs,cjs}`) does **not** import any vendor SDK and does not re-export from `dist/internal/**`; (d) `dist/index.d.ts` contains no vendor-specific identifier (`SeverityNumber`, `LoggerProvider`, `Span`, `Trace*`, `Exporter`, `Processor`, `Hub`, etc.). Built bundle size (gzipped) for the **vendor-free core path** (security pipeline + direct fan-out + `ConsoleTransport`/`NoopTransport`) is within the plan's ≤15 KB target. All five test suites (`contract`, `security`, `integration`, `unit`, `performance`) pass and meet coverage targets (100% in `sanitizer.ts`, `redactor.ts`, `url-scrubber.ts`, `control-char-guard.ts`; ≥90% in the rest of `src/pipeline/`, `src/transport/`, `src/internal/`, `src/runtime/`; 100% of public exports executed by contract tests).
   Parallel: No
-  **Was**: prior T060, extended to lock the OpenTelemetry-deferred decision in the dependency-pins test and to add `src/runtime/` to the coverage target.
+  **Was**: prior T069 / original T060, extended to lock the vendor-neutral guarantee across all observability vendors (not just OTel) and to require any OTel devDependencies used by the seam tests to stay out of `dependencies`.
 
 ---
 
@@ -434,7 +440,7 @@ emitted events.
 - After **T030**: transport delivery safety & failure isolation
 - After **T051**: sanitization, redaction, injection resistance, pipeline-order enforcement
 - After **T057**: host/module context integrity under the shared security posture
-- After **T066**: lightweight-`Logger` architecture, federated host/module configuration ownership, duplicate-package-copy isolation classification, and the OpenTelemetry-deferred decision
+- After **T067**: lightweight-`Logger` architecture, federated host/module configuration ownership, duplicate-package-copy isolation classification, dispatcher direct-fan-out refactor (T066), and the vendor-neutral core posture
 
 ### Story independence
 
@@ -442,13 +448,13 @@ emitted events.
 - **US2 (P2)** — uses the core logger/dispatcher flow from US1 but is independently testable.
 - **US3 (P3)** — builds the secure pipeline boundary on top of US1. Each implementation task is paired with its security test in the same phase.
 - **US4 (P4)** — extends context behavior and verifies that host/module metadata still respects the secure pipeline (T055).
-- **US5 (P5)** — refactors the runtime ownership model into the explicit `ConfiguredRuntime` + module-scoped active-runtime slot (T058) so that scale, federated ownership, and duplicate-copy isolation become testable invariants (T059..T064). Touches `src/api/logger.ts` but does not change the public Logger surface; the spec.md FR-031/FR-032/FR-033 contract is met without new public symbols.
+- **US5 (P5)** — refactors the runtime ownership model into the explicit `ConfiguredRuntime` + module-scoped active-runtime slot (T058), refactors the dispatcher to direct `SafeTransport` fan-out (T066, dropping the default-path `TelemetryBackend.handle()` call to align with plan.md's vendor-neutral core architecture), and locks scale, federated ownership, and duplicate-copy isolation as testable invariants (T059..T064). Touches `src/api/logger.ts` and `src/pipeline/dispatcher.ts` but does not change the public Logger surface; the spec.md FR-031/FR-032/FR-033 contract is met without new public symbols.
 
 ### Files touched by multiple phases (merge discipline)
 
-- `src/pipeline/dispatcher.ts` — touched by **T018 (US1)**, **T024 (US2)**, and **T036 (US3)**. The T051 review must verify the final dispatcher covers all three concerns: base emit path, backend-failure fallback, and the locked secure pipeline order with fail-closed redaction.
-- `src/api/logger.ts` — touched by **T016 (US1)**, **T052 (US4)**, and **T058 (US5)**. The T066 review must verify the final `logger.ts` keeps the public surface unchanged while moving runtime construction into `src/runtime/configured-runtime.ts` and reading the active runtime via the module-scoped slot from `src/runtime/runtime-ref.ts`.
-- `src/index.ts` — touched by **T002 (Setup)**, **T018 (US1)**, **T032 (US3)**, **T035 (US3)**. The T069 final audit verifies the exact public surface; US5 does NOT add any new public symbol.
+- `src/pipeline/dispatcher.ts` — touched by **T018 (US1)**, **T024 (US2)**, **T036 (US3)**, and **T066 (US5 refactor)**. The T051 review verifies the secure pipeline order and fail-closed redaction. The T067 review verifies the T066 refactor: the dispatcher's post-pipeline step is direct `SafeTransport` fan-out — no `TelemetryBackend.handle()` is called on the default path. The OTel/backend portions of T018 and T024 are superseded by T066 for the default path; the adapter code under `src/internal/telemetry/**` remains as future-adapter seam.
+- `src/api/logger.ts` — touched by **T016 (US1)**, **T052 (US4)**, **T058 (US5)**, and **T066 (US5 refactor — drops the `current.backend` arg passed to `dispatch()`)**. The T067 review must verify the final `logger.ts` keeps the public surface unchanged while moving runtime construction into `src/runtime/configured-runtime.ts`, reading the active runtime via the module-scoped slot from `src/runtime/runtime-ref.ts`, and no longer threading a backend reference through the emit path.
+- `src/index.ts` — touched by **T002 (Setup)**, **T018 (US1)**, **T032 (US3)**, **T035 (US3)**. The T070 final audit verifies the exact public surface AND the vendor-free guarantee (no vendor SDK import from the default entry); US5 does NOT add any new public symbol.
 
 ### Parallel opportunities
 
@@ -460,8 +466,8 @@ emitted events.
 - T028 runs in parallel with T026 (different file, same conceptual area).
 - Within Phase 5: T031 must land first (the sanitizer is the foundation), then T032/T033/T034 run in parallel. T035 depends on the sanitizer. T037..T049 all run in parallel once their corresponding source file exists.
 - T053, T054, T055 run together once T052 lands.
-- Within Phase 7: T058 must land first (the `ConfiguredRuntime` refactor is the foundation), then T059..T064 all run in parallel. T065 documentation lands sequentially after the tests prove the architecture. T066 review is last.
-- T067 and T068 run together during the final phase. T069 is sequential.
+- Within Phase 7: T058 must land first (the `ConfiguredRuntime` refactor is the foundation), then T059..T064 all run in parallel. T065 documentation lands sequentially. T066 (dispatcher direct-fan-out refactor) runs sequentially after T058 and any of T059..T064 that depend on backend-free behavior; it may run in parallel with T065. T067 review is last in the phase.
+- T068 and T069 run together during the final polish phase. T070 is sequential.
 
 ---
 
@@ -502,8 +508,8 @@ Task: "T049 bundle-shape.security.test.ts"
 3. Add US2 → approve **T030** → consumers can ship body-only HTTP delivery.
 4. Add US3 → approve **T051** → secure logging contract is enforced end-to-end.
 5. Add US4 → approve **T057** → federated modules supported.
-6. Add US5 → approve **T066** → scalable many-`Logger` runtime, federated host/module ownership, and duplicate-copy isolation locked; OpenTelemetry-deferred decision codified in tests.
-7. Run polish (T067–T069).
+6. Add US5 → approve **T067** → scalable many-`Logger` runtime, federated host/module ownership, duplicate-copy isolation, and vendor-neutral direct-fan-out dispatcher (T066) locked.
+7. Run polish (T068–T070).
 
 ### Parallel team strategy
 
@@ -513,9 +519,9 @@ After **T015** clears:
 - Engineer B — US2 (T024..T030) once T018 is done
 - Engineer C — US3 (T031..T051) once T018 is done
 - Engineer D — US4 (T052..T057) once T031..T035 land (US3 pipeline foundation)
-- Engineer E — US5 (T058..T066) once T024 (US2 dispatcher backend-failure isolation) lands. Tests in T059..T064 run in parallel after T058 completes the `ConfiguredRuntime` refactor.
+- Engineer E — US5 (T058..T067) once T024 (US2 dispatcher backend-failure isolation) lands. Tests in T059..T064 run in parallel after T058 completes the `ConfiguredRuntime` refactor. T066 dispatcher direct-fan-out refactor (the change that removes the default-path `TelemetryBackend.handle()` call) lands after T058 and before the T067 review.
 
 Stories integrate independently. The dispatcher merge discipline above
-(T018 / T024 / T036) is the only cross-engineer coordination point for
-US1–US3; US5 adds `src/api/logger.ts` as a second coordination point
-(T016 / T052 / T058) that the T066 review verifies.
+(T018 / T024 / T036 / T066) is the cross-engineer coordination point for
+US1–US3 + US5. US5 also adds `src/api/logger.ts` as a coordination point
+(T016 / T052 / T058 / T066) that the T067 review verifies.
