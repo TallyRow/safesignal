@@ -38,14 +38,12 @@ export class NoopBackend implements TelemetryBackend {
   }
 
   async shutdown(): Promise<void> {
-    for (const transport of this.transports) {
-      if (transport.shutdown === undefined) continue;
-      try {
-        await transport.shutdown();
-      } catch {
-        // Defense-in-depth pending T024 wiring through `onInternalError`.
-      }
-    }
+    // Transport lifecycle (flush + shutdown) is owned by
+    // `ConfiguredRuntime`/`shutdownRuntime` (T058) — the runtime
+    // tears down its wrapped transports independently of this
+    // backend's lifecycle. Calling `transport.shutdown()` here
+    // again would double-shutdown and double-flush. Backend-side
+    // shutdown is now just dropping the local references.
     this.transports = [];
   }
 }

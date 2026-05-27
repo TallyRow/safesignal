@@ -539,27 +539,27 @@ emitted events.
   Parallel: No
   **Touches `src/api/logger.ts`**: moves the runtime-bag construction out of `installState()` and into `configured-runtime.ts`; the existing FR-031 atomicity behavior is preserved.
 
-- [ ] T059 [P] [US5] Lightweight-`Logger` contract test in `tests/performance/lightweight-logger.contract.test.ts`
+- [X] T059 [P] [US5] Lightweight-`Logger` contract test in `tests/performance/lightweight-logger.contract.test.ts`
   Acceptance: Installs spies on `EventTarget.prototype.addEventListener`, `setTimeout`, `setInterval`, `queueMicrotask`, `requestAnimationFrame`, `console.*`, `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`, `window.onerror` setters, and `window.onunhandledrejection` setters; asserts that `createLogger()`, `child()`, `withContext()`, and `getRootLogger()` invoke zero of them. Also installs spies on every configured `TransportFactory` and asserts the factory is invoked **exactly once during `configureLogging()`** and **zero additional times** across 100 subsequent `createLogger` / `child` calls. Counts allocations via a per-test probe and asserts each handle creation allocates only a small constant number of objects. Locks FR-029.
   Parallel: Yes
 
-- [ ] T060 [P] [US5] Many-`Logger` scale test in `tests/performance/many-logger-scale.performance.test.ts` and `tests/performance/shared-runtime-fanout.test.ts`
+- [X] T060 [P] [US5] Many-`Logger` scale test in `tests/performance/many-logger-scale.performance.test.ts` and `tests/performance/shared-runtime-fanout.test.ts`
   Acceptance: `many-logger-scale.performance.test.ts` creates ≥1,000 Loggers (mix of root + per-module + derived `child()`/`withContext()`) against a single `configureLogging()` call. Asserts (a) `TransportFactory` invocation count stays at the one-per-configureLogging baseline (factory is called only during `configureLogging()`, never during logger creation); (b) no `TelemetryBackend` is constructed on the v1 default path (post-T066 the runtime has no backend layer — assertion may be implemented either by spying on the seam module under `src/internal/telemetry/**` and asserting zero constructions, or by structural inspection of `ConfiguredRuntime` confirming no backend field is present); (c) total allocation count is O(N) in logger count (not O(N×K) where K = transports or attribute count). `shared-runtime-fanout.test.ts` emits from many module loggers and asserts every configured transport receives every event exactly once with consistent ordering. Locks SC-011.
   Parallel: Yes
 
-- [ ] T061 [P] [US5] Re-configure with retained Logger references in `tests/integration/reconfigure-existing-references.integration.test.ts`
+- [X] T061 [P] [US5] Re-configure with retained Logger references in `tests/integration/reconfigure-existing-references.integration.test.ts`
   Acceptance: Retains multiple `Logger` references created at different times (before and after the first `configureLogging()`, plus derived `child()` references). Calls `configureLogging()` again with a fresh transport set. Asserts (a) every retained reference emits through the **new** transports after the swap; (b) the previous runtime's `flush()` and `shutdown()` are invoked, each isolated in try/catch; (c) no exception escapes; (d) early-config Loggers held before the very first `configureLogging()` also pick up the new runtime. Locks FR-031 and SC-012.
   Parallel: Yes
 
-- [ ] T062 [P] [US5] Child-non-mutation test in `tests/performance/child-non-mutation.test.ts`
+- [X] T062 [P] [US5] Child-non-mutation test in `tests/performance/child-non-mutation.test.ts`
   Acceptance: A parent Logger creates many `child()` and `withContext()` derivations. Deep-compares the parent's merged context before and after every derivation and after every event emitted through derived loggers. Asserts that the parent's context is structurally unchanged and that derived-logger context mutations do not propagate to the parent. Complements T053/T054 with an explicit immutability assertion at scale.
   Parallel: Yes
 
-- [ ] T063 [P] [US5] Host + many module loggers integration test in `tests/integration/host-many-module-loggers.integration.test.ts`
+- [X] T063 [P] [US5] Host + many module loggers integration test in `tests/integration/host-many-module-loggers.integration.test.ts`
   Acceptance: One `configureLogging()` call by the simulated host. Many simulated module entry points each call `createLogger({ module: { name, version }, context })`. Asserts every module's events reach the host-configured transports, `context.module.name` is distinct per module, `context.application.name` is the host's value on every event, and the host's redactor + sanitizerLimits apply uniformly to every module's events. Locks SC-013.
   Parallel: Yes
 
-- [ ] T064 [P] [US5] Duplicate-package-copy isolation integration test in `tests/integration/duplicate-copy-isolation.integration.test.ts`
+- [X] T064 [P] [US5] Duplicate-package-copy isolation integration test in `tests/integration/duplicate-copy-isolation.integration.test.ts`
   Acceptance: Simulates two physical loads of the package via `vi.isolateModules()` (or two distinct path-aliased imports of the same source). Configures runtime A in copy 1 with transports T_A and runtime B in copy 2 with transports T_B. Asserts (a) emitting through copy 1's logger reaches only T_A, (b) emitting through copy 2's logger reaches only T_B, (c) configuring copy 1 does not affect copy 2's active runtime, (d) no `globalThis`/`window`/`document`/`Symbol.for` channel cross-routes events between copies, and (e) `Logger` references from copy 1 cannot be passed to copy 2's `configureLogging` and vice versa without breaking. Locks the **isolated** classification of FR-033.
   Parallel: Yes
 
