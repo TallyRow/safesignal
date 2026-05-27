@@ -128,6 +128,11 @@ configureLogging({
 
 ## Use in a federated module
 
+A federated module is loaded into a host application's runtime. **The
+host owns `configureLogging()` by convention**; the module calls
+`createLogger({ module })` and reads the host's already-configured
+runtime through that handle (per FR-029 / FR-030 / FR-031 / FR-032).
+
 ```ts
 import { createLogger } from '@your-org/frontend-logging-sdk';
 
@@ -138,8 +143,39 @@ const moduleLog = createLogger({
 moduleLog.info('recommendations rendered', { count: 6 });
 ```
 
+Properties the package guarantees for the federated case:
+
+- **Cheap, side-effect-free Logger creation.** `createLogger`,
+  `child()`, `withContext()`, and `getRootLogger()` do not initialize
+  any backend, transport, queue, timer, listener, console patch, or
+  network work. Many modules can each create their own logger; the
+  total runtime cost stays constant in the number of loggers (FR-029).
+- **One shared runtime per package/runtime boundary.** Every Logger
+  derived from a single `configureLogging()` invocation reads from
+  the same `ConfiguredRuntime`. The host configures once; every
+  module's events flow through the host's transports + redactor +
+  sanitizer (FR-030).
+- **Retained Logger references survive reconfigure.** A logger
+  reference held in module code continues to deliver to the new
+  transports after a subsequent `configureLogging()` call. No
+  re-acquisition needed (FR-031, SC-012).
+- **Host vs module ownership is convention, not a runtime check.**
+  A module that calls `configureLogging()` is treated as an explicit
+  override — first-call-installs, last-call-replaces semantics (FR-032,
+  clarified 2026-05-27). The package does not block the call; the
+  consumer treats it as a documented non-default pattern.
+- **Duplicate package copies are isolated.** When module bundlers
+  ship two physical copies of the package on a single page, each copy
+  owns an independent runtime. For cross-copy sharing, configure
+  module-federation singleton sharing in your bundler (FR-033).
+
 Host and module share one package contract; events differ only by
-`context.module.name`.
+`context.module.{name,version}`. The full guidance — including
+host/module configuration ownership rules, the duplicate-copy
+classification, and the vendor-neutral core posture — is in
+[`docs/safe-logging.md`](../../docs/safe-logging.md) under
+"Configuration ownership in federated deployments", "Duplicate
+package copies", and "Vendor neutrality".
 
 ## Child loggers
 

@@ -184,12 +184,32 @@ the duration of each check and asserts the bad-shapes that T-S1..T-S5
 forbid. It throws on the first violation with a diagnostic message
 naming the failing clause.
 
+## Federated / module-federation deployments
+
+The host application owns `configureLogging()` by convention;
+federated modules call `createLogger({ module })` against the
+host's already-configured runtime. Duplicate physical copies of
+the package on a page are **isolated** by design — each copy
+maintains its own runtime, with no globalThis registry — and
+consumers who want cross-copy sharing configure their bundler's
+module-federation singleton.
+
+The full federated story is in
+[`docs/safe-logging.md`](docs/safe-logging.md):
+"Configuration ownership in federated deployments", "Duplicate
+package copies", and "Vendor neutrality".
+
 ## Examples
 
-- `examples/host-app/` — single-app consumer; uses
-  `examples/shared/beacon-transport.ts` for body-only HTTPS delivery.
-- `examples/federated-module/` — federated module consumer; reuses the
-  same shared beacon transport (wired in T056).
+- [`examples/host-app/`](examples/host-app/) — single-app consumer;
+  uses [`examples/shared/beacon-transport.ts`](examples/shared/beacon-transport.ts)
+  for body-only HTTPS delivery.
+- [`examples/federated-module/`](examples/federated-module/) —
+  federated module consumer; demonstrates `createLogger({ module })`
+  against a host-configured runtime, with security guidance for
+  module authors (no host secrets, no ambient state, no full host
+  state). See its [README](examples/federated-module/README.md) for
+  pointers into the federated docs.
 
 ## Where to learn more
 
@@ -198,4 +218,8 @@ naming the failing clause.
 - `specs/001-structured-logging-core/contracts/` — public API, transport,
   log-event, logger-config, failure-safety, redaction, sanitization contracts
 - `specs/001-structured-logging-core/quickstart.md` — consumer onboarding tour
+- [`docs/safe-logging.md`](docs/safe-logging.md) — full DO/DON'T sweep,
+  documented drops/transforms/bounded behaviors, configuration
+  ownership for federated deployments, duplicate-copy classification,
+  vendor neutrality
 - `.specify/memory/constitution.md` — governing principles (v1.2.0)

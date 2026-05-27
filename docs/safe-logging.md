@@ -341,6 +341,255 @@ See `contracts/failure-safety.md` (FS-1..FS-17) and the test in
   The package's `SafeTransport` already catches everything; a global
   listener silently masks consumer-code bugs unrelated to logging.
 
+## Configuration ownership in federated deployments
+
+When a single page hosts a host application **plus** one or more
+independently deployed federated modules, only one of them owns the
+configured runtime. The rule the package enforces is simple, and it
+maps directly onto constitution v1.2.0 Principle VII and FR-031 /
+FR-032:
+
+> **The host application is the conventional owner of
+> `configureLogging()`.** Federated modules call `createLogger({
+> module })`, `child()`, and `withContext()` — they do **not** install
+> the runtime.
+
+That distinction is a *convention*, not a runtime check — the package
+does not refuse a module-side `configureLogging()` call. But every
+time a module would even consider calling it, treat the call as a
+documented override of the host's setup, with the consequences below.
+
+### Who calls what
+
+| Caller | Recommended API | Effect on the active runtime |
+|--------|-----------------|------------------------------|
+| Host application (app boot) | `configureLogging({ ... })` | Installs the active `ConfiguredRuntime` — transports, redactor, sanitizer limits, level defaults, correlation hook. |
+| Federated module (normal) | `createLogger({ module: { name, version } })` plus `child()` / `withContext()` for per-feature context | Reads the host's configured runtime via the package's internal active-runtime slot. Adds the module's identity to every event's `context.module`. No transport setup, no global listener, no network work. |
+| Federated module (last-resort override) | `configureLogging({ ... })` | **Replaces** the host's active runtime through the same single named API. Last call wins. No warning is emitted because the call is always explicit — but this is a non-default pattern that MUST be coordinated with the host. |
+
+### Why a module shouldn't call `configureLogging()` in normal operation
+
+- **Hosts pick the transports.** A module that installs its own
+  transports replaces the host's body-only beacon (or whatever) with
+  whatever the module ships. If the module ships nothing, the host's
+  events go silent — every existing logger reference in the host
+  picks up the new active runtime at its next emission (FR-031).
+- **Hosts pick the redactor.** A module that swaps the redactor
+  replaces the host's project-specific extensions to the denylist.
+  Sensitive host-side keys that were masked under the old rule set
+  now leak through the new one.
+- **Hosts pick the level defaults.** A module that sets `level:
+  'debug'` flips on every other module's `debug`/`info` chatter,
+  filling the host's transport budget.
+- **Race conditions.** If two modules each call `configureLogging()`
+  at module-load time, last-call-wins applies — but ordering depends
+  on bundler load order, which a single module cannot guarantee. The
+  result is non-deterministic from any one module's point of view.
+
+### Early-module-config behavior (clarified 2026-05-27)
+
+The package does NOT distinguish "host" from "module" at runtime. If
+a module's `configureLogging()` call lands before the host's, the
+module's runtime is active until the host runs. The host's later
+call atomically replaces it (per FR-031). This is the
+**first-call-installs, last-call-replaces** semantics resolved by
+the `/speckit-clarify` session.
+
+If a module needs visible local logging *during isolation
+development* (e.g., Storybook, a component playground that has no
+host), the conventional fix is the gated block from
+`examples/federated-module/index.ts`:
+
+```ts
+if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
+  configureLogging({
+    application: { name: 'product-recs-standalone' },
+    environment: 'development',
+    level: 'debug',
+    transports: [ConsoleTransport(), makeBeaconTransport({ endpoint: '...' })],
+  });
+}
+```
+
+The gate is critical: this block MUST NOT ship to production where a
+host will configure the runtime.
+
+## Duplicate package copies
+
+When module bundlers ship multiple physical copies of this package
+on a single page (e.g., a host bundle and a federated module bundle
+each include their own `node_modules/@your-org/frontend-logging-sdk`
+build), the **classification this package commits to is isolated**.
+
+### What "isolated" means
+
+- Each physical copy owns an **independent** `ConfiguredRuntime`
+  active-runtime slot (a closure-private `let active` in that copy's
+  `runtime-ref.js`).
+- The package stores no `globalThis` registry, no
+  `Symbol.for('...')`-keyed singleton, no `window`/`document`-side
+  channel that would let two copies discover each other.
+- Each copy must be configured independently. Configuring copy A
+  does not affect copy B.
+- A logger created from copy A emits **only** through copy A's
+  transports — never through copy B's. The two pipelines do not
+  cross-route.
+- This is the FR-033 contract, locked end-to-end by
+  `tests/integration/duplicate-copy-isolation.integration.test.ts`
+  (T064).
+
+### Why the package does not provide a runtime sharing back door
+
+A `globalThis` or `Symbol.for(...)` registry that automatically
+collapsed duplicate copies into one runtime would be implicit and
+silent. Every page that loaded two copies would be coupled through
+package internals — a behavior that:
+- Is impossible to disable when a consumer specifically wants
+  isolation (security boundaries between modules, for example).
+- Surprises consumers who expected each module to bring its own
+  configuration.
+- Couples the package's internal data shape to a public-ish channel
+  (the global registry), making backwards-compatible changes harder.
+- Cannot be reliably tested against the cross-copy versions that
+  could land in production after a `package-lock.json` update.
+
+The package's stance: cross-copy sharing is a **build-time** concern,
+not a runtime one.
+
+### Recommended sharing strategy: module-federation singleton
+
+If your deployment requires a single shared runtime across the
+host and every federated module on the page, **configure your
+bundler's module-federation `shared` map to mark this package as a
+singleton**. Webpack 5 example (lives in your application's build
+config — not in this package):
+
+```js
+// webpack.config.js (host)
+const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPlugin');
+
+module.exports = {
+  // ...
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'host',
+      remotes: {
+        product_recs: 'product_recs@https://cdn.example.com/recs/remoteEntry.js',
+      },
+      shared: {
+        '@your-org/frontend-logging-sdk': {
+          singleton: true,
+          requiredVersion: '^1.0.0',
+          eager: true,
+        },
+        // ... other shared deps
+      },
+    }),
+  ],
+};
+
+// webpack.config.js (federated module — same `shared` block)
+module.exports = {
+  // ...
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'product_recs',
+      filename: 'remoteEntry.js',
+      exposes: { './ProductRecs': './src/index.ts' },
+      shared: {
+        '@your-org/frontend-logging-sdk': {
+          singleton: true,
+          requiredVersion: '^1.0.0',
+          // eager: false on the remote so the host wins the singleton race
+        },
+      },
+    }),
+  ],
+};
+```
+
+With this build configuration, Webpack ensures both bundles
+load the *same* copy of the package — so there is just one
+`runtime-ref` slot on the page and one `configureLogging()` call
+suffices.
+
+Rollup, Vite, esbuild, and Turbopack have equivalent
+module-federation primitives; the rule is the same: mark this
+package as a shared singleton.
+
+### Recommended consumer guidance to put in your federated-module
+### documentation
+
+Tell your module's consumers:
+
+1. **The host owns logging configuration.** If you load this module
+   on a page that has not configured logging, you will see no
+   transport output (the lazy safe-defaults runtime auto-installs
+   `NoopTransport`).
+2. **If you want one runtime across host + this module**, configure
+   your bundler's module-federation singleton sharing as above.
+3. **If you accept separate runtimes**, each copy must be configured
+   independently. The module's developer-mode block in
+   `examples/federated-module/index.ts` shows how to do this in a
+   way that is gated against shipping to production.
+
+## Vendor neutrality
+
+The **core** of this package has **zero observability-vendor runtime
+dependencies**. Installing the package does not pull in any
+OpenTelemetry, Datadog, or Sentry SDK; the built `dist/index.{mjs,
+cjs}` does not import any of them.
+
+### What that means in practice
+
+- The default emit path goes `Logger handle → security pipeline
+  (LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor →
+  ControlCharGuard → Freeze(dev)) → dispatcher → SafeTransport[]`.
+  There is no privileged vendor SDK between the dispatcher and the
+  transports.
+- Built `dist/index.d.ts` contains no vendor-specific identifier
+  (`SeverityNumber`, `LoggerProvider`, `Span`, `Tracer*`, `Exporter`,
+  `Processor`, `Hub`, etc.) — locked by
+  `tests/security/bundle-shape.security.test.ts` (T049).
+- `package.json` `dependencies` carries no `@opentelemetry/*`,
+  `@datadog/*` / `dd-rum`, `@sentry/*`, or other observability-
+  vendor packages — locked by the dependency-pins audit (T070).
+- The package's only delivery primitive is the `Transport`
+  interface. Consumers ship their own transport (the canonical
+  body-only beacon at `examples/shared/beacon-transport.ts` is the
+  reference); the package never makes vendor-specific choices on
+  the consumer's behalf.
+
+### Future vendor adapters are peers, not defaults
+
+OpenTelemetry, Datadog, Sentry, and any other observability vendor
+the project chooses to integrate later are **future optional
+transport adapters**. Each one will ship as either:
+
+- A separate subpath export on this package (e.g., `/otel`,
+  `/datadog`, `/sentry`), or — more likely for vendor SDKs with
+  significant dependency weight —
+- A separately-published companion package the consumer can install
+  independently.
+
+Each adapter will have its own per-adapter bundle/performance
+budget defined in its own plan, separate from the core's ≤15 KB
+target. No adapter will be the "default"; the consumer picks by
+passing the adapter's `Transport` in `LoggerConfig.transports`. No
+adapter will be allowed to weaken the security pipeline upstream of
+the transport boundary — sanitization and redaction will continue
+to run before any transport (including a vendor adapter) sees an
+event.
+
+### Why this matters for federated deployments
+
+A federated module written by a team that prefers Datadog can ship
+its own Datadog-based `Transport` and pass it through the host's
+configuration *only with the host's coordination* — because the
+host owns `configureLogging()`. The core never picks a vendor on
+the host's behalf, so module teams can recommend transports without
+the package pre-committing the host to anything.
+
 ## Documented drops, transforms, and bounded behavior
 
 Constitution Principle VI requires that any behavior that **drops**,
