@@ -6,6 +6,23 @@ inform Phase 1 (data model, contracts, quickstart) and Phase 2 (tasks).
 
 All `NEEDS CLARIFICATION` items from Technical Context are resolved below.
 
+> **Revision note 2026-05-27 (constitution v1.2.0, plan revision)**:
+> R1's "OTel as default core backend" decision below is SUPERSEDED by
+> plan.md's "OpenTelemetry Decision" section. The current decision is
+> **Option B**: v1 ships only `NoopBackend` as the default; the OTel
+> adapter is retained as a documented internal seam but is not on the
+> default path. Bundle target ≤15 KB applies to the OTel-free default
+> path. The R1/R2 mitigations below remain valid as the design seam
+> for the future opt-in OTel feature, but the *default-backend choice*
+> stated in R1 is no longer current. Treat plan.md as the source of
+> truth.
+>
+> R-add-1 (this revision) also adds the Runtime Scale Architecture
+> decision (`ConfiguredRuntime` + module-scoped active-runtime slot;
+> duplicate-copy classification: **isolated**) — see plan.md's
+> "Runtime Scale Architecture" section. Constitution Principle VII
+> (new in v1.2.0) governs.
+
 ---
 
 ## R1. Internal foundation for structured logging

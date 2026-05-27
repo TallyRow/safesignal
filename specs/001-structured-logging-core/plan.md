@@ -1,33 +1,57 @@
 # Implementation Plan: Core Structured Logging API
 
-**Branch**: `001-structured-logging-core` | **Date**: 2026-05-26 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-structured-logging-core` | **Date**: 2026-05-26 (revised 2026-05-27) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/001-structured-logging-core/spec.md`
 
-**Constitution**: `.specify/memory/constitution.md` v1.1.0
+**Constitution**: `.specify/memory/constitution.md` v1.2.0
 
 ## Summary
 
 Deliver a browser-first, framework-neutral, reusable frontend logging package that
 exposes a small stable public API (`Logger`, levels, structured events, context,
-transport) while using OpenTelemetry JavaScript **only as an internal implementation
-detail**. Consumers never see OpenTelemetry types or concepts. Secure logging and
-sensitive-data minimization are **first-class architectural concerns**, not
-afterthoughts: every emission flows through `Sanitize → Redact → Freeze` before any
-transport or backend sees it, and the default configuration refuses to dump
-arbitrary application state. The package degrades safely on every failure
-(transport, redaction, serialization, backend init) and preserves a stable
-contract so application-owned ingestion and future vendor backends can be added
-without consumer call-site changes.
+transport). v1's default core runtime dispatches events through the security
+pipeline directly to configured transports via `NoopBackend` — **no OpenTelemetry
+code is on the default path**. The OTel adapter is retained as a documented
+internal seam (`src/internal/telemetry/otel/**`) with its own unit-test coverage
+but is excluded from the default bundle and is not wired by any v1 public API;
+OTel integration is deferred to a future feature spec that will land the opt-in
+mechanism. Secure logging and sensitive-data minimization are **first-class
+architectural concerns**, not afterthoughts: every emission flows through
+`Sanitize → URLScrub → Redact → ControlCharGuard → Freeze(dev)` before any
+transport sees it, and the default configuration refuses to dump arbitrary
+application state.
+
+`Logger` instances are **lightweight context handles** over a single shared
+**Configured Runtime** per package/runtime boundary. Constructing a logger does
+no backend init, no transport wrapping, no global listener setup, no network
+work, no timer/queue allocation, and no ambient state read; expensive resources
+exist once per `configureLogging()` invocation and are shared across every
+logger derived from that runtime. This is what allows the package to scale to
+the many-loggers-per-page model (one logger per federated module is normal)
+without compounded observability weight.
+
+The package degrades safely on every failure (transport, redaction,
+serialization) and preserves a stable contract so application-owned ingestion
+and future vendor backends — including the future opt-in OTel path — can be
+added without consumer call-site changes.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.4+ targeting ES2020 with DOM lib; strict mode on.
 
 **Primary Dependencies**:
-- Runtime (internal only): `@opentelemetry/api-logs` (experimental Logs API),
-  `@opentelemetry/sdk-logs` (experimental SDK), `@opentelemetry/api` for context.
-  Pinned to caret-locked minor versions and isolated behind an internal adapter.
+- Runtime (default core path): **none**. The default core uses `NoopBackend`,
+  which forwards events directly from the security pipeline to configured
+  transports. No `@opentelemetry/*` import is reachable from `src/index.ts`.
+- Deferred / future-only (NOT bundled by default in v1): `@opentelemetry/api-logs`,
+  `@opentelemetry/sdk-logs`, `@opentelemetry/api`. Caret-locked minor versions,
+  isolated behind `src/internal/telemetry/otel/**`. Adapter code ships in the
+  source tree but no v1 public API instantiates it; the bundle-shape test
+  (T049) and the dependency-pins test (T069, renumbered Polish package
+  audit) enforce that the default built entry does not import these
+  packages and that they remain in the documented caret-locked range
+  pending the future opt-in feature.
 - Build: `tsup` (ESM + CJS dual output, browser target, no Node built-ins).
 - Test: `vitest` with `@vitest/coverage-v8`, `happy-dom` (browser-like env).
 
@@ -55,8 +79,19 @@ package in this repo).
   batching in v1.
 - No `Sync XHR`, no blocking work, no `console.*` on hot paths unless an explicit
   `ConsoleTransport` is configured.
-- Cold-load cost of the package ≤ ~15 KB minified+gzipped for the core path
-  excluding the optional OTel backend.
+- **Logger construction is constant-cost.** Creating any `Logger`
+  (`createLogger`, `child`, `withContext`, `getRootLogger`) MUST allocate
+  only a small handle object referencing the shared runtime; it MUST NOT
+  invoke a `TransportFactory`, init a `TelemetryBackend`, register a timer
+  or interval, attach a global listener, patch a global, perform any I/O,
+  or read ambient browser state. The package MUST scale to ≥1,000 logger
+  instances on a single page without compounded backend/transport
+  initialization (locked by SC-011).
+- Cold-load cost of the package ≤ ~15 KB minified+gzipped for the **default
+  core path**, which in v1 is the only shipped path (security pipeline +
+  `NoopBackend` + `ConsoleTransport`/`NoopTransport`). When the future
+  opt-in OTel feature ships, its bundle cost will be measured separately
+  and will not affect the default core target.
 
 **Constraints**:
 - Browser-safe: no Node-only APIs, no top-level `window` access, no eager DOM
@@ -80,7 +115,7 @@ per page (one per module is normal).
 
 ## Constitution Check
 
-*GATE: Passes against constitution v1.1.0. Re-checked post-design (see end of
+*GATE: Passes against constitution v1.2.0. Re-checked post-design (see end of
 plan).*
 
 - **API Stability**:
@@ -144,9 +179,36 @@ plan).*
   - Transport implementation guidance (`contracts/transport.md`) tells consumer
     transports to use request body (not URL params) and HTTPS — preserving
     downstream auditability.
+- **Lightweight Logger Instances & Federated Runtime (Principle VII, new in
+  v1.2.0)**:
+  - `createLogger()`, `child()`, `withContext()`, `getRootLogger()` MUST be
+    constant-cost handle allocations against the shared `ConfiguredRuntime` —
+    no backend init, no `TransportFactory` invocation, no timer, no global
+    listener, no console/`fetch`/`sendBeacon` patch, no network work, no
+    ambient read.
+  - Expensive runtime resources (backend, wrapped `SafeTransport[]`, redactor,
+    sanitizer limits, `onInternalError` sink) are owned by the
+    `ConfiguredRuntime` produced by `configureLogging()` and shared across
+    every logger derived from it (FR-029, FR-030).
+  - Host applications own the configured runtime by default. Federated modules
+    SHOULD only call `createLogger()` / `child()` / `withContext()`; if a
+    module calls `configureLogging()` it replaces the active runtime through
+    the same single named API (no silent module-level override). Behavior
+    of retained `Logger` references across re-configuration is documented in
+    `contracts/logger-config.md` and locked by SC-012 (FR-031, FR-032).
+  - Duplicate-package-copy behavior is classified as **isolated**: each
+    physical copy of the package on a page owns an independent
+    `ConfiguredRuntime`. The package deliberately avoids any shared global
+    registry. For sharing across copies, module-federation singleton sharing
+    is the recommended pattern, documented in `quickstart.md` (FR-033).
+  - Scale is verified by an explicit ≥1,000-logger contract test that asserts
+    backend init / transport-factory invocation does NOT scale with logger
+    count (SC-011).
 - **Test & Documentation Coverage**: see [Testing Strategy](#testing-strategy);
-  full security test sweep (`tests/security/`) added to satisfy SC-008 / SC-009 /
-  SC-010 and FR-012 through FR-021.
+  full security test sweep (`tests/security/`) covers SC-008 / SC-009 / SC-010
+  and FR-012 through FR-021; new multi-instance / federated test sweep
+  (`tests/performance/` + `tests/integration/`) covers SC-011, SC-012, SC-013
+  and FR-029 through FR-033.
 
 **Result**: PASS. No violations; Complexity Tracking left empty.
 
@@ -154,41 +216,66 @@ plan).*
 
 The package is a layered pipeline. Each layer has one job and a single owner
 interface. Sanitization and redaction are part of the pipeline — they happen
-before any backend or transport sees the event.
+before any backend or transport sees the event. `Logger` instances are
+**handles** into a single shared `ConfiguredRuntime`; the runtime owns the
+pipeline, backend, and wrapped transports.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. Public API Layer  (src/api)                              │
-│    Logger, createLogger, configureLogging, types            │
+│ 0. Logger Handles  (src/api)                                │
+│    `Logger` returned by createLogger() / child() /          │
+│    withContext() / getRootLogger(). A handle is a small     │
+│    immutable object: { name?, levelOverride?,               │
+│    mergedContext, runtimeRef }. Construction does NO        │
+│    backend init / transport wrap / global patch / I/O.      │
+│    Many handles per page (one per federated module is       │
+│    normal) all reference the same runtimeRef.               │
 └────────────────────────────┬────────────────────────────────┘
-                             │ raw user input
+                             │ logger.debug/info/warn/error(...)
+┌────────────────────────────▼────────────────────────────────┐
+│ 1. ConfiguredRuntime  (src/runtime — produced by            │
+│    configureLogging())                                      │
+│    Owns: backend, SafeTransport[] (already wrapped),        │
+│    redactor, sanitizerLimits, onInternalError,              │
+│    correlation hook. ONE instance per package/runtime       │
+│    boundary; replaced atomically on re-configuration.       │
+└────────────────────────────┬────────────────────────────────┘
+                             │ raw user input + merged context
 ┌────────────────────────────▼────────────────────────────────┐
 │ 2. Pipeline Layer  (src/pipeline) — security boundary       │
 │    a. EventBuilder        (assemble canonical LogEvent)     │
 │    b. LevelFilter         (env-aware drop-fast)             │
 │    c. Sanitizer           (depth/size/type coercion;        │
-│                            URL scrub; non-serializable →    │
+│                            non-serializable →               │
 │                            "[Unserializable]"; cyclic →     │
 │                            "[Circular]"; framework/DOM      │
 │                            objects → "[<TypeTag>]")         │
-│    d. Redactor            (sensitive-key denylist; fail-    │
+│    d. URLScrubber         (strip sensitive query/fragment   │
+│                            params from URL-shaped strings)  │
+│    e. Redactor            (sensitive-key denylist; fail-    │
 │                            closed; runs AFTER sanitize so   │
 │                            nested structures are reachable) │
-│    e. ControlCharGuard    (escape control chars in strings) │
-│    f. Freeze (dev only)   (Object.freeze recursively)       │
-│    g. Dispatcher          (call backend; catch all errors)  │
+│    f. ControlCharGuard    (escape control chars in strings) │
+│    g. Freeze (dev only)   (Object.freeze recursively)       │
+│    h. Dispatcher          (call backend; catch all errors)  │
 └────────────────────────────┬────────────────────────────────┘
-                             │ sanitized + redacted LogEvent
+                             │ sanitized + scrubbed + redacted
+                             │ + escaped + (dev-)frozen LogEvent
 ┌────────────────────────────▼────────────────────────────────┐
 │ 3. Telemetry Backend Adapter  (src/internal/telemetry)      │
 │    TelemetryBackend interface                               │
-│      - OtelLogsBackend  (default, internal)                 │
-│      - NoopBackend      (fallback)                          │
+│      - NoopBackend       (default, internal, v1 default —   │
+│                           forwards events directly to       │
+│                           wrapped transports)               │
+│      - OtelLogsBackend   (documented seam; retained in src/ │
+│                           but NOT on the v1 default path;   │
+│                           future opt-in feature)            │
 └────────────────────────────┬────────────────────────────────┘
-                             │ LogEvent (via internal exporter)
+                             │ LogEvent
 ┌────────────────────────────▼────────────────────────────────┐
 │ 4. Transport Abstraction  (src/transport)                   │
-│    SafeTransport wraps any Transport                        │
+│    SafeTransport wraps each consumer Transport at           │
+│    configureLogging() time (NOT at logger construction)     │
 │      - ConsoleTransport (built-in)                          │
 │      - NoopTransport    (built-in)                          │
 │      - <consumer-provided Transport>                        │
@@ -201,6 +288,136 @@ before any backend or transport sees the event.
 │    HTTPS; no secrets in URL query/fragment).                │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+The locked secure pipeline order is:
+
+```text
+EventBuilder → LevelFilter → Sanitizer → URLScrubber → Redactor →
+ControlCharGuard → Freeze(dev) → Dispatcher → backend.handle() →
+SafeTransport[]
+```
+
+Tests (`tests/security/pipeline-order.security.test.ts`, T048) lock this
+order. No backend, transport, or telemetry adapter — present or future —
+may run before the sanitizer + redactor.
+
+## Runtime Scale Architecture (Principle VII)
+
+`Logger` is a lightweight context handle, not a runtime. The architecture
+guarantees scalability to many loggers per page through a strict separation
+between **handles** (cheap, many) and the **shared ConfiguredRuntime** (expensive,
+exactly one per package/runtime boundary).
+
+### Handle vs. Runtime
+
+| Component               | Owned by             | Cost per instance | Lifetime |
+|-------------------------|----------------------|-------------------|----------|
+| `Logger` handle         | Application / module | Allocation of a small object reference; no I/O | As long as caller retains the reference |
+| `ConfiguredRuntime`     | The package (one per `configureLogging()`) | Full backend selection, transport wrapping, redactor compile, sanitizer-limit clamp, `onInternalError` install | Until next `configureLogging()` or page unload |
+
+`createLogger(options?)`, `child(context)`, `withContext(context)`, and
+`getRootLogger()` return new handles that all reference the **same**
+`ConfiguredRuntime`. Handle construction MUST:
+
+- Allocate one small immutable object: `{ name?, levelOverride?, mergedContext, runtimeRef }`.
+- Compute `mergedContext` by shallow-merging the parent's already-merged context
+  with the new context (deep-merge only on `context.attributes`). Merge is pure;
+  parents are unaffected.
+- Read no ambient state.
+
+Handle construction MUST NOT:
+
+- Initialize a `TelemetryBackend`, invoke a `TransportFactory`, or wrap a
+  transport in `SafeTransport` (transport wrapping is a `configureLogging()`
+  responsibility).
+- Register a timer, interval, microtask, scheduled callback, or batching loop.
+- Attach a global event listener; patch a global (`console`, `fetch`,
+  `XMLHttpRequest`, `navigator.sendBeacon`, `window.onerror`,
+  `window.onunhandledrejection`, etc.); or install a document/window observer.
+- Perform any network work or other I/O.
+- Read ambient browser state (`location`, `document.cookie`, storage,
+  `navigator.*`, env vars).
+- Allocate per-instance buffers or queues.
+
+Hard contract: per-instance memory MUST stay O(merged context size) and per-
+instance work MUST stay O(merge cost), independent of the number of other
+loggers on the page or the number of transports configured.
+
+### Re-configuration semantics (FR-031)
+
+`configureLogging()` is idempotent across the same call site and atomic across
+the active runtime:
+
+1. Construct the new `ConfiguredRuntime` (resolve config, build backend,
+   wrap each `Transport` in `SafeTransport`, compile redactor, clamp
+   sanitizer limits, install `onInternalError`).
+2. Atomically swap the package-level `runtimeRef` from the previous runtime
+   to the new one.
+3. `shutdown()` the previous backend and call `flush()`/`shutdown()` on
+   previous wrapped transports (each call isolated; failures route to the
+   *previous* runtime's `onInternalError`).
+
+Existing `Logger` references continue to work because they read the
+package-level `runtimeRef` at emit time — they hold a reference to the
+package-level slot, not to a specific runtime snapshot. After swap, an
+event emitted through an old handle is dispatched through the new runtime
+(new pipeline → new backend → new transports). This is the documented
+behavior locked by SC-012.
+
+Calling `getRootLogger()` before `configureLogging()` returns a usable
+handle backed by the default safe-defaults runtime (warn+ level,
+`NoopTransport`, environment=unknown, default redactor, default sanitizer
+limits). After a later `configureLogging()` call, that same handle picks
+up the new runtime through the same `runtimeRef` slot.
+
+### Configuration ownership: host vs. federated module
+
+| Caller                  | Recommended public API                  | Effect |
+|-------------------------|------------------------------------------|--------|
+| Host application        | `configureLogging({ ... })` at app boot | Installs the active `ConfiguredRuntime`. Owns transports, redactor, backend selection. |
+| Federated module        | `createLogger({ module, context })`, `child()`, `withContext()` | Adds a logger handle attributed by `context.module`. Shares the host's `ConfiguredRuntime`. |
+| Federated module (last resort) | `configureLogging({ ... })` | Replaces the active runtime through the same single named API. NOT silent: this is a documented override and MUST be coordinated with the host. The package emits no warning here because the call is explicit; documentation in `quickstart.md` calls it out as a non-default pattern. |
+
+Locked invariant (FR-032): the package has exactly one public function for
+installing a runtime (`configureLogging`). There is no implicit module-level
+side-effect-on-import that replaces the runtime. Importing the package, calling
+`createLogger`, calling `child`, calling `withContext` — none of these install
+or replace the runtime.
+
+### Duplicate package-copy behavior (FR-033)
+
+**Classification chosen for v1: isolated.**
+
+When module bundlers cause multiple physical copies of this package to load
+on a single page (host loaded one copy; a federated module bundled its own),
+each copy maintains its own internal `runtimeRef` slot — they do not share
+state through any global registry. The package deliberately uses **module-scoped
+state**, not `globalThis` / `window` / a `Symbol.for()`-keyed registry, to
+keep boundaries explicit. Each copy must therefore be configured independently.
+
+Consequences and consumer guidance (documented in `quickstart.md` and
+`docs/safe-logging.md`):
+
+1. **Default: isolated.** Each copy = independent runtime. Each copy's
+   loggers deliver to that copy's transports only. Events from sibling
+   copies are not cross-routed.
+2. **Recommended sharing pattern: module-federation singleton.** If
+   consumers want host and federated modules to share a single
+   `ConfiguredRuntime`, they MUST configure their bundler's
+   module-federation `shared` map to mark this package as a singleton.
+   No package-level workaround is provided; this is a build-time
+   responsibility, not a runtime one. Documentation calls this out as
+   the supported sharing strategy.
+3. **Not provided: a shared global registry.** A `globalThis`-keyed
+   shared singleton would be implicit and silent and would couple every
+   page that loads two copies of the package. We reject this for the
+   same reason we reject ambient state reads: it surprises consumers and
+   is harder to test. Consumers who genuinely need cross-copy sharing
+   use the bundler hook above.
+
+T065 in tasks.md is the documentation task that captures this contract
+for consumers; T064 is the integration test that locks the isolation
+classification.
 
 ### Layer responsibilities
 
@@ -584,9 +801,13 @@ error or rejected Promise into consumer call sites. Enforced by:
 
 Tests live under `tests/`, organized by intent. Coverage targets:
 - 100% of public API exports executed by contract tests.
-- ≥ 90% line coverage in `src/pipeline/`, `src/transport/`, `src/internal/`.
+- ≥ 90% line coverage in `src/pipeline/`, `src/transport/`, `src/internal/`,
+  `src/runtime/` (the `ConfiguredRuntime` module added by this revision).
 - 100% line coverage in `src/pipeline/sanitizer.ts`, `src/pipeline/redactor.ts`,
   `src/pipeline/url-scrubber.ts`, `src/pipeline/control-char-guard.ts`.
+- Constant-cost guarantees (Principle VII) are coverage-orthogonal: lightweight-
+  logger and scale tests assert structural invariants (zero factory calls,
+  zero timers, O(N) allocations) rather than just line execution.
 
 ### Contract tests (`tests/contract/`)
 
@@ -668,8 +889,61 @@ success criterion (SC-008, SC-009, SC-010). Coverage:
 - `host-module.test.ts` — host logger + module logger sharing one
   configuration; events distinguishable by `context.module.name`.
 - `secret-sweep.integration.test.ts` — end-to-end version of
-  `secret-leakage.test.ts` running through the full pipeline including the
-  OTel backend (when present) and an in-memory transport.
+  `secret-leakage.test.ts` running through the full pipeline (NoopBackend +
+  in-memory transport) for v1. When the future OTel opt-in feature lands,
+  this test sweep extends to cover the OTel backend path as well.
+- `host-many-module-loggers.integration.test.ts` (T063): a host calls
+  `configureLogging()` once; many simulated module entry points each call
+  `createLogger({ module })`. Asserts every module's events reach the host-
+  configured transports, the `context.module.name` field is distinct per
+  module, and the host's redactor / sanitizerLimits apply uniformly across
+  every module's events.
+- `reconfigure-existing-references.integration.test.ts` (T061): retains
+  multiple `Logger` references created at different times (before and after
+  the first `configureLogging()`); calls `configureLogging()` again with a
+  fresh transport set; asserts every retained reference emits through the
+  new transports and the previous backend/transport `shutdown`/`flush`
+  hooks were invoked.
+
+### Performance & scale tests (`tests/performance/`)
+
+New test directory for Principle VII verification:
+
+- `lightweight-logger.contract.test.ts` (T059): asserts that constructing
+  `createLogger()`, `child()`, `withContext()`, and `getRootLogger()`
+  invokes zero `TransportFactory` calls (factories are wrapped with spies
+  installed before construction), zero `setTimeout` / `setInterval` /
+  `requestAnimationFrame` / `queueMicrotask` calls, zero global listener
+  attachments (asserted by checking `EventTarget.prototype.addEventListener`
+  spies before/after), zero `console`/`fetch`/`XMLHttpRequest`/`sendBeacon`
+  patches, and zero network calls. Each handle creation is asserted to
+  allocate only a constant number of objects (counted via a per-test
+  allocation probe). Locks FR-029.
+- `many-logger-scale.performance.test.ts` (T060): creates ≥1,000 logger
+  instances (mix of root + per-module + derived `child()`/`withContext()`)
+  against a single `configureLogging()` call. Asserts (a) the registered
+  `TransportFactory` is invoked exactly once during `configureLogging()`
+  and zero additional times during the 1,000 logger creations,
+  (b) `TelemetryBackend.init()` is invoked exactly once, and (c) total
+  allocations are O(N) in logger count (not O(N×K) where K = transports
+  or attribute count). Locks SC-011.
+- `child-non-mutation.test.ts` (T062): a parent logger creates many
+  `child()` derivations; assertions confirm the parent's merged context
+  is structurally unchanged (deep-equal before/after) and that mutating
+  a derived logger's context cannot mutate the parent.
+- `shared-runtime-fanout.test.ts` (also in T060): many module loggers
+  emit through one shared runtime; asserts every configured transport
+  receives every event exactly once and that fan-out is sequential per
+  emission (no event reordering between sibling transports).
+
+### Duplicate-package-copy behavior tests (`tests/integration/`)
+
+- `duplicate-copy-isolation.integration.test.ts` (T064): simulates
+  two physical loads of the package (via `vi.isolateModules()` or two
+  separate `import()` of distinct path aliases pointing at the same
+  source). Asserts the two `ConfiguredRuntime`s are independent: configuring
+  one does not affect the other; loggers from one cannot deliver to the
+  other's transports. Locks FR-033 for the "isolated" classification.
 
 ## Documentation Strategy
 
@@ -738,11 +1012,20 @@ named here so tasks can decide whether to land it.
 
 ### General risks (carried from v1)
 
-- **OTel Logs API is experimental.** Mitigated by the single-chokepoint
-  isolation (see next section).
-- **Multiple package instances under module federation.** Each loaded copy
-  has its own root logger; distinguishable by `application.name` /
-  `module.name`. Tested.
+- **OTel Logs API is experimental** (resolved by this revision): v1 does not
+  ship OTel on the default path. Adapter code retained as documented seam
+  for the follow-up feature. Bundle target ≤15 KB applies to the OTel-free
+  default path. See "OpenTelemetry Decision" section above.
+- **Multiple package instances under module federation** (resolved by this
+  revision): the package classifies duplicate-copy behavior as **isolated**
+  (FR-033). Each physical copy owns an independent `ConfiguredRuntime`; no
+  global registry. Module-federation singleton sharing is the recommended
+  pattern for consumers who need cross-copy sharing. Locked by an
+  integration test (T064).
+- **Per-Logger expensive resource creation** (mitigated by Principle VII
+  enforcement): the lightweight-logger contract test (T059) and the
+  ≥1,000-instance scale test (T060) assert that handle construction does
+  no init / transport wrapping / global listener / timer / queue work.
 - **Consumer transport bugs.** Mitigated by `SafeTransport`.
 
 ### Assumptions
@@ -764,25 +1047,75 @@ named here so tasks can decide whether to land it.
 - Strict `AttributeValue` typing increases type-friction slightly but makes
   the safe path the easy path.
 
-## Mitigating the Experimental Nature of OpenTelemetry JS Logs
+## OpenTelemetry Decision (resolved 2026-05-27)
 
-(unchanged from prior plan, retained as the design still depends on it)
+Per the spec's Risks & Open Questions, the previous plan was inconsistent: it
+described OTel as the default core runtime backend while excluding "the
+optional OTel backend" from the ≤15 KB bundle target. This revision **resolves
+that inconsistency by selecting Option B** from the spec's three suggested
+resolution paths:
 
-1. **Single chokepoint**: all `@opentelemetry/*` imports live in
-   `src/internal/telemetry/otel/`. A test forbids these imports elsewhere.
-2. **Backend abstraction**: `TelemetryBackend` is the seam.
-3. **Pinned versions**: caret-locked, manual-review-only bumps.
-4. **Defensive init**: failure falls back to `NoopBackend`; transports still
-   receive events.
-5. **No OTel types in public API**: enforced by a `.d.ts` grep test.
-6. **Mapping isolation**: `LogEvent ↔ OTel LogRecord` mapping in one file.
-7. **Public-API tests never instantiate OTel.**
+> **Decision**: OTel is deferred. The v1 default core dispatches directly to
+> transports through `NoopBackend`. The OTel adapter is retained as a
+> documented internal seam (code under `src/internal/telemetry/otel/**` plus
+> its unit tests) but is **not** wired by any v1 public API. The opt-in
+> mechanism (a separate import path, an explicit factory, or a separate
+> subpath export) is deferred to a follow-up feature spec.
 
-If the OTel Logs API stabilizes or is replaced, the swap happens inside
-`otel-backend.ts` with no consumer impact.
+### Why Option B (and not A or C)
 
-**Crucially**: replacing the OTel backend cannot weaken security guarantees,
-because sanitization and redaction live **upstream** of the backend interface.
+| Option | Why rejected / chosen |
+|--------|----------------------|
+| **A**: OTel is the default core backend; bundle budget includes it | Conflicts with Principle VII (OTel `LoggerProvider` init counts as expensive runtime work that must not happen for the smallest scale path) and busts the documented ≤15 KB target. Rejected. |
+| **B**: OTel is optional / future; default core dispatches directly to transports | **Chosen.** Preserves the existing OTel adapter implementation (T010) as documented seam code, keeps the default bundle small, satisfies Principle VII at the default-runtime layer, and defers the public opt-in shape to a future feature where it can be designed against real consumer demand. |
+| **C**: OTel is split into a separate subpath/integration | Functionally equivalent to a fully-specified Option B and can be the eventual public-API choice in the follow-up feature; not committed here so v1 ships with the minimum surface. |
+
+### What v1 actually ships
+
+1. **Default backend**: `NoopBackend`. It is not a "fallback" — it is the
+   single backend on the default code path. It forwards `LogEvent`s
+   straight from the dispatcher to the wrapped `SafeTransport[]`.
+2. **OTel adapter retained**: `src/internal/telemetry/otel/{otel-backend,
+   event-bridge, mapping}.ts` and their unit tests remain in the source
+   tree. They are dead code on the default runtime path but compile and
+   pass their unit tests as the documented seam for the future feature.
+3. **No public OTel surface**: `configureLogging()` does not expose any
+   OTel knob. The `LoggerConfig` shape from `contracts/logger-config.md`
+   does not contain a `backend` field, and the OTel adapter is not
+   reachable from `src/index.ts`. Consumers cannot opt into OTel in v1.
+4. **Bundle-shape & dependency-pins tests enforce the decision**:
+   - `tests/security/bundle-shape.security.test.ts` (T049) asserts the
+     built default entry does not import from
+     `dist/internal/telemetry/otel/**` and the built `.d.ts` contains no
+     `opentelemetry`/`@opentelemetry` strings.
+   - `tests/contract/dependency-pins.test.ts` (T069, renumbered Polish
+     package-audit task) asserts the three OTel packages stay caret-locked
+     and remain the only `@opentelemetry/*` deps; if Option B's eventual
+     public mechanism warrants moving them to `peerDependencies` or
+     `optionalDependencies`, that change lands with the follow-up feature.
+5. **Constitution alignment**: Principles I (stable API), IV (secure by
+   default — pipeline order is unchanged), VI (integrity — no behavior
+   that depends on OTel being present), and VII (lightweight loggers —
+   the default runtime no longer carries OTel init weight) all pass.
+
+### Mitigations carried forward (still relevant for the future opt-in)
+
+1. **Single chokepoint**: all `@opentelemetry/*` imports remain confined to
+   `src/internal/telemetry/otel/**` (locked by T014).
+2. **Backend abstraction**: `TelemetryBackend` is the documented seam.
+3. **Pinned versions**: caret-locked, manual-review-only bumps (locked by
+   T069 dependency-pins test).
+4. **No OTel types in public API**: enforced by `.d.ts` grep (T013).
+5. **Mapping isolation**: `LogEvent ↔ OTel LogRecord` mapping in one file.
+6. **Security guarantees independent of OTel presence**: sanitization and
+   redaction live upstream of the backend interface, so the future opt-in
+   cannot weaken them.
+
+When the follow-up feature lands, the public opt-in shape will be specified
+there. Anticipated candidate: a `/otel` subpath export shipping a single
+`createOtelBackend(options)` factory that consumers pass via a new
+`LoggerConfig.backend` field. That decision is **not** committed by this
+plan.
 
 ## Project Structure
 
@@ -813,6 +1146,16 @@ src/
 ├── api/
 │   ├── logger.ts                     # createLogger, configureLogging, Logger impl
 │   └── types.ts                      # public types
+├── runtime/
+│   ├── configured-runtime.ts         # ConfiguredRuntime: backend + wrapped
+│   │                                 #   transports + redactor + sanitizer limits
+│   │                                 #   + onInternalError. Produced by
+│   │                                 #   configureLogging(). Owned by a single
+│   │                                 #   module-scoped runtimeRef slot.
+│   └── runtime-ref.ts                # Module-scoped active-runtime slot used by
+│                                     #   every Logger handle at emit time
+│                                     #   (no globalThis, no Symbol.for registry —
+│                                     #    duplicate copies stay isolated).
 ├── config/
 │   ├── config.ts                     # LoggerConfig normalization + sanitizer clamp
 │   └── env-defaults.ts               # env → default level table
@@ -870,7 +1213,15 @@ tests/
 ├── integration/
 │   ├── end-to-end.test.ts
 │   ├── host-module.test.ts
-│   └── secret-sweep.integration.test.ts
+│   ├── secret-sweep.integration.test.ts
+│   ├── host-many-module-loggers.integration.test.ts
+│   ├── reconfigure-existing-references.integration.test.ts
+│   └── duplicate-copy-isolation.integration.test.ts
+├── performance/
+│   ├── lightweight-logger.contract.test.ts
+│   ├── many-logger-scale.performance.test.ts
+│   ├── child-non-mutation.test.ts
+│   └── shared-runtime-fanout.test.ts
 └── unit/
     ├── pipeline/
     ├── transport/
@@ -898,22 +1249,40 @@ and are exposed via the `/testing` subpath of `package.json` `exports`.
 
 ## Post-Design Constitution Re-check
 
-All six principles still PASS after Phase 1 design:
+All seven principles (v1.2.0) PASS after the revised Phase 1 design:
 
 - **I. Stable Consumer API**: surface is tightly scoped, safe path is the easy
   path (no `unknown` in message; constrained `Attributes`; no `dump` API).
+  Public API gains no new symbols in this revision; the `ConfiguredRuntime`
+  is internal-only.
 - **II. Browser Resilience & Failure Safety**: every consumer-provided callable
   wrapped; fail-closed redaction; sanitizer never throws.
 - **III. Framework-Neutral Structured Observability**: object-only output;
   bounded shape (depth/size/count); production defaults preserved.
 - **IV. Secure & Privacy-Safe Logging by Default**: sanitize-then-redact
   pipeline upstream of every backend and transport; default denylist;
-  sanitizer-limit clamp; URL scrubber; fail-closed.
-- **V. Testable, Minimal, Maintainable**: dedicated `tests/security/` group;
-  examples demonstrate safe usage; no insecure patterns normalized.
+  sanitizer-limit clamp; URL scrubber; fail-closed. Pipeline order
+  (`EventBuilder → LevelFilter → Sanitizer → URLScrubber → Redactor →
+  ControlCharGuard → Freeze(dev) → Dispatcher → backend.handle → SafeTransport[]`)
+  is unchanged by this revision.
+- **V. Testable, Minimal, Maintainable**: dedicated `tests/security/` and new
+  `tests/performance/` groups; examples demonstrate safe usage; no insecure
+  patterns normalized; OTel deferral simplifies the v1 surface.
 - **VI. Log Integrity & Monitoring Suitability**: events reach transports
   unmutated post-pipeline; stable attribution fields; transport contract
   requires POST body delivery (no URL leakage); v1 does not drop/sample/batch.
+- **VII. Lightweight Logger Instances & Federated Runtime (new)**: handle
+  vs. ConfiguredRuntime separation; logger construction allocates a small
+  immutable object with no init/wrap/listener/timer/network/ambient-read
+  work; expensive resources shared at the runtime level; host owns the
+  configured runtime via the single named `configureLogging()` API;
+  duplicate-package-copy classification is **isolated** with module-
+  federation singleton sharing as the recommended cross-copy pattern.
+  Locked by T058 (`ConfiguredRuntime` implementation), T059 (lightweight-
+  logger contract), T060 (≥1,000-instance scale + shared-runtime-fanout),
+  T061 (re-configuration semantics), T062 (child non-mutation), T063
+  (host + many module loggers), T064 (duplicate-copy isolation), and
+  T065 (consumer documentation).
 
 ## Complexity Tracking
 
