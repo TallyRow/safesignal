@@ -11,7 +11,7 @@
  *     (trace id, route).
  *   - Body-only beacon delivery via the canonical shared transport in
  *     `examples/shared/beacon-transport.ts` — the same transport the
- *     federated-module example wires up in T056.
+ *     federated-module example reuses.
  *   - Built-in `ConsoleTransport` alongside for visible local output.
  *
  * Run:
@@ -113,10 +113,10 @@ requestLog.info('fetching cart');
 //   // downstream structured search.
 //   log.info(`checkout opened by ${user.email}`);
 //
-//   // BAD — dumping a whole framework object. The sanitizer (T031)
-//   // type-tags Event/Promise/Map/etc. and class instances rather
-//   // than recursing, so this won't even produce useful data AND
-//   // risks pulling unintended fields.
+//   // BAD — dumping a whole framework object. The package's
+//   // sanitizer type-tags Event/Promise/Map/etc. and class instances
+//   // rather than recursing, so this won't even produce useful data
+//   // AND risks pulling unintended fields. See docs/safe-logging.md.
 //   log.error('click failed', { event });
 //
 //   // BAD — dumping full application state.

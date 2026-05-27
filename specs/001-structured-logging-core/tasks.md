@@ -296,7 +296,7 @@ sanitized, redacted output — or safe event dropping.
 
 ### Documentation
 
-- [ ] T050 [US3] Update safe-logging documentation in `docs/safe-logging.md`, `README.md`, and `examples/host-app/index.ts`
+- [X] T050 [US3] Update safe-logging documentation in `docs/safe-logging.md`, `README.md`, and `examples/host-app/index.ts`
   Acceptance: A "Logging safely" section enumerates DO and DON'T patterns from `quickstart.md`, demonstrates `scrubUrl()` and `createRedactor()` extension, and explicitly forbids logging raw auth/session data, DOM nodes, framework objects, and full application state. A "Documented drops, transforms, and bounded behavior" section satisfies Principle VI by enumerating: level-filter drops, redactor-fail drops, sanitizer truncation markers (depth/size/count/array), URL-scrubber query/fragment replacements, control-char escaping, `NoopTransport` swallowing, and the v1 no-batching / no-sampling stance.
   Parallel: No
 

@@ -1,33 +1,234 @@
 # Logging Safely
 
-> **Status**: scaffold. This document is filled in by **T050** (US3 docs
-> update). All sections below are placeholders that satisfy T004's
-> "section placeholders matching quickstart.md" acceptance.
+The package is **secure by default**: every event flows through a fixed
+security pipeline before any transport sees it. This document
+enumerates the DO and DON'T patterns that keep you on the safe path,
+the package's documented automatic transformations, the extension
+points (`createRedactor()`, `scrubUrl()`, `sanitizerLimits`), and the
+complete list of every documented behavior that drops, transforms, or
+otherwise bounds an event before delivery (Principle VI).
 
 ## Logging safely
 
-Mirror the DO / DON'T patterns from
-`specs/001-structured-logging-core/quickstart.md` and expand each with
-package-specific rationale. To be authored in T050.
-
 ### DO
 
-(Filled in by T050.)
+```ts
+// Fixed-string message + structured attributes. Each value stays
+// reviewable downstream and can be searched by exact key.
+log.info('order placed', {
+  orderId: order.id,
+  total:   order.total,
+  currency: order.currency,
+});
+
+log.warn('payment declined', { reason: 'insufficient_funds', code: 'PD-12' });
+```
+
+```ts
+// Extract the SPECIFIC fields you mean to log — never the whole object.
+log.info('user.registered', {
+  userId: user.id,
+  plan:   user.plan,    // 'free' | 'pro' | 'enterprise' — known shape
+});
+```
+
+```ts
+// Use scrubUrl() before logging any URL you don't fully control.
+import { scrubUrl } from '@your-org/frontend-logging-sdk';
+
+log.info('navigation', {
+  from: scrubUrl(previousUrl),
+  to:   scrubUrl(nextUrl),
+});
+```
+
+```ts
+// Use child loggers for per-request / per-operation context. Parents
+// are not mutated; the child layer is additive.
+const requestLog = log.child({
+  attributes: { requestId: 'r-92f1', route: '/checkout' },
+});
+requestLog.info('fetching cart');
+```
 
 ### DON'T
 
-(Filled in by T050.)
+```ts
+// 1. Don't pass whole objects — class instances and DOM/framework
+//    objects are type-tagged by the sanitizer rather than recursed.
+//    The sanitizer is designed to be conservative; a dump like this
+//    produces zero useful data AND risks pulling fields you didn't
+//    intend to log if the object turns out to be a plain object after
+//    all (e.g., an API response).
+log.info('order placed', { order });               // BAD
+log.info('order placed', { orderId: order.id });   // GOOD
+```
+
+```ts
+// 2. Don't interpolate untrusted values into the message string.
+//    Interpolated values disappear into the message — they cannot be
+//    indexed by structured search, redacted by key, or shape-matched
+//    accurately. The Bearer/JWT shape rules apply to whole strings,
+//    not to substrings inside prose.
+log.info(`order placed by ${user.email}`);   // BAD
+log.info('order placed', { userId: user.id }); // GOOD
+```
+
+```ts
+// 3. Don't log DOM nodes, Events, Promises, Maps, or framework
+//    objects. The sanitizer reduces them to type tags — readable but
+//    useless for debugging — so extract the fields you actually want.
+log.error('click handler failed', { event });   // becomes "[Event:click]"
+log.error('reducer failed',       { state });   // may include tokens
+
+// GOOD: pluck the fields explicitly.
+log.error('click handler failed', {
+  type:    event.type,
+  targetId: (event.target as HTMLElement | null)?.id,
+});
+```
+
+```ts
+// 4. Don't log raw URLs — they may carry tokens / session IDs / auth
+//    codes in the query or fragment. Use scrubUrl().
+log.info('redirected', { to: window.location.href });           // BAD
+log.info('redirected', { to: scrubUrl(window.location.href) }); // GOOD
+```
+
+```ts
+// 5. Don't put secrets in attribute keys NOT covered by the default
+//    denylist. The package masks values for the documented sensitive
+//    KEY names (password, token family, authorization, cookie,
+//    secret, api_key, session_id, ssn, credit_card, etc.). For
+//    project-specific sensitive keys, extend the redactor.
+log.info('event', { x_internal_secret: value });  // NOT masked by default
+// GOOD: extend the redactor.
+configureLogging({
+  redactor: createRedactor([
+    { key: /internal[_-]?secret/i },
+  ]),
+});
+```
+
+```ts
+// 6. Don't disable redaction or sanitizer limits in production code.
+//    If you need looser bounds for debugging, gate it on environment
+//    explicitly and confirm in code review.
+configureLogging({
+  sanitizerLimits: { maxDepth: 16, maxStringLength: 65536 }, // upper bounds
+});
+// (The package clamps any value above the documented Max anyway —
+// see "Documented drops, transforms, and bounded behavior" below.)
+```
 
 ## What the package does for you automatically
 
-(Filled in by T050. Will enumerate the pipeline order
-`Sanitize → URLScrub → Redact → ControlCharGuard → Freeze(dev)` from
-`contracts/sanitization.md` and `contracts/redaction.md`.)
+Every `Logger.{debug,info,warn,error}` call routes through a fixed
+**locked-order** security pipeline before any `Transport.send()` sees
+the event:
+
+```
+LevelFilter → EventBuilder → Sanitizer → URLScrubber → Redactor →
+ControlCharGuard → Freeze(dev) → Dispatcher → SafeTransport[]
+```
+
+Each stage is documented in the contract files under
+`specs/001-structured-logging-core/contracts/`. The order is locked by
+`tests/security/pipeline-order.security.test.ts` and cannot be bypassed
+by any transport, custom redactor, or future vendor adapter.
+
+| Stage | What it does | Where it's documented |
+|-------|-------------|----------------------|
+| `LevelFilter` | Drops the emission entirely before any event allocation when the call's level is below the resolved minimum. | `contracts/logger-config.md` LC-1..LC-11 |
+| `EventBuilder` | Builds the canonical `LogEvent` (timestamp, level, message, attributes, context, optional error). The timestamp is package-assigned; consumer-supplied timestamps are ignored. | `contracts/log-event.md` LE-1..LE-11 |
+| `Sanitizer` | Bounded depth/size/count coercion; type-tags class instances, DOM nodes, framework objects WITHOUT recursing into them. Never throws. | `contracts/sanitization.md` S-1..S-10 |
+| `URLScrubber` | Strips sensitive query/fragment params from URL-shaped string values. Returns input unchanged for non-http(s) URLs. | `contracts/redaction.md` (URL section) |
+| `Redactor` | Masks values for documented sensitive KEY names and for documented value SHAPES (JWT, Bearer). Fail-closed: throws or non-event returns drop the event. | `contracts/redaction.md` R-1..R-10 |
+| `ControlCharGuard` | Escapes ASCII control characters (`\x00`–`\x1F` except `\t`/`\n`/`\r`) and U+2028/U+2029 in every string. | `contracts/log-event.md` row 4 |
+| `Freeze(dev)` | In dev builds, deep-`Object.freeze`s the post-pipeline event so a misbehaving transport cannot mutate it. In production builds the body is dead-code-eliminated. | `contracts/log-event.md` (Immutability) |
 
 ## Customizing redaction and sanitization
 
-(Filled in by T050. Will cover `createRedactor()` composition,
-`scrubUrl()` usage, and tightening `sanitizerLimits`.)
+### Extending the redactor
+
+A `LoggerConfig.redactor` value **fully replaces** the default ruleset.
+To extend the defaults with project-specific rules, **compose**:
+
+```ts
+import { configureLogging, createRedactor } from '@your-org/frontend-logging-sdk';
+
+const base = createRedactor();
+const extra = createRedactor([
+  { key: /internal[_-]?secret/i },
+  { key: 'email', replacement: '[email]' },
+  // Optional value-shape rule (matches WHOLE strings only):
+  { shape: /^cust_[A-Za-z0-9]{20,}$/ },
+]);
+
+configureLogging({
+  redactor: (event) => {
+    const after = base(event);
+    return after === null ? null : extra(after);
+  },
+});
+```
+
+Rule semantics (see `contracts/redaction.md` for the full table):
+
+- `key` matches **the immediate property name**, case-insensitive,
+  full-name only — never a substring of a non-key value.
+- `shape` matches **whole leaf string values**, anchored. A regex
+  without `^` and `$` anchors still tests against the entire string
+  (JavaScript's `RegExp.test` returns true for partial matches; use
+  `^` and `$` if you want exact-string semantics).
+- `replacement` defaults to `'[REDACTED]'`. Override per rule.
+- A rule with BOTH `key` and `shape` matches on EITHER.
+- Fail-closed: if your redactor throws or returns a value that is
+  neither a `LogEvent` nor `null`, the dispatcher drops the affected
+  event and invokes `onInternalError`. No partial emission.
+
+### Pre-scrubbing URLs in attributes
+
+```ts
+import { scrubUrl } from '@your-org/frontend-logging-sdk';
+
+scrubUrl('https://example.com/api?token=abc&page=2');
+// → 'https://example.com/api?token=%5BREDACTED%5D&page=2'
+
+// extraParams adds project-specific param names (string or RegExp):
+scrubUrl('https://x/?xCustom=secret', {
+  extraParams: ['xCustom', /internal[_-]?secret/i],
+});
+
+// fragment: false skips the hash-fragment scrub:
+scrubUrl('https://x/?safe=ok#token=abc', { fragment: false });
+// → 'https://x/?safe=ok#token=abc' (fragment untouched)
+```
+
+The pipeline calls `scrubUrl()` automatically on every URL-shaped
+string value in `event.message`, `event.attributes`,
+`event.context.attributes`, and `event.error.{message,stack}`. The
+public helper is for **pre-scrubbing** URLs you want to log
+intentionally (e.g., a redirect destination).
+
+### Tightening sanitizer limits
+
+Consumers MAY **tighten** the documented limits — useful for memory-
+constrained hosts or stricter debuggability. Values **above** the
+documented Max are clamped to Max and emit one `onInternalError`
+notice per `configureLogging()` call; values **below** Min clamp to
+Min the same way. Consumers cannot disable bounds.
+
+```ts
+configureLogging({
+  sanitizerLimits: {
+    maxDepth:           4,     // default 8, min 1, max 16
+    maxStringLength:    2048,  // default 8192, min 64, max 65536
+    maxArrayLength:     200,   // default 1000, min 1, max 10000
+    maxAttributeCount:  64,    // default 256, min 1, max 4096
+  },
+});
+```
 
 ## Transport-boundary security requirements
 
@@ -142,13 +343,113 @@ See `contracts/failure-safety.md` (FS-1..FS-17) and the test in
 
 ## Documented drops, transforms, and bounded behavior
 
-(Filled in by T050 — satisfies Principle VI's requirement to enumerate every
-behavior that drops or transforms events. Will list level-filter drops,
-redactor-fail drops, sanitizer truncation markers, URL-scrubber replacements,
-control-char escaping, `NoopTransport` swallowing, and the v1 no-batching /
-no-sampling stance.)
+Constitution Principle VI requires that any behavior that **drops**,
+**transforms**, or **bounds** an event before delivery be documented
+so downstream monitoring and forensics can account for it. The
+complete enumeration:
+
+### Drops (event never reaches any transport)
+
+| Behavior | Trigger | Diagnostic |
+|----------|---------|-----------|
+| **Level filter drop** | The call's `LogLevel` is below the resolved minimum (per-logger override → root config level → `LevelMap[environment]` → env default → `warn` fallback). | None — filtered events incur no allocation and no diagnostic. |
+| **Fail-closed redactor drop** | The configured redactor throws OR returns a value that is neither a `LogEvent` nor `null`. | One `onInternalError(PackageError('redactor_failed', …))` per affected event. |
+| **Explicit null return** | The configured redactor returns `null` to drop the event intentionally. | None — null return is a documented, silent drop. |
+| **Sanitizer pathological-input collapse** | A value whose access throws (Proxy traps, getter explosions) is reduced to `"[Unserializable]"` instead of dropping the event. | None — the sanitizer never drops; it always coerces. |
+
+### Transforms (event reaches the transport, but values are altered)
+
+| Behavior | Trigger | Output |
+|----------|---------|--------|
+| **Sanitizer depth cap** | A value is nested deeper than `maxDepth` (default 8). | The value at the boundary is replaced with `"[MaxDepth]"`. |
+| **Sanitizer string truncation** | A string is longer than `maxStringLength` (default 8192). | Truncated to `maxStringLength` chars and suffixed with `"...[truncated]"`. |
+| **Sanitizer array truncation** | An array has more than `maxArrayLength` elements (default 1000). | First `maxArrayLength` elements kept; appended `"[Truncated: <N> elements omitted]"` marker. |
+| **Sanitizer attribute-count truncation** | The cumulative key count across the whole event exceeds `maxAttributeCount` (default 256). | First `maxAttributeCount` keys kept; one top-level `"__truncated__": "[Truncated: <N> keys omitted]"` marker is attached to the event's attributes. |
+| **Sanitizer cycle collapse** | A reference cycle is detected during the walk. | The cyclic reference becomes `"[Circular]"`. |
+| **Sanitizer type-tag** | A class instance / DOM node / framework object (`Event`, `Promise`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Request`, `Response`, `Blob`, `FormData`, `URL`, …) is encountered. | Replaced with `"[<TypeTag>]"` (e.g., `"[Element:div]"`, `"[Event:click]"`, `"[Map]"`, `"[<ConstructorName>]"`). Sanitizer never recurses into class instances or DOM/framework objects; getters are never invoked. |
+| **Sanitizer primitive coercion** | `NaN`, `Infinity`, or `-Infinity` in a number-typed attribute. | Coerced to `null`. |
+| **Sanitizer primitive coercion** | `bigint` value. | Coerced to its `String(value)` representation. |
+| **Sanitizer primitive coercion** | `Date` value. | Coerced to its `.toISOString()` representation; Invalid Date becomes `null`. |
+| **Sanitizer primitive coercion** | `function` / `symbol` value. | Coerced to `"[Function]"` / `"[Symbol]"`. |
+| **Sanitizer undefined handling** | `undefined` value at a top-level attribute key. | The key is dropped (not present in the delivered event). |
+| **Sanitizer undefined handling** | `undefined` value inside an array. | Replaced with `null`. |
+| **URL scrubber query/fragment replacement** | A query or fragment parameter on an http(s) URL has a name in the default denylist (`token`/`password`/`authorization`/etc.) or in `ScrubUrlOptions.extraParams`. | The parameter's VALUE is replaced with `[REDACTED]` (URL-encoded). The parameter NAME is preserved so downstream observers see "this URL carried a `token` param that got scrubbed". Non-http(s) URLs are returned unchanged. |
+| **Redactor key match** | A leaf or container value sits under a property name that matches a default key rule (`password`/`passwd`/`token`-family/`authorization`/`auth`/`cookie`/`set-cookie`/`secret`/`api_key`/`session_id`/`sid`/`ssn`/`credit_card`/`cardNumber`/`cvv`) or a consumer-supplied rule. | The ENTIRE value at that key is replaced with `[REDACTED]` (or the rule's `replacement`). The redactor never recurses into a value whose key matched. |
+| **Redactor shape match** | A leaf string value matches a default shape rule (JWT three-part dot-separated form; `^Bearer\s+…$`) or a consumer-supplied shape rule. | Replaced with `[REDACTED]` (or the rule's `replacement`). |
+| **Control-character escape** | Any string in `event.message`, `event.attributes`, `event.context.attributes`, or `event.error.{name,message,stack}` contains U+0000–U+0008, U+000B–U+000C, U+000E–U+001F, U+2028, or U+2029. | Each targeted code point is replaced with its `\uXXXX` six-character form. `\t` (U+0009), `\n` (U+000A), `\r` (U+000D) are preserved by design. |
+| **Dev-build freeze** | The package is built/run with `__DEV__=true` (default for `tsup`'s dev build and the test suite). | The post-pipeline event is recursively `Object.freeze`d so a misbehaving transport cannot mutate it. In production builds (`__DEV__=false`) the freeze body is dead-code-eliminated; events are NOT frozen — transports are still expected to treat them as immutable per the contract. |
+
+### Bounded behaviors (not exactly a transform, but a documented constraint)
+
+| Behavior | Bound | Trigger |
+|----------|-------|---------|
+| **Sanitizer-limit clamp on configure** | `sanitizerLimits` values above documented Max clamp to Max; below Min clamp to Min. | Configuration time only. One `onInternalError(PackageError('sanitizer_limit_clamped', …))` per clamped key per `configureLogging()` call. |
+| **`NoopTransport` swallowing** | `NoopTransport` is auto-installed when `transports` is `undefined` or `[]`. | At `configureLogging()` time. Events flow through the pipeline normally; the `NoopTransport.send()` accepts and discards each event silently. One `onInternalError(PackageError('no_transport_configured', …))` notice fires when `environment === 'production'`. |
+| **`SafeTransport` per-transport notice budget** | One `onInternalError` notice per failing transport per session (no log spam). | First failure (sync throw, rejected Promise, or `flush`/`shutdown` throw). Subsequent failures from the same transport are silent. |
+| **Bus-vs-quiet defaults** | In `production` and the unknown-environment fallback, `debug` and `info` are dropped by default. | Per the env-default level table in `contracts/logger-config.md`. |
+
+### Things the package does NOT do (in v1)
+
+These are NOT bugs; they are documented non-features:
+
+- **No batching.** Every accepted event reaches every configured
+  transport before `Logger.<level>()` returns. Transports MAY batch
+  internally (e.g., a `flush()`-based beacon transport), but the
+  package itself does no queueing.
+- **No sampling.** Every accepted event is delivered. Consumers who
+  want sampling implement it inside a custom transport.
+- **No deduplication.** Two identical emissions produce two transport
+  calls.
+- **No reordering.** Per-emission ordering is preserved; the dispatcher
+  iterates `runtime.transports` sequentially for each event.
+- **No retry.** A failing transport's events are not re-queued. If
+  delivery is critical, the transport itself owns retry/persistence
+  semantics.
+- **No ambient browser state.** The package never reads
+  `process.env`, `import.meta.env`, `location`, `document.cookie`,
+  `localStorage`, `sessionStorage`, or `navigator.*` to populate
+  context. Pass `environment` and any context attributes explicitly
+  via `configureLogging({ environment, context, correlation })`.
+
+If any of these change in a future version, the change WILL be
+documented in this section per Principle VI.
 
 ## Diagnostics
 
-(Filled in by T050. Will document `onInternalError` behavior and the
-"once per transport per session" rule.)
+Internal failures (transport errors, redactor errors, sanitizer-limit
+clamps, missing-transport notices) are silent by default. Opt in:
+
+```ts
+configureLogging({
+  onInternalError: (err) => {
+    // Forward to your error-reporting system.
+    // `err` is an Error with a `code: PackageErrorCode` field
+    // (one of: 'transport_send_failed', 'transport_init_failed',
+    // 'transport_shutdown_failed', 'redactor_failed',
+    // 'correlation_failed', 'backend_init_failed',
+    // 'backend_handle_failed', 'sanitizer_limit_clamped',
+    // 'no_transport_configured'). The `code` is part of the
+    // diagnostic contract — stable across versions.
+    myErrorReporter.report({ scope: 'frontend-logging', err });
+  },
+});
+```
+
+Diagnostic ordering rules:
+
+- **One notice per failing transport per session.** A throwing or
+  rejecting transport produces at most one notice; subsequent failures
+  from the same transport are silent. This is the no-log-spam
+  guarantee.
+- **One notice per clamped sanitizer-limit key per `configureLogging()`
+  call.** Re-calling `configureLogging()` with new limits resets the
+  counter.
+- **One `correlation_failed` notice per failing `correlation()`
+  call** — the contract is per-event, not per-session, because
+  correlation hooks can be intermittently faulty in ways the package
+  cannot diagnose.
+- **At most one `no_transport_configured` notice per session** when
+  the empty-transports default fires in `production`.
+
+The `onInternalError` callback itself is wrapped in a try/catch. A
+throwing diagnostic hook cannot crash the host app.

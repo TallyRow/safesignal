@@ -3,11 +3,13 @@
 A reusable browser-first structured logging package for web applications,
 including federated host/module architectures.
 
-> **Status**: in development. US1 is functional end-to-end (public API,
-> level filtering, pluggable transports, failure isolation). US3
-> (sanitization, redaction, URL scrubbing, control-char escaping) lands
-> in Phase 5; until then the security pipeline stages are documented
-> pass-through stubs. See `specs/001-structured-logging-core/tasks.md`.
+> **Status**: in development. US1 (public API, level filtering),
+> US2 (pluggable transports, failure isolation, `/testing` subpath),
+> and US3 (full security pipeline — sanitization, URL scrubbing,
+> redaction, control-character escaping, dev-mode freeze) are
+> functional end-to-end. US4 (federated host/module context) and
+> US5 (many-`Logger`-per-page scale + vendor-neutral runtime) follow.
+> See `specs/001-structured-logging-core/tasks.md`.
 
 ## What this package gives you
 
@@ -16,9 +18,14 @@ including federated host/module architectures.
 - Production-safe defaults: `warn` and `error` are the baseline; `debug` and
   `info` are opt-in.
 - A pluggable transport boundary — bring your own HTTP/beacon/file delivery.
-- Secure-by-default sanitization and redaction applied **before** any transport
-  sees an event _(US3, Phase 5)_.
+- **Secure-by-default** sanitization, URL scrubbing, key + shape redaction,
+  control-character escaping, and a dev-mode deep freeze — all applied
+  **before** any transport sees an event. The pipeline order is locked
+  by automated security tests and cannot be bypassed.
 - Failure isolation: a misbehaving transport never breaks the host app.
+- Fail-closed redaction: if a redactor throws or returns an invalid
+  value, the affected event is dropped (never partially emitted) and
+  `onInternalError` is invoked.
 
 ## What this package does NOT do (in v1)
 
@@ -110,10 +117,16 @@ log.error('reducer failed', { state });                  // full app state
 log.info('order placed', { orderId: order.id, total: order.total });
 ```
 
-The plan and `docs/safe-logging.md` cover the full enumeration of `DO`/
-`DON'T` patterns, the sanitizer's bounded-input rules, the redactor's
-default denylist, `scrubUrl()` usage, and every behavior that drops or
-transforms events.
+[`docs/safe-logging.md`](docs/safe-logging.md) covers the full
+enumeration of DO / DON'T patterns, the sanitizer's bounded-input
+rules, the redactor's default denylist and shape rules,
+`createRedactor()` composition, `scrubUrl()` usage, the
+diagnostics contract, and — per constitution Principle VI — every
+documented behavior that drops, transforms, or otherwise bounds an
+event before delivery (level-filter drops, fail-closed redactor
+drops, sanitizer truncation markers, URL-scrubber replacements,
+control-char escapes, `NoopTransport` swallowing, and the v1
+no-batching / no-sampling / no-deduplication stance).
 
 ## Transport security — body-only, HTTPS, no event data in URLs
 
@@ -185,4 +198,4 @@ naming the failing clause.
 - `specs/001-structured-logging-core/contracts/` — public API, transport,
   log-event, logger-config, failure-safety, redaction, sanitization contracts
 - `specs/001-structured-logging-core/quickstart.md` — consumer onboarding tour
-- `.specify/memory/constitution.md` — governing principles (v1.1.0)
+- `.specify/memory/constitution.md` — governing principles (v1.2.0)
