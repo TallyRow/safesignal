@@ -212,7 +212,7 @@ sanitized, redacted output — or safe event dropping.
 
 ### Pipeline implementation
 
-- [ ] T031 [US3] Implement sanitizer in `src/pipeline/sanitizer.ts`
+- [X] T031 [US3] Implement sanitizer in `src/pipeline/sanitizer.ts`
   Acceptance: Honors every row of the input/output table in `contracts/sanitization.md` (S-1..S-10). Type-tags class instances, DOM nodes, and framework objects (`Element`, `Document`, `Window`, `Node`, `Event`, `Promise`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Request`, `Response`, `Blob`, `FormData`, `URL`) instead of recursing — getters are never invoked. Never throws. Respects `SanitizerLimits` from config.
   Parallel: No
 
