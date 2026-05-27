@@ -218,7 +218,7 @@ sanitized, redacted output — or safe event dropping.
   Acceptance: Honors every row of the input/output table in `contracts/sanitization.md` (S-1..S-10). Type-tags class instances, DOM nodes, and framework objects (`Element`, `Document`, `Window`, `Node`, `Event`, `Promise`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Request`, `Response`, `Blob`, `FormData`, `URL`) instead of recursing — getters are never invoked. Never throws. Respects `SanitizerLimits` from config.
   Parallel: No
 
-- [ ] T032 [P] [US3] Implement URL scrubber and export `scrubUrl()` in `src/pipeline/url-scrubber.ts` and `src/index.ts`
+- [X] T032 [P] [US3] Implement URL scrubber and export `scrubUrl()` in `src/pipeline/url-scrubber.ts` and `src/index.ts`
   Acceptance: `scrubUrl(url, options?)` strips query/fragment parameters whose names match the default denylist (case-insensitive); accepts `ScrubUrlOptions.extraParams` and `ScrubUrlOptions.fragment`. Returns input unchanged if it does not parse as an http(s) URL. Pipeline integration runs the scrubber against every string value before redaction. `scrubUrl` is re-exported from `src/index.ts`.
   Parallel: Yes
 
