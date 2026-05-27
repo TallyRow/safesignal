@@ -376,9 +376,151 @@ emitted events.
   Acceptance: A standalone consumer project with its own `package.json`. Shows the federated module attaching `module.{name,version}` and reusing the shared body-only beacon transport from `examples/shared/beacon-transport.ts` (factored out during T029 as the canonical body-only transport for both examples). Docs explicitly call out that the module MUST NOT log host secrets, ambient browser state, or full host application state.
   Parallel: No
 
-- [ ] T057 Review boundary: validate host/module context integrity across `src/api/`, `src/context/`, `tests/integration/`, `tests/security/`, and `examples/federated-module/`
+- [X] T057 Review boundary: validate host/module context integrity across `src/api/`, `src/context/`, `tests/integration/`, `tests/security/`, and `examples/federated-module/`
   Acceptance: Reviewer confirms origin attribution stays clear, child loggers do not mutate parents, and the federated path does not create a backdoor for unsanitized/unredacted context. Constitution Principles III, IV, VI hold for the federated path.
   Parallel: No
+  **Approved 2026-05-27**: Phase 6 closes; US4 (host/module context integrity) is functionally complete end-to-end.
+
+  **Origin attribution stays clear**:
+  - `src/api/logger.ts` emit path constructs `rootIdentity` from
+    `current.config.{application, module, environment}` and merges with
+    explicit precedence `root → per-logger → child → correlation`. Per-
+    logger options carry `module: ModuleIdentity` independent of the
+    host's `application: AppIdentity`, so module identity flows
+    separately from app identity.
+  - `tests/integration/federated-context.test.ts` (T053, 13 tests)
+    locks: host + module loggers share one `configureLogging()` call;
+    every event carries the host's `application` identity; host events
+    have no `module`; module events have distinct `module.{name,
+    version}`; 5-module 50-event interleaved emission test verifies no
+    cross-attribution (the module identity in `event.context.module`
+    matches the attribute the calling module declared).
+  - The merge-order fix that landed in commit 07d397f (alongside T053)
+    corrected a prior bug where per-logger `module` won over a child
+    override; the fix makes `child({ module })` and `withContext({
+    module })` honor the documented precedence chain. Locked by
+    "a child layer can OVERRIDE the parent's per-logger module
+    identity" in T053.
+
+  **Child loggers do not mutate parents**:
+  - `src/api/logger.ts` `child()` and `withContext()` both return
+    `makeLogger(options, [...chainedContexts, context])` — each
+    derivation receives an independent array spread, so a child's
+    chain never touches the parent's. Verified at the data-model
+    layer too: `src/context/context-merge.ts` is pure and allocates
+    a fresh `attributes` object at every nesting level (T054's
+    purity tests confirm "mutating the returned object should be
+    possible without affecting either source").
+  - T053 locks: a child's `attributes.requestId` is NOT visible on
+    the parent's subsequent emissions; two sibling children carry
+    independent context layers (no cross-pollination); grandchild
+    extends parent + child layers; `withContext()` is a true alias
+    for `child()`; child() on a module logger preserves the module
+    identity unless explicitly overridden.
+  - `tests/unit/context/context-merge.test.ts` (T054, 28 tests, 100%
+    line/branch/function/statement coverage on
+    `src/context/context-merge.ts`) locks every documented merge rule
+    including the regression case where a top-level key is shape-
+    mismatched between earlier and later sources (object↔primitive,
+    object↔array, null leaf, undefined non-removal).
+
+  **No backdoor for unsanitized/unredacted context (US4 cannot
+  regress US3)**:
+  - `tests/security/context-boundary-safety.test.ts` (T055, 16 tests)
+    is the load-bearing assertion. Every context entry point —
+    `LoggerConfig.context.attributes`, `CreateLoggerOptions.context.
+    attributes`, `child()` / `withContext()` context, and
+    `correlation()` return value — is exercised with both
+    pathological inputs (DOM nodes with hostile innerHTML, Map /
+    Set / Promise, cyclic refs, class instances with throwing
+    getters, oversized strings) and `makeSecretFixture()` sensitive
+    values. Every test asserts the TRANSPORT-received `LogEvent.
+    context` is the sanitized + redacted result (type tags,
+    `[REDACTED]`, truncation markers) — never raw data.
+  - A composite test fills EVERY entry point simultaneously
+    (`config.context`, `createLogger.context`, `child()`,
+    `correlation()`) with fresh fixture values and asserts a whole-
+    event JSON scan finds zero fixture leakage. This is the
+    "context-through-pipeline" sweep T055 absorbed from the
+    plan.md "Testing Strategy" section (folded in during the
+    /speckit-analyze remediation).
+  - Specifically locked: a JWT in `correlation()` (the highest-
+    precedence merge layer) is still masked even though correlation
+    "wins" the merge; an oversized cyclic `correlation()` payload
+    does not crash the pipeline (the sanitizer's outer defensive
+    belt collapses it to `[Circular]` and `[MaxDepth]` markers).
+
+  **Federated-module example (T056)**:
+  - `examples/federated-module/index.ts` demonstrates the documented
+    consumer-side patterns: module attaches `module.{name,version}`
+    via `createLogger({ module })`, never calls `configureLogging()`
+    in normal operation, derives per-feature context via `child()`,
+    and includes prominent MUST-NOT callouts (host-secret leakage,
+    ambient-browser-state snapshotting, full-host-app-state dumps).
+    The shared body-only beacon transport from
+    `examples/shared/beacon-transport.ts` is referenced for
+    typecheck-time verification (federated module does not normally
+    install transports — the import is for the documented standalone
+    iteration scenario and for compile-time symmetry with the host-
+    app example). `examples/federated-module/tsconfig.json` mirrors
+    the host-app project layout so both examples share the canonical
+    transport reference.
+  - Both example projects typecheck cleanly against the locally-
+    linked package (`cd examples/<name> && npm install && npm run
+    typecheck`).
+
+  **Constitution gates** (v1.2.0):
+  - **Principle III (Framework-Neutral Structured Observability)** —
+    HOLDS for the federated path. Host and federated modules use
+    the same `createLogger()` contract; identity flows through
+    explicit per-logger options, never through globals. The same
+    structured event shape (timestamp, level, message, attributes,
+    context, error) is produced regardless of which logger emitted
+    it; the only documented variation is the `context.module`
+    field. The package contract makes module identity additive,
+    not an alternate code path. Locked by T053 + the
+    `tests/contract/log-event.contract.test.ts` LE-1..LE-11 sweep.
+  - **Principle IV (Secure & Privacy-Safe Logging by Default)** —
+    HOLDS for the federated path. The redactor, sanitizer, URL
+    scrubber, and control-char guard apply uniformly to every
+    context entry point regardless of which logger originated the
+    emission (T055). No federated-side configuration knob bypasses
+    sanitization or redaction; correlation() is the highest-
+    precedence merge layer, but its output still flows through the
+    full pipeline before any transport sees it.
+  - **Principle VI (Log Integrity & Monitoring Suitability)** —
+    HOLDS for the federated path. Events from host and federated
+    modules remain origin-distinguishable in `event.context.module`;
+    the merge algorithm is deterministic (locked by T054); the
+    pipeline preserves origin attribution across every transform
+    (sanitize, scrub, redact, escape, freeze) — none of those
+    stages rewrite, drop, or rename the `application` / `module` /
+    `environment` fields. The "federated path does not weaken
+    integrity" property is verified end-to-end by T053's 5-module
+    50-event no-cross-attribution test.
+
+  **Coverage / scale signals**:
+  - 685 passing tests + 11 todo across 27 test files; typecheck
+    clean.
+  - US4-specific coverage: `tests/integration/federated-context.test.ts`
+    (13), `tests/unit/context/context-merge.test.ts` (28),
+    `tests/security/context-boundary-safety.test.ts` (16) — 57
+    US4 tests in addition to all upstream US1/US2/US3 coverage.
+  - Per-file 100% coverage on `src/context/context-merge.ts`.
+
+  **Outstanding (deferred to later phases)**:
+  - The early-module-config edge case (a federated module's
+    `configureLogging()` call before the host's) is documented in
+    spec.md Risks & Open Questions as RESOLVED 2026-05-27 by the
+    /speckit-clarify session: first-call-installs, last-call-replaces
+    (FR-031 / FR-032). Phase 7's T058 + T061 will land the
+    `ConfiguredRuntime` slot + the retained-references re-config
+    integration test that materially exercises that semantic.
+  - The duplicate-package-copy classification (isolated) is
+    documented in FR-033 but its integration test (T064) is
+    Phase 7 work. Until T064 lands, the isolated classification is
+    architecturally documented but not yet test-locked at the
+    multi-copy level.
 
 **Checkpoint**: All user stories US1–US4 are independently functional and preserve the shared security posture. US5 (scalable, federated runtime) follows in Phase 7 to land the per-page scalability and federated-deployment guarantees added in spec.md v1.1 (FR-029..FR-033 / SC-011..SC-013) and constitution v1.2.0 Principle VII.
 
