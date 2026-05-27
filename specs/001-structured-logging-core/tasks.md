@@ -372,7 +372,7 @@ emitted events.
   Acceptance: Fails if `correlation()` or `child()` context bypasses the sanitizer or redactor — i.e., placing a JWT, raw DOM node, `Map`, or unbounded cyclic object in `correlation()` output produces a sanitized/redacted `LogEvent.context` (not raw data) at the transport. Confirms US4 cannot regress US3. **Also covers the context-through-pipeline sweep referenced by plan.md "Testing Strategy"**: uses `makeSecretFixture()` placed in each of the four context entry points (`LoggerConfig.context`, per-`createLogger` `context`, per-`child()`/`withContext()` context, and `correlation()` return value) and asserts every fixture value is masked in the `LogEvent` received by an in-memory transport — proving every context entry point flows through sanitizer + redactor before any transport's `send()` is invoked.
   Parallel: Yes
 
-- [ ] T056 [US4] Build the federated-module example in `examples/federated-module/`
+- [X] T056 [US4] Build the federated-module example in `examples/federated-module/`
   Acceptance: A standalone consumer project with its own `package.json`. Shows the federated module attaching `module.{name,version}` and reusing the shared body-only beacon transport from `examples/shared/beacon-transport.ts` (factored out during T029 as the canonical body-only transport for both examples). Docs explicitly call out that the module MUST NOT log host secrets, ambient browser state, or full host application state.
   Parallel: No
 
