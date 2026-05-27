@@ -230,7 +230,7 @@ sanitized, redacted output — or safe event dropping.
   Acceptance: Escapes ASCII control characters (`\x00`–`\x1F` except `\t`, `\n`, `\r`) and U+2028 / U+2029 in every string value in `event.message`, `event.attributes`, `event.context.attributes`, and `event.error.*`. Never throws.
   Parallel: Yes
 
-- [ ] T035 [US3] Implement default + custom redactor in `src/pipeline/redactor.ts` and export `createRedactor()` in `src/index.ts`
+- [X] T035 [US3] Implement default + custom redactor in `src/pipeline/redactor.ts` and export `createRedactor()` in `src/index.ts`
   Acceptance: Default rules in `contracts/redaction.md` (R-1..R-10) — key denylist plus JWT/Bearer shape rules — apply to `event.attributes`, `event.context.attributes`, `event.message` (shape only), and `event.error.{name,message,stack}` (shape only). Custom `Redactor` fully replaces the default. Redactor that throws or returns a non-event/non-null value causes the dispatcher to drop the event and invoke `onInternalError` (fail-closed).
   Parallel: No
 

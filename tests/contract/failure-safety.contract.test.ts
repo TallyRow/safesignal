@@ -407,15 +407,20 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
       // Allow any rejected Promises to surface.
       await new Promise<void>((resolve) => setTimeout(resolve, 10));
 
-      // Hard invariants from the contract:
-      expect(thrower.failureCount).toBe(1000);
-      expect(rejecter.failureCount).toBe(1000);
+      // Hard invariants from the contract (post-T035 fail-closed
+      // redaction). The throwingRedactor above throws for every even
+      // `i` (0..998 → 500 events). Each of those events is dropped by
+      // the dispatcher's outer try/catch before reaching any
+      // transport. The remaining 500 (odd `i`) flow through normally,
+      // so each failing transport sees 500 invocations:
+      expect(thrower.failureCount).toBe(500);
+      expect(rejecter.failureCount).toBe(500);
       // At most one notice per failing transport. correlation() and
       // sanitizer-limit clamps may add more — we cap by transport count
-      // (2 failing transports) plus the per-emit correlation_failed
-      // notice (no-spam guarantee for correlation is NOT part of the
-      // current contract; only per-transport-spam is). So we assert the
-      // per-transport bound:
+      // (2 failing transports) plus the per-emit redactor_failed and
+      // correlation_failed notices (no-spam guarantee for those is NOT
+      // part of the current contract; only per-transport-spam is).
+      // Assert the per-transport bound:
       const transportNotices = onInternalError.mock.calls.filter((c) => {
         const err = c[0] as Error & { code?: string };
         return err.message.includes('stress-thrower') ||
@@ -434,11 +439,11 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
       // already. We additionally assert no unhandled rejection:
       unhandled.assertNone();
 
-      // Capturing transport saw every event (until T035 wires the
-      // throwing-redactor drop). When T035 lands, this expectation
-      // changes to "capturing sees ~500 events" — and T046 will own
-      // that updated assertion. Today, no stage drops anything.
-      expect(capturing.calls.length).toBe(1000);
+      // Capturing transport sees only the non-dropped half (500 events
+      // for odd `i`). T046 (fail-closed redaction security test) owns
+      // the dedicated assertion that the redactor's throw causes the
+      // event to be dropped before any transport sees it.
+      expect(capturing.calls.length).toBe(500);
     });
   });
 });
