@@ -2,15 +2,27 @@
  * Dispatcher — runs an already-built `LogEvent` through the locked
  * security pipeline order and hands off to the configured backend.
  *
- *   level filter (in logger.ts, upstream)
+ *   LevelFilter   (in logger.ts, upstream of dispatch())
  *     ↓
- *   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze → backend.handle
+ *   EventBuilder  (in logger.ts, upstream of dispatch())
+ *     ↓
+ *   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze(dev) →
+ *     backend.handle → SafeTransport[]
  *
- * Each stage is a separate module (`sanitizer.ts`, `url-scrubber.ts`,
- * `redactor.ts`, `control-char-guard.ts`, `freeze.ts`). T018 creates
- * those modules as pass-through stubs; Phase 5 (T031–T035) fills in
- * the bodies without modifying `dispatcher.ts`. This is the "named,
- * swappable seams" pattern from T018's acceptance.
+ * Each stage is a separate module: `sanitizer.ts`, `url-scrubber.ts`,
+ * `redactor.ts`, `control-char-guard.ts`, `freeze.ts`. T018 created
+ * the modules as pass-through stubs using the "named, swappable
+ * seams" pattern; Phase 5 (T031–T035) filled in their bodies WITHOUT
+ * touching this file. T036 is the explicit confirmation that the
+ * wiring below routes events through every stage in the contracted
+ * order before any backend or transport sees them (locked as a
+ * contract test by T048).
+ *
+ * Security invariant: **no backend or transport can run before the
+ * redactor**. The stage order below is the only emit path; the
+ * fallback `deliverDirectlyToTransports()` only runs AFTER all five
+ * pipeline stages have completed and is reached only when
+ * `backend.handle()` itself throws.
  *
  * Stage semantics:
  *   - Each stage receives the in-flight event + the normalized config.
@@ -24,6 +36,11 @@
  *     case (fail-closed: we don't emit partially-processed data).
  *   - `backend.handle()` runs inside the same try/catch so the final
  *     no-throw invariant holds.
+ *
+ * Future-direction note: T066 (US5) will refactor `dispatch()` to
+ * drop the `backend.handle()` indirection in favor of direct
+ * `SafeTransport[]` fan-out per plan.md's vendor-neutral core
+ * architecture. The stage order above is unchanged by that refactor.
  */
 
 import type { LogEvent } from '../api/types.js';

@@ -234,7 +234,7 @@ sanitized, redacted output — or safe event dropping.
   Acceptance: Default rules in `contracts/redaction.md` (R-1..R-10) — key denylist plus JWT/Bearer shape rules — apply to `event.attributes`, `event.context.attributes`, `event.message` (shape only), and `event.error.{name,message,stack}` (shape only). Custom `Redactor` fully replaces the default. Redactor that throws or returns a non-event/non-null value causes the dispatcher to drop the event and invoke `onInternalError` (fail-closed).
   Parallel: No
 
-- [ ] T036 [US3] Wire the locked pipeline order in `src/pipeline/dispatcher.ts`
+- [X] T036 [US3] Wire the locked pipeline order in `src/pipeline/dispatcher.ts`
   Acceptance: Dispatcher runs `EventBuilder → LevelFilter → Sanitizer → URLScrubber → Redactor → ControlCharGuard → Freeze(dev) → backend.handle()`. Pipeline order is locked as a contract test in T048. No transport or backend can run before the redactor.
   Parallel: No
 
