@@ -22,13 +22,13 @@ identifiers, query-string secrets, and unnecessary personal or confidential data
 
 ## Problem Statement
 
-There is no reusable package-owned logging foundation that gives browser applications
-a stable frontend logging contract. Application teams currently risk coupling their
-logging call sites to vendor SDKs, app-specific ingestion paths, or unstable internal
-details, making reuse and future observability evolution harder than it should be.
-They also risk accidental disclosure of sensitive values when application code logs
-raw objects, uncontrolled metadata, or unsafe context, leaving secure logging
-behavior undefined at the point where logs are created.
+Browser application teams need a reusable, package-owned logging foundation that 
+provides a stable frontend logging contract. Without one, teams may couple logging 
+call sites directly to vendor SDKs, app-specific ingestion paths, or unstable internal 
+implementation details, making reuse, testing, and future observability changes harder. 
+They may also accidentally expose sensitive data by logging raw objects, 
+uncontrolled metadata, or unsafe context because secure logging behavior is not consistently
+enforced where logs are created.
 
 ## Goals
 
@@ -40,6 +40,11 @@ behavior undefined at the point where logs are created.
 - Separate log creation from log delivery through a transport abstraction.
 - Support reuse across multiple web applications, including federated host/module
   environments.
+- Scale to many lightweight Logger instances per page — one Logger per
+  independently deployed module is normal — without multiplying backend, transport,
+  queue, timer, listener, or network work. Logger creation MUST stay cheap and
+  side-effect-free; all expensive runtime resources are shared at the
+  package/runtime boundary.
 - Preserve a future path to application-owned ingestion and later observability
   integrations without forcing consumer call-site changes.
 - Ensure logging failures never break normal application behavior.
@@ -158,6 +163,52 @@ context.
    correlation values, **When** logs are emitted, **Then** the package attaches that
    context according to the documented contract.
 
+---
+
+### User Story 5 - Scale to Many Lightweight Logger Instances (Priority: P5)
+
+As a platform engineer responsible for a federated browser application, I need the
+package to support many Logger instances per page (one per module is normal)
+without each Logger creating its own backend, transport, queue, timer, listener,
+or network sender, so adding modules to a page does not compound observability
+runtime weight or duplicate delivery infrastructure.
+
+**Why this priority**: Federated micro-frontend pages can easily host dozens to
+hundreds of Loggers created at module boot time. If Logger construction had
+non-trivial cost or initialized infrastructure, every additional module would
+double-initialize observability and fight the host for global state.
+
+**Independent Test**: A consumer creates many Logger instances (host + every
+federated module) against a single configured runtime and confirms that backend
+and transport initialization happens once per configured runtime, not once per
+Logger, while every Logger still produces correctly attributed events through the
+shared delivery path.
+
+**Acceptance Scenarios**:
+
+1. **Given** a configured package runtime, **When** application or module code
+   creates many Logger instances (host root logger, per-module loggers, derived
+   `child()` / `withContext()` loggers), **Then** Logger creation completes
+   cheaply and does NOT initialize any additional telemetry backend, transport,
+   queue, batching loop, retry loop, timer, interval, global event listener,
+   console patch, document/window observer, or network sender per instance.
+2. **Given** a host application that has already configured the package runtime,
+   **When** a federated module loads and creates Loggers, **Then** the module's
+   Loggers share the host's active configured runtime (single backend, single
+   transport set, single redactor) within the same package/runtime boundary
+   unless the documented contract explicitly permits a separate runtime.
+3. **Given** existing Logger references held by application or module code,
+   **When** logging is reconfigured at runtime, **Then** those existing Logger
+   references continue to operate against the newly active configured runtime
+   according to the documented re-configuration contract — without consumers
+   needing to re-acquire Logger references.
+4. **Given** host and module Loggers sharing one configured runtime, **When**
+   each emits logs, **Then** the resulting events remain origin-distinguishable
+   by their attached application and module identity context even though only
+   one delivery pipeline exists.
+
+---
+
 ### Edge Cases
 
 - What happens when a log event omits optional metadata but still includes the minimum
@@ -177,6 +228,22 @@ context.
   unsupported, or unexpectedly large input?
 - What happens when host and module contexts provide overlapping or conflicting origin
   values?
+- What happens when a federated module calls `configureLogging` after the host
+  application has already configured logging — does the module's call replace
+  the host's runtime, get rejected, layer on top, or operate within a separate
+  package/runtime boundary?
+- What happens when module bundlers cause multiple physical copies of the SDK
+  to load on the same page — are the copies isolated (each independently
+  configured), shared (cooperating via a documented shared runtime), or
+  explicitly unsupported?
+- What happens when a single module creates many derived Loggers (`child()` /
+  `withContext()`) — does each derivation stay constant-cost and share the
+  active configured runtime, or does it incur per-instance work?
+- What happens when application or module code creates a Logger BEFORE
+  `configureLogging` runs and then uses that Logger AFTER `configureLogging`
+  runs — does the early-created Logger automatically pick up the new active
+  runtime, continue with the pre-config safe defaults, or fail in some other
+  documented way?
 
 ## Consumer Impact & Compatibility *(mandatory for package work)*
 
@@ -199,6 +266,15 @@ context.
   boundaries between intended fields and untrusted or oversized contextual data so
   downstream review and monitoring remain machine-parseable, origin-attributable, and
   suitable for security-conscious use.
+- **Runtime Scale & Federated Deployment Impact**: Logger creation is a
+  consumer-facing operation expected to occur many times per page (one Logger
+  per federated module is normal). The contract treats Logger construction as
+  cheap and side-effect-free, with all expensive runtime resources — telemetry
+  backend, transports, redactor, sanitizer state, internal error reporter —
+  shared at the configured runtime/package boundary. Host applications own the
+  configured runtime by default; federated modules MUST NOT silently replace it.
+  The behavior when multiple physical copies of the SDK load on a single page
+  MUST be documented as one of: isolated, shared, or explicitly unsupported.
 
 ## Requirements *(mandatory)*
 
@@ -273,6 +349,43 @@ context.
   architectures without assuming a single framework, bundler, or deployment model.
 - **FR-028**: The package MUST preserve clear boundaries between package
   responsibilities and application- or platform-owned ingestion responsibilities.
+- **FR-029**: The package MUST keep Logger creation cheap and side-effect-free.
+  Creating a Logger — including the root Logger, per-module Loggers, and derived
+  Loggers from `child()` / `withContext()` — MUST NOT initialize a telemetry
+  backend, vendor SDK, transport, queue, batching loop, retry loop, timer,
+  interval, scheduled callback, global event listener, console patch (e.g.,
+  patching `console.*`, `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`,
+  `window.onerror`, `window.onunhandledrejection`), document or window observer,
+  or perform any network work. Logger creation MUST also NOT read ambient
+  browser state (location, cookies, storage, navigator, environment variables).
+- **FR-030**: Logger instances MUST share the active configured runtime
+  (telemetry backend, transports, redactor, sanitizer state, internal error
+  reporter) within the same package/runtime boundary. Expensive runtime
+  resources MUST be configured once per package/runtime boundary and reused
+  across every Logger derived from that runtime, so per-Logger cost does not
+  scale with the number of instances.
+- **FR-031**: Reconfiguring logging at runtime MUST have documented behavior for
+  existing Logger references. The package MUST specify whether already-held
+  Logger references continue to operate against the newly active configured
+  runtime, are tied to the runtime present at their creation time, or require
+  re-acquisition — and MUST guarantee the chosen behavior does not break
+  call sites that retained Logger references across the reconfiguration.
+- **FR-032**: Host and federated-module configuration ownership MUST be
+  explicit. The host application owns the configured runtime by default;
+  federated modules MUST NOT silently replace, override, or re-initialize the
+  host's configured runtime (transports, redactor, backend selection,
+  sanitizer limits) as a side effect of normal module loading. Any
+  module-initiated reconfiguration MUST go through a documented, named API and
+  MUST NOT be the default consequence of importing the package.
+- **FR-033**: Duplicate package-copy behavior in federated deployments MUST be
+  documented. When module bundlers cause multiple physical copies of this
+  package to load on a single page, the resulting behavior MUST be classified
+  as exactly one of: (a) **isolated** — each copy is independently configured
+  and its Loggers cannot cross-affect another copy's runtime; (b) **shared** —
+  copies cooperate through a documented shared-runtime contract; or
+  (c) **explicitly unsupported** — with diagnostic guidance for consumers.
+  Silent reliance on copy-local globals or undocumented cross-copy coupling is
+  prohibited.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -291,6 +404,16 @@ context.
 - **Protective Handling Rules**: The package-defined protections that remove, mask,
   omit, limit, or otherwise safely handle sensitive, unknown, or oversized values
   before emission or delivery.
+- **Configured Runtime**: The shared, package-level runtime state established by
+  `configureLogging` — telemetry backend, transports, redactor, sanitizer
+  limits, internal error reporter — that every Logger instance within the same
+  package/runtime boundary uses for delivery. Logger instances are cheap
+  handles over this shared runtime; they neither own it nor duplicate it.
+- **Package/Runtime Boundary**: The scope within which a Configured Runtime is
+  authoritative. Normally the boundary corresponds to one physical copy of the
+  package on a page; federated deployments with multiple copies define the
+  boundary through the documented duplicate-package-copy classification
+  (isolated, shared, or explicitly unsupported).
 
 ## Success Criteria *(mandatory)*
 
@@ -328,6 +451,24 @@ context.
   refresh tokens, session identifiers, authorization values, cookies, or URL
   query/fragment secrets, none of those raw values are present in the event payload
   delivered to any transport.
+- **SC-011**: An automated test creates at least 1,000 Logger instances against
+  a single configured runtime (root Logger plus per-module and derived
+  `child()` / `withContext()` Loggers) and confirms that backend, transport,
+  queue, batching, timer, and listener initialization happens at most once per
+  configured runtime — not per Logger — and that creating the 1,000 Loggers
+  produces no per-instance unbounded memory growth, no per-instance network
+  work, and no per-instance global state mutation.
+- **SC-012**: When logging is reconfigured at runtime, Logger references held
+  by application or module code before the reconfiguration continue to
+  function and use the documented active runtime afterward, according to the
+  package's documented re-configuration contract — verified by an automated
+  test that retains a Logger reference across `configureLogging` and asserts
+  events emitted afterward are delivered through the new runtime's transports.
+- **SC-013**: Logs emitted by a host application Logger and by a federated
+  module's Logger sharing the same configured runtime remain origin-
+  distinguishable in 100% of acceptance-test scenarios through their attached
+  application-identity and module-identity context, without each module
+  creating its own backend, transport, or delivery pipeline.
 
 ## Risks & Open Questions
 
@@ -345,6 +486,35 @@ context.
   expectations are explicit before planning.
 - Clarify the minimum origin and context guarantees required for federated
   host/module environments compared with ordinary single-app environments.
+- **OpenTelemetry default-vs-optional decision (unresolved)**: The current
+  implementation plan treats OpenTelemetry as the default core runtime backend
+  (initialized by default with a noop fallback on init failure) while
+  simultaneously excluding "the optional OTel backend" from the documented
+  ≤15 KB core bundle target. These two statements are inconsistent: if OTel is
+  always initialized, it is not optional and belongs inside the core bundle
+  budget; if OTel is optional, the default backend selection must have a
+  no-OTel route. The decision affects the public contract (does the default
+  package require OTel-derived runtime semantics?), the documented bundle-size
+  claim, the federated story (whether federated modules can rely on OTel being
+  present in the host's configured runtime), and Principle VII's lightweight-
+  Logger guarantee (since OTel `LoggerProvider` initialization counts as
+  expensive runtime work). RESOLUTION REQUIRED before any plan amendment that
+  changes default backend selection. Suggested resolution paths: (A) OTel is
+  the default core backend AND counts toward the core bundle budget;
+  (B) OTel ships as an optional, separately-imported backend factory and the
+  default core runtime uses a no-OTel direct-dispatch path; (C) OTel is
+  deferred entirely to a future feature and the current default is the
+  no-OTel direct-dispatch path. `/speckit-clarify` is the appropriate forum.
+- **Configuration ownership when host has not yet configured**: When a
+  federated module loads before the host has called `configureLogging`, does
+  the module get to install the active runtime (and therefore become the de
+  facto owner until the host catches up), is the runtime locked to safe
+  defaults until the host explicitly configures, or is there a documented
+  handshake? Affects FR-031 and FR-032.
+- **Duplicate-package-copy classification choice**: FR-033 requires the package
+  to pick one of isolated / shared / explicitly unsupported. The package has
+  not yet selected which classification it ships. The choice affects every
+  federated consumer and the documented per-page scalability story.
 
 ## Assumptions
 
@@ -358,3 +528,13 @@ context.
   when delivery is unavailable, but normal application behavior continues.
 - The package contract can define protective handling expectations and safe defaults
   without fully replacing application-specific data governance responsibilities.
+- The package is consumed by multiple host applications and by independently
+  deployed federated modules. A single page is expected to host many Logger
+  instances (one per module is the normal case), so Logger creation cost and
+  per-Logger side effects are first-class scalability concerns, not micro-
+  optimizations.
+- "Per package/runtime boundary" generally means one physical copy of the
+  package on a page. When module bundlers cause multiple physical copies to
+  load, the duplicate-package-copy classification chosen for FR-033 governs
+  whether each copy maintains an independent configured runtime or cooperates
+  with siblings.
