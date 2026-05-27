@@ -67,3 +67,12 @@ planning
     `/speckit-clarify`.
 - Risks and open questions remain captured explicitly without blocking readiness
   for planning.
+- **Clarification session 2026-05-27**: 2 Q&A items resolved (early-module
+  `configureLogging()` policy → first-call-installs / last-call-replaces;
+  re-configuration semantics → full-replace via atomic swap). 2 additional
+  open-question items recorded as already-resolved-by-plan.md (OTel
+  default-vs-optional → vendor-neutral core; FR-033 duplicate-package-copy
+  → isolated). FR-031 and FR-032 updated with the explicit policies; the
+  three previously-flagged open-question bullets in Risks & Open Questions
+  are now marked RESOLVED with pointers to the Clarifications section and
+  the relevant plan.md commits.

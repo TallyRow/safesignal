@@ -61,6 +61,17 @@ enforced where logs are created.
 - Shift responsibility for safe logging entirely onto downstream applications without
   package-level protections or guidance.
 
+## Clarifications
+
+### Session 2026-05-27
+
+- Q: When a federated module calls `configureLogging()` before the host application has, what's the documented behavior? → A: Module's call installs the active runtime; the host's later call atomically replaces it (first-call-installs, last-call-replaces). The package does NOT distinguish "host" from "module" at runtime — whichever `configureLogging()` call lands last is the active runtime. Federated modules calling `configureLogging()` remain a documented (non-default) override per FR-032 and the package emits no warning because the call is explicit; host/module ownership is a *recommended convention*, not a runtime-enforced rule.
+- Q: When `configureLogging()` is called a second (or Nth) time, what happens to the prior config? → A: Full replace via atomic swap. A new `ConfiguredRuntime` is constructed from the new config, the active-runtime slot is swapped atomically, then `flush()`+`shutdown()` are invoked on the prior runtime's wrapped transports (each isolated in try/catch). No partial-merge, no reject-after-first, no opt-in flag. Retained `Logger` references automatically operate against the new runtime (FR-031 / SC-012).
+- Resolution (no Q&A needed; already locked by plan.md): OpenTelemetry default-vs-optional → **vendor-neutral core**: v1 ships with NO observability-vendor SDK in `dependencies`. OpenTelemetry, Datadog, Sentry and other vendors are reframed as future optional transport adapters, peers of each other. The core dispatcher fans events out directly to transports; no `TelemetryBackend.handle()` is on the default path (see plan.md "Vendor-Neutral Core Architecture", commit c4c5aad).
+- Resolution (no Q&A needed; already locked by plan.md): FR-033 duplicate-package-copy classification → **isolated**. Each physical copy of the package on a page owns an independent `ConfiguredRuntime`; the package uses module-scoped state (no `globalThis`, no `Symbol.for` registry). For cross-copy sharing, consumers configure their bundler's module-federation `shared` map to mark this package as a singleton (see plan.md "Runtime Scale Architecture > Duplicate package-copy behavior", commit 2f31680).
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Emit Structured Application Logs (Priority: P1)
@@ -364,19 +375,31 @@ shared delivery path.
   resources MUST be configured once per package/runtime boundary and reused
   across every Logger derived from that runtime, so per-Logger cost does not
   scale with the number of instances.
-- **FR-031**: Reconfiguring logging at runtime MUST have documented behavior for
-  existing Logger references. The package MUST specify whether already-held
-  Logger references continue to operate against the newly active configured
-  runtime, are tied to the runtime present at their creation time, or require
-  re-acquisition — and MUST guarantee the chosen behavior does not break
-  call sites that retained Logger references across the reconfiguration.
+- **FR-031**: Reconfiguring logging at runtime MUST have documented behavior
+  for existing Logger references. **Documented behavior (clarified
+  2026-05-27)**: `configureLogging()` is **full-replace via atomic swap**.
+  A new configured runtime is constructed from the supplied config; the
+  active-runtime slot is swapped atomically; then `flush()` and `shutdown()`
+  are invoked on each previously-wrapped transport (each call isolated in
+  try/catch). There is no partial-merge of prior config, no reject-after-
+  first, and no opt-in `reconfigure: true` flag. Already-held `Logger`
+  references continue to operate against the newly active runtime without
+  re-acquisition (locked by SC-012).
 - **FR-032**: Host and federated-module configuration ownership MUST be
-  explicit. The host application owns the configured runtime by default;
-  federated modules MUST NOT silently replace, override, or re-initialize the
-  host's configured runtime (transports, redactor, backend selection,
-  sanitizer limits) as a side effect of normal module loading. Any
-  module-initiated reconfiguration MUST go through a documented, named API and
-  MUST NOT be the default consequence of importing the package.
+  explicit. The host application owns the configured runtime by *recommended
+  convention*; federated modules MUST NOT silently replace, override, or
+  re-initialize the configured runtime as a side effect of normal module
+  loading (no module-load side effects on the active runtime). Any
+  module-initiated configuration MUST go through the same single named API
+  (`configureLogging()`) that the host uses. **Documented behavior
+  (clarified 2026-05-27)**: the package does NOT distinguish "host" from
+  "module" at runtime. Whichever `configureLogging()` call lands last is
+  the active runtime (first-call-installs, last-call-replaces). When a
+  federated module's `configureLogging()` call lands before the host's,
+  the module's call installs the active runtime; the host's later call
+  atomically replaces it per FR-031. No package-emitted warning fires
+  because the call is always explicit; host/module ownership is a
+  *convention* documented for consumers, not a runtime-enforced rule.
 - **FR-033**: Duplicate package-copy behavior in federated deployments MUST be
   documented. When module bundlers cause multiple physical copies of this
   package to load on a single page, the resulting behavior MUST be classified
@@ -486,35 +509,31 @@ shared delivery path.
   expectations are explicit before planning.
 - Clarify the minimum origin and context guarantees required for federated
   host/module environments compared with ordinary single-app environments.
-- **OpenTelemetry default-vs-optional decision (unresolved)**: The current
-  implementation plan treats OpenTelemetry as the default core runtime backend
-  (initialized by default with a noop fallback on init failure) while
-  simultaneously excluding "the optional OTel backend" from the documented
-  ≤15 KB core bundle target. These two statements are inconsistent: if OTel is
-  always initialized, it is not optional and belongs inside the core bundle
-  budget; if OTel is optional, the default backend selection must have a
-  no-OTel route. The decision affects the public contract (does the default
-  package require OTel-derived runtime semantics?), the documented bundle-size
-  claim, the federated story (whether federated modules can rely on OTel being
-  present in the host's configured runtime), and Principle VII's lightweight-
-  Logger guarantee (since OTel `LoggerProvider` initialization counts as
-  expensive runtime work). RESOLUTION REQUIRED before any plan amendment that
-  changes default backend selection. Suggested resolution paths: (A) OTel is
-  the default core backend AND counts toward the core bundle budget;
-  (B) OTel ships as an optional, separately-imported backend factory and the
-  default core runtime uses a no-OTel direct-dispatch path; (C) OTel is
-  deferred entirely to a future feature and the current default is the
-  no-OTel direct-dispatch path. `/speckit-clarify` is the appropriate forum.
-- **Configuration ownership when host has not yet configured**: When a
-  federated module loads before the host has called `configureLogging`, does
-  the module get to install the active runtime (and therefore become the de
-  facto owner until the host catches up), is the runtime locked to safe
-  defaults until the host explicitly configures, or is there a documented
-  handshake? Affects FR-031 and FR-032.
-- **Duplicate-package-copy classification choice**: FR-033 requires the package
-  to pick one of isolated / shared / explicitly unsupported. The package has
-  not yet selected which classification it ships. The choice affects every
-  federated consumer and the documented per-page scalability story.
+- **OpenTelemetry default-vs-optional decision (RESOLVED 2026-05-27, see
+  Clarifications)**: v1 ships **vendor-neutral**. The core package has no
+  observability-vendor runtime dependencies; the dispatcher fans events out
+  directly to transports. OpenTelemetry, Datadog, Sentry, and other vendors
+  are reframed as future optional transport adapters (peers of each other,
+  none privileged). The existing OTel adapter code under
+  `src/internal/telemetry/otel/**` is retained as a documented future-adapter
+  seam but is not on the v1 default path. Locked by plan.md "Vendor-Neutral
+  Core Architecture" (commit c4c5aad) and tasks.md T066 (dispatcher direct-
+  fan-out refactor) + T070 (vendor-free audit).
+- **Configuration ownership when host has not yet configured (RESOLVED
+  2026-05-27, see Clarifications)**: first-call-installs, last-call-replaces.
+  The package does not distinguish "host" from "module" at runtime; whichever
+  `configureLogging()` call lands last is the active runtime. Host/module
+  ownership is a *recommended convention*, not a runtime-enforced rule. See
+  FR-031 / FR-032 for the documented semantics.
+- **Duplicate-package-copy classification choice (RESOLVED 2026-05-27, see
+  Clarifications)**: **isolated**. Each physical copy of the package on a
+  page owns an independent `ConfiguredRuntime`; the package uses
+  module-scoped state and provides no shared global registry. Consumers who
+  need cross-copy sharing configure their bundler's module-federation
+  `shared` map to mark this package as a singleton. Locked by plan.md
+  "Runtime Scale Architecture > Duplicate package-copy behavior" (commit
+  2f31680) and tasks.md T064 (duplicate-copy isolation integration test) +
+  T065 (consumer documentation).
 
 ## Assumptions
 
