@@ -309,7 +309,13 @@ interface Logger {
 
 ## Internal-only entity: `TelemetryBackend`
 
-Not exported. Lives at `src/internal/telemetry/backend.ts`.
+Not exported. Lives at `src/internal/telemetry/backend.ts`. **Status (per
+plan.md "Vendor-Neutral Core Architecture"): future-adapter seam.** The v1
+default core does not require a vendor backend; the dispatcher will fan out
+events directly to the wrapped transports stored on `ConfiguredRuntime`
+once T066 lands. Until T066, `src/api/logger.ts` maintains a transitional
+companion slot that constructs an internal backend instance and passes it
+to the dispatcher.
 
 ```ts
 interface TelemetryBackend {
@@ -319,9 +325,127 @@ interface TelemetryBackend {
 }
 ```
 
-Implementations: `OtelLogsBackend` (default), `NoopBackend` (fallback). The
-pipeline never knows which is active. Backends only ever receive
-already-sanitized-and-redacted events.
+Implementations under `src/internal/telemetry/`: `NoopBackend` and (as
+documented future-adapter seam code) `OtelLogsBackend`. Neither is part
+of the v1 public surface; both compile and have unit-test coverage so a
+future vendor-adapter feature spec can land cleanly.
+
+---
+
+## Internal-only entity: `ConfiguredRuntime`
+
+Not exported. Lives at `src/runtime/configured-runtime.ts`. The shared
+package-level runtime resource produced by `configureLogging()`. Per
+constitution v1.2.0 Principle VII and FR-029 / FR-030, every `Logger`
+handle reads through this record at emit time — handles are cheap,
+side-effect-free context objects; expensive state lives once here and
+is shared across every logger derived from a single
+`configureLogging()` invocation.
+
+```ts
+interface ConfiguredRuntime {
+  readonly config: NormalizedConfig;
+  readonly transports: ReadonlyArray<Transport>;   // SafeTransport-wrapped
+  readonly redactor: Redactor | undefined;
+  readonly sanitizerLimits: SanitizerLimits;
+  readonly onInternalError: (err: Error) => void;
+  readonly correlation: (() => Partial<LogContext>) | undefined;
+}
+```
+
+**No `backend` field.** Per plan.md "Vendor-Neutral Core Architecture",
+the dispatcher will fan events out directly to `transports`. The
+TelemetryBackend instance the dispatcher still consumes in v1 (until
+T066) lives in a separate transitional slot in `src/api/logger.ts`,
+not on this record.
+
+Constructed by `buildConfiguredRuntime(config: LoggerConfig)`:
+normalizes the config (clamps sanitizer limits, resolves env-default
+level), wraps every consumer transport in `SafeTransport`, and auto-
+installs a single `NoopTransport()` when `transports` is empty (per
+the documented `no_transport_configured` fallback in
+`contracts/failure-safety.md`).
+
+Torn down by `shutdownRuntime(runtime)` — calls `flush()` then
+`shutdown()` on each transport, each isolated in its own try/catch.
+
+---
+
+## Internal-only entity: Active-runtime slot (`runtime-ref`)
+
+Not exported. Lives at `src/runtime/runtime-ref.ts`. A module-scoped
+`let active: ConfiguredRuntime | undefined` — the single source of
+truth for "which `ConfiguredRuntime` is currently active in this loaded
+copy of the package."
+
+API:
+
+```ts
+function getActiveRuntime(): ConfiguredRuntime | undefined;
+function installRuntime(runtime: ConfiguredRuntime): ConfiguredRuntime | undefined; // returns previous
+function clearActiveRuntimeForTests(): void;                                          // test-only
+```
+
+The slot is the mechanism that makes FR-031 ("retained `Logger`
+references continue to use the documented active runtime after
+configuration changes") work: `emit()` reads through
+`getActiveRuntime()` every time, never caches the runtime in the
+logger handle.
+
+Storage is **module-scoped only** — no `globalThis`, no `window`/
+`self`/`document` writes, no `Symbol.for(...)` registry. This is the
+load-bearing property for the duplicate-package-copy isolation
+classification documented in FR-033 (see below).
+
+---
+
+## Federated entity: Package/Runtime Boundary
+
+Not a TypeScript type — a documented architectural concept. A
+*package/runtime boundary* is the scope within which a single active-
+runtime slot is authoritative. Normally this corresponds to one
+physical copy of this package on a page: one `let active`, one
+`backendSlot` companion, one set of derived logger handles all
+sharing those references.
+
+In federated/module-federation deployments where multiple bundlers
+contribute copies of this package to a single page, each physical
+copy ships its own `active` slot — they do not cross-route events.
+Per FR-033 the duplicate-package-copy behavior is classified as
+**isolated**: configuring one copy does not affect another; loggers
+from one copy cannot deliver to another copy's transports.
+
+Cross-copy sharing is a build-time concern: consumers configure
+their bundler's module-federation `shared` map (Webpack 5: `shared:
+{ '@your-org/frontend-logging-sdk': { singleton: true } }`) to
+collapse the duplicates back to a single copy. The package provides
+no runtime back door for cross-copy sharing — that would couple
+every page that loads two copies of the package implicitly.
+
+The T064 integration test (`tests/integration/duplicate-copy-
+isolation.integration.test.ts`, landing later in Phase 7) locks the
+isolated classification end-to-end.
+
+### Relationships across the boundary
+
+```text
+[physical package copy A]               [physical package copy B]
+┌────────────────────────────┐          ┌────────────────────────────┐
+│ runtime-ref.ts             │          │ runtime-ref.ts             │
+│   let active: A's runtime  │          │   let active: B's runtime  │
+│   configureLogging() ──┐   │          │   configureLogging() ──┐   │
+│                        ▼   │          │                        ▼   │
+│ ConfiguredRuntime A        │          │ ConfiguredRuntime B        │
+│   transports: [SafeT(...)] │          │   transports: [SafeT(...)] │
+│                        ▲   │          │                        ▲   │
+│ Logger handles ────────┘   │          │ Logger handles ────────┘   │
+│   (read via                │          │   (read via                │
+│    getActiveRuntime())     │          │    getActiveRuntime())     │
+└────────────────────────────┘          └────────────────────────────┘
+       │                                       │
+       └─── never cross-route ─────────────────┘
+                (no globalThis / Symbol.for bridge)
+```
 
 ---
 
