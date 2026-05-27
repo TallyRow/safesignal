@@ -10,15 +10,22 @@
  *     4. correlation() return value          — per-emit dynamic context
  *
  *   For each source:
- *     - `application`, `module`, `environment` — wholesale replace if defined
- *     - `attributes` — shallow-merge key-by-key (later key wins)
+ *     - `application`, `module`, `environment` — shallow replace if defined
+ *     - `attributes` — **deep-merge** key-by-key (per `data-model.md`):
+ *         * if both sides have a plain-object value for the same key, recurse
+ *         * otherwise the later value replaces the earlier
+ *         * arrays are treated as leaves and replaced wholesale (the later
+ *           array wins; we never concatenate)
  *
  *   Undefined keys in a later source do NOT overwrite earlier definitions.
  *
- * The function is pure: it never mutates its inputs.
+ * The function is pure: it never mutates its inputs. The output's
+ * `attributes` is always a fresh object — callers receive an independent
+ * copy that they may not mutate, but mutating it would not corrupt any
+ * source's `attributes`.
  */
 
-import type { LogContext } from '../api/types.js';
+import type { AttributeValue, Attributes, LogContext } from '../api/types.js';
 
 /**
  * Merge an ordered list of partial contexts into a single `LogContext`.
@@ -32,7 +39,7 @@ export function mergeContexts(
     application?: LogContext['application'];
     module?: LogContext['module'];
     environment?: string;
-    attributes?: LogContext['attributes'];
+    attributes?: Attributes;
   } = {};
 
   for (const src of sources) {
@@ -48,10 +55,10 @@ export function mergeContexts(
       merged.environment = src.environment;
     }
     if (src.attributes !== undefined) {
-      merged.attributes = {
-        ...(merged.attributes ?? {}),
-        ...src.attributes,
-      };
+      merged.attributes = deepMergeAttributes(
+        merged.attributes ?? {},
+        src.attributes,
+      );
     }
   }
 
@@ -63,4 +70,41 @@ export function mergeContexts(
   if (merged.environment !== undefined) out.environment = merged.environment;
   if (merged.attributes !== undefined) out.attributes = merged.attributes;
   return out;
+}
+
+/**
+ * Deep-merge two `Attributes` records. The earlier record provides the
+ * base; the later record overlays on top. For keys present in both:
+ *   - plain-object × plain-object → recurse
+ *   - any other shape combination → later value wins (replaces wholesale)
+ * Arrays are treated as leaves and replaced, not concatenated, so a
+ * later layer's array fully replaces the earlier layer's.
+ *
+ * Pure: never mutates `earlier` or `later`. Always returns a fresh
+ * object for the merged result.
+ */
+function deepMergeAttributes(earlier: Attributes, later: Attributes): Attributes {
+  const result: { [key: string]: AttributeValue } = { ...earlier };
+  for (const key of Object.keys(later)) {
+    const laterValue = later[key];
+    if (laterValue === undefined) continue;
+    const earlierValue = result[key];
+    if (isPlainAttributeObject(earlierValue) && isPlainAttributeObject(laterValue)) {
+      result[key] = deepMergeAttributes(earlierValue, laterValue);
+    } else {
+      result[key] = laterValue;
+    }
+  }
+  return result;
+}
+
+function isPlainAttributeObject(
+  value: AttributeValue | undefined,
+): value is Attributes {
+  return (
+    value !== null &&
+    value !== undefined &&
+    typeof value === 'object' &&
+    !Array.isArray(value)
+  );
 }

@@ -356,7 +356,7 @@ posture.
 package contract and receive distinguishable, sanitized, redacted context in
 emitted events.
 
-- [ ] T052 [US4] Implement child-logger and module-context propagation in `src/api/logger.ts` and `src/context/context-merge.ts`
+- [X] T052 [US4] Implement child-logger and module-context propagation in `src/api/logger.ts` and `src/context/context-merge.ts`
   Acceptance: `child(context)` and `withContext(context)` return new loggers with context layered over the parent's. Parents are unaffected by child mutations. Federated modules attach `module.{name,version}` independently of host config; events from each remain distinguishable.
   Parallel: No
 
