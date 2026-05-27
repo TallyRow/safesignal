@@ -173,11 +173,16 @@ function makeLogger(
       }
     }
 
+    // Documented merge precedence (data-model.md, contracts/logger-config.md
+    // LC-7): root → per-logger → child chain → correlation. The prior code
+    // had `chainedContexts` BEFORE `loggerContextLayers`, which caused a
+    // per-logger `module` identity to win over a `.child({ module: ... })`
+    // override (locked as a regression by T053).
     const context = mergeContexts(
       rootIdentity,
       current.config.context,
-      ...chainedContexts,
       ...loggerContextLayers,
+      ...chainedContexts,
       correlation,
     );
 

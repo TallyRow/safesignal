@@ -360,15 +360,15 @@ emitted events.
   Acceptance: `child(context)` and `withContext(context)` return new loggers with context layered over the parent's. Parents are unaffected by child mutations. Federated modules attach `module.{name,version}` independently of host config; events from each remain distinguishable.
   Parallel: No
 
-- [ ] T053 [P] [US4] Add federated-context integration test in `tests/integration/federated-context.test.ts`
+- [X] T053 [P] [US4] Add federated-context integration test in `tests/integration/federated-context.test.ts`
   Acceptance: Simulates a host logger and a module logger sharing one `configureLogging()` call. Asserts events from each carry distinct `context.module.name` and shared `context.application.name`. Asserts `child()` derivation does not mutate the parent.
   Parallel: Yes
 
-- [ ] T054 [P] [US4] Add context-merge unit test in `tests/unit/context/context-merge.test.ts`
+- [X] T054 [P] [US4] Add context-merge unit test in `tests/unit/context/context-merge.test.ts`
   Acceptance: Verifies the merge precedence from `data-model.md` (root → per-logger → child → correlation), shallow merge for top-level keys, deep merge for `context.attributes`.
   Parallel: Yes
 
-- [ ] T055 [P] [US4] Add context-boundary security test in `tests/security/context-boundary-safety.test.ts`
+- [X] T055 [P] [US4] Add context-boundary security test in `tests/security/context-boundary-safety.test.ts`
   Acceptance: Fails if `correlation()` or `child()` context bypasses the sanitizer or redactor — i.e., placing a JWT, raw DOM node, `Map`, or unbounded cyclic object in `correlation()` output produces a sanitized/redacted `LogEvent.context` (not raw data) at the transport. Confirms US4 cannot regress US3. **Also covers the context-through-pipeline sweep referenced by plan.md "Testing Strategy"**: uses `makeSecretFixture()` placed in each of the four context entry points (`LoggerConfig.context`, per-`createLogger` `context`, per-`child()`/`withContext()` context, and `correlation()` return value) and asserts every fixture value is masked in the `LogEvent` received by an in-memory transport — proving every context entry point flows through sanitizer + redactor before any transport's `send()` is invoked.
   Parallel: Yes
 
