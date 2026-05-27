@@ -34,12 +34,11 @@
     "test:unit": "vitest run tests/unit",
     "test:watch": "vitest"
   },
-  "dependencies": {
+  "dependencies": {},
+  "devDependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.57.0",
-    "@opentelemetry/sdk-logs": "^0.57.0"
-  },
-  "devDependencies": {
+    "@opentelemetry/sdk-logs": "^0.57.0",
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^2.1.0",
     "happy-dom": "^15.0.0",

@@ -595,7 +595,7 @@ emitted events.
   Parallel: Yes
   **Was**: prior T068 / original T059.
 
-- [ ] T070 Final package + vendor-free audit in `package.json`, `src/index.ts`, `src/testing/index.ts`, and `tests/contract/dependency-pins.test.ts`
+- [X] T070 Final package + vendor-free audit in `package.json`, `src/index.ts`, `src/testing/index.ts`, and `tests/contract/dependency-pins.test.ts`
   Acceptance: `package.json` `exports` map exposes only `.` and `./testing`, `sideEffects: false`. A new contract test `tests/contract/dependency-pins.test.ts` parses `package.json` and asserts:
     - (a) `dependencies` contains **no** `@opentelemetry/*`, `@datadog/*` / `dd-rum`, `@sentry/*`, or any other observability-vendor package — the core is vendor-free.
     - (b) Any vendor packages used solely by the documented-seam adapter code under `src/internal/telemetry/otel/**` (or future adapter seams) and their tests are declared in `devDependencies` only. If the OTel seam's unit tests need `@opentelemetry/*` types, those types are `devDependencies`; this is verified by reading `package.json` directly. (The package may also list those vendor packages in an `optionalPeerDependencies` map for the eventual opt-in feature's documentation; this is forward-looking and OUT of scope for v1's audit, which only enforces the "not in `dependencies`" guarantee.)

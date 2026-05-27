@@ -199,14 +199,30 @@ describe('dist/index.{mjs,cjs} default entry does not re-export internal/testing
     },
   );
 
-  // The "no vendor SDK in the built JS default entry" guarantee is
-  // T070's territory — it depends on T066 (US5 dispatcher refactor)
-  // dropping OtelLogsBackend from the default-path wiring. Until
-  // T066 lands the default entry still imports @opentelemetry/*; the
-  // public surface (declarations) is already vendor-neutral, which
-  // is what T049 locks here.
-  it.todo(
-    'T070: dist/index.{mjs,cjs} contains no @opentelemetry/* / @datadog/* / @sentry/* imports (requires T066 dispatcher refactor)',
+  // The "no vendor SDK in the built JS default entry" guarantee was
+  // unlocked by T066 (dispatcher refactor) and is now locked here.
+  // `tests/contract/dependency-pins.test.ts` (T070) carries the
+  // canonical version of this assertion with broader vendor
+  // coverage; this is the bundle-shape-suite mirror so a regression
+  // surfaces during the security pass even if the contract suite
+  // is run in isolation.
+  it.each([
+    ['index.mjs', INDEX_MJS],
+    ['index.cjs', INDEX_CJS],
+  ])(
+    '%s contains no @opentelemetry/* / @datadog/* / @sentry/* imports',
+    (_label, file) => {
+      const content = readFileSync(file, 'utf8');
+      for (const vendor of [
+        '@opentelemetry/',
+        '@datadog/',
+        '@sentry/',
+        'dd-rum',
+        'dd-trace',
+      ]) {
+        expect(content).not.toContain(vendor);
+      }
+    },
   );
 });
 
