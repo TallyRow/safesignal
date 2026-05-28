@@ -140,9 +140,7 @@ describe('TB-7 — assertTransportContract battery', () => {
     });
     await assertTransportContract(transport);
   });
-  it.skip('batching-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery (unskips at T026)', async () => {
-    // T026 will remove the .skip and run assertTransportContract against a
-    // batching-configured instance.
+  it('batching-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery', async () => {
     const transport = TB.createBeaconTransport({
       endpoint: 'https://logs.example.com/ingest',
       batching: { maxBatchSize: 10 },
