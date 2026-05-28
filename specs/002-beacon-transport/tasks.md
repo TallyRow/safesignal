@@ -57,7 +57,7 @@ bundle-shape guard that every subsequent phase relies on.
   Acceptance: Exports a `createBeaconTransport` function (initial body: `throw new Error('not implemented')`) and `BeaconTransportOptions` interface so test scaffolding can compile. Imports types ONLY from `../api/types.js` (`LogEvent`, `Transport`) via `import type` syntax. No runtime imports from anywhere in `src/`. `npm run build` emits a non-empty `dist/transport-beacon.mjs` (gzipped well under 5 KiB at this stage).
   Parallel: No
 
-- [ ] T004 [P] Implement subpath-owned error class in `src/transport-beacon/errors.ts`
+- [X] T004 [P] Implement subpath-owned error class in `src/transport-beacon/errors.ts`
   Acceptance: Exports `BeaconErrorCode` (union of `'oversized_event' | 'beacon_batch_drop' | 'beacon_unavailable' | 'transport_send_failed' | 'transport_shutdown_failed'`) and `BeaconError extends Error` with readonly `code: BeaconErrorCode`, readonly `transportName: string`, optional `cause?: unknown`. Constructor sets `.name = 'BeaconError'` and `.cause` via `Object.defineProperty` for ES2022 compatibility. NOT re-exported from `src/transport-beacon/index.ts` (internal-only). Zero imports from `src/internal/**` or any other top-level source dir.
   Parallel: Yes
 
