@@ -26,7 +26,11 @@ The conventions this example demonstrates:
    `child()` / `withContext()` — never mutates a shared logger
    reference.
 4. **The module uses the same body-only beacon transport contract**
-   documented in [`examples/shared/beacon-transport.ts`](../shared/beacon-transport.ts).
+   provided by the first-party
+   [`createBeaconTransport`](../../src/transport-beacon/beacon-transport.ts)
+   factory at the `@your-org/frontend-logging-sdk/transport-beacon`
+   subpath — body-only HTTPS by construction (sendBeacon →
+   fetch-keepalive fallback, T-S1..T-S5).
    In normal operation the module does not install transports, but
    if a developer is iterating on the module in isolation
    (Storybook, component playground) the example shows how to
@@ -97,6 +101,10 @@ block.
 - [`package.json`](./package.json) — standalone consumer project
   that depends on the locally-linked package (`file:../..`).
 - [`tsconfig.json`](./tsconfig.json) — mirrors the host-app
-  example's compile setup; includes `../shared/beacon-transport.ts`
-  so the example references the same canonical body-only transport
-  the host-app example uses.
+  example's compile setup. Both examples now use the first-party
+  `createBeaconTransport` from
+  `@your-org/frontend-logging-sdk/transport-beacon` (the previously-
+  documented `../shared/beacon-transport.ts` reference was removed
+  in feature 002 — see
+  [`docs/safe-logging.md`](../../docs/safe-logging.md#beacon-transport-first-party-https-peer-transport)
+  for the migration note).

@@ -15,11 +15,14 @@
  *      attribute the event to this module.
  *   3. Derives per-feature / per-request context via `child()` /
  *      `withContext()` — never mutates a shared logger reference.
- *   4. Reuses the same body-only beacon transport contract documented in
- *      `examples/shared/beacon-transport.ts`. If the module ever needs
- *      to ship its own transport (e.g., a developer is iterating on
- *      this module in isolation), it MUST follow that body-only +
- *      HTTPS contract — never URL-based delivery.
+ *   4. The host's transport is the first-party
+ *      `createBeaconTransport` from
+ *      `@your-org/frontend-logging-sdk/transport-beacon` — the
+ *      module never imports or installs a transport. If the module
+ *      ever needs to ship its own transport for standalone iteration
+ *      (e.g., Storybook), it imports the same first-party factory
+ *      (body-only HTTPS by construction) — never a hand-rolled one,
+ *      never a URL-based one.
  *
  * Run:
  *   cd examples/federated-module
@@ -65,18 +68,16 @@
 
 import { createLogger } from '@your-org/frontend-logging-sdk';
 
-// Shared body-only beacon transport. A normal federated module does not
-// install transports — the HOST does, at app boot. We import the
-// reference here for two reasons:
-//   (a) the typecheck pipeline verifies the module-internal references
-//       compile against the shared transport's contract;
-//   (b) developers iterating on this module in isolation (e.g., in a
-//       Storybook or component playground that has no host) can wire
-//       it up themselves, documented in the bottom anti-pattern block.
-import {
-  makeBeaconTransport as _MAKE_BEACON_TRANSPORT_UNUSED,
-} from '../shared/beacon-transport.js';
-void _MAKE_BEACON_TRANSPORT_UNUSED; // typecheck-only reference
+// A normal federated module does NOT import `createBeaconTransport`
+// and does NOT call `configureLogging`. The HOST owns the configured
+// runtime (FR-030..FR-032 from feature 001) — the module emits via
+// `createLogger()` and its events flow through the host's transports.
+//
+// The standalone-iteration block at the bottom of this file shows
+// the no-host fallback pattern, where the developer wires up a
+// `createBeaconTransport` from
+// `@your-org/frontend-logging-sdk/transport-beacon` for visible
+// local output. That is the ONLY place a module imports a transport.
 
 // 1. Create the module logger. This is the ONLY public-API call a
 //    federated module needs in normal operation. The module identity
@@ -155,10 +156,11 @@ subFeatureLog.info('related items loaded', { count: 4 });
 //   // almost never what you want in production.
 //   //
 //   // import { configureLogging } from '@your-org/frontend-logging-sdk';
+//   // import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 //   // configureLogging({
 //   //   application: { name: 'product-recs-standalone' },
 //   //   transports: [
-//   //     makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+//   //     createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
 //   //   ],
 //   // });
 //
@@ -195,7 +197,7 @@ subFeatureLog.info('related items loaded', { count: 4 });
 //     ConsoleTransport,
 //     configureLogging,
 //   } from '@your-org/frontend-logging-sdk';
-//   import { makeBeaconTransport } from '../shared/beacon-transport.js';
+//   import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 //
 //   if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
 //     configureLogging({
@@ -204,7 +206,10 @@ subFeatureLog.info('related items loaded', { count: 4 });
 //       level: 'debug',
 //       transports: [
 //         ConsoleTransport(),
-//         makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+//         createBeaconTransport({
+//           endpoint: 'http://localhost:4318/ingest',
+//           allowInsecureLoopback: true,
+//         }),
 //       ],
 //     });
 //   }

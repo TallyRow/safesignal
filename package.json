@@ -17,6 +17,11 @@
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.mjs",
       "require": "./dist/testing.cjs"
+    },
+    "./transport-beacon": {
+      "types": "./dist/transport-beacon.d.ts",
+      "import": "./dist/transport-beacon.mjs",
+      "require": "./dist/transport-beacon.cjs"
     }
   },
   "main": "./dist/index.cjs",
