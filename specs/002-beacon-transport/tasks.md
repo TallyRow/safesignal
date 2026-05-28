@@ -122,7 +122,7 @@ the URL.
   Acceptance: Constructs 1,000 beacon transports in a tight loop with `installAddEventListenerSpy` + `installSetTimeoutSpy` + a `fetch` / `sendBeacon` call counter installed. Asserts: zero listener installations, zero timer creations, zero `fetch` calls, zero `sendBeacon` calls, zero reads of `window.location` / `document.cookie` / `localStorage` (asserted via property-access proxies installed before the loop). Asserts memory use is O(N) — total allocations measured via a per-test allocation probe stay within a documented per-instance budget × 1000. Locks SC-006, TB-4.
   Parallel: Yes
 
-- [ ] T015 [P] [US1] Extend `assertTransportContract` integration in `tests/contract/transport-beacon.contract.test.ts`
+- [X] T015 [P] [US1] Extend `assertTransportContract` integration in `tests/contract/transport-beacon.contract.test.ts`
   Acceptance: Extends T009's scaffolding. The TB-7 default-config block now runs the full `assertTransportContract` helper from `@your-org/frontend-logging-sdk/testing` against `createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' })`. T-1..T-9 and T-S1..T-S5 all pass. The batching-config variant remains skipped (US3 will unskip).
   Parallel: Yes
 

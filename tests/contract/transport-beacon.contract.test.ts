@@ -37,6 +37,7 @@ import { describe, expect, it } from 'vitest';
 
 import * as TB from '@your-org/frontend-logging-sdk/transport-beacon';
 import * as Pkg from '@your-org/frontend-logging-sdk';
+import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
 
 const PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
 
@@ -118,10 +119,22 @@ describe('TB-3 — returned transport shape', () => {
 // ---------------------------------------------------------------------------
 
 describe('TB-7 — assertTransportContract battery', () => {
-  it.todo('default-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery (unlocks at T015 / T016)');
-  it.skip('batching-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery (unskips at T026)', () => {
+  // T015 lands the full assertion body. The .skip annotation lifts at T016
+  // when createBeaconTransport stops throwing on construction.
+  it.skip('default-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery (unskips at T016)', async () => {
+    const transport = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+    });
+    await assertTransportContract(transport);
+  });
+  it.skip('batching-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery (unskips at T026)', async () => {
     // T026 will remove the .skip and run assertTransportContract against a
     // batching-configured instance.
+    const transport = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      batching: { maxBatchSize: 10 },
+    });
+    await assertTransportContract(transport);
   });
 });
 
