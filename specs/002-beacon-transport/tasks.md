@@ -114,7 +114,7 @@ the URL.
   Acceptance: Covers D-10, D-12. Cases: first `send()` installs exactly one `'pagehide'` listener (D-10); second `send()` installs zero additional listeners; `shutdown()` removes the listener; `shutdown()` called twice is a no-op (idempotent — D-12); `send()` after `shutdown()` is a no-op (no encoding, no primitive call, no notice — D-12); `installAddEventListenerSpy` confirms no `visibilitychange` or `beforeunload` listener is ever installed.
   Parallel: Yes
 
-- [ ] T013 [P] [US1] End-to-end secret sweep in `tests/security/transport-beacon-secret-sweep.security.test.ts`
+- [X] T013 [P] [US1] End-to-end secret sweep in `tests/security/transport-beacon-secret-sweep.security.test.ts`
   Acceptance: Mirrors feature 001's `tests/integration/secret-sweep.integration.test.ts`. Configures a runtime with one beacon transport (test-double sendBeacon recording bodies) and emits 100+ events whose attributes/message/error/context carry every value from `makeSecretFixture()` (from `@your-org/frontend-logging-sdk/testing`). Asserts: (a) every recorded body parses as a JSON `LogEvent`, (b) `JSON.stringify` of every recorded body matches none of the fixture values (i.e., redaction happened upstream and the wire never carries them), (c) every recorded URL is exactly the configured endpoint string (no fixture value reaches the URL). Locks SC-004.
   Parallel: Yes
 
