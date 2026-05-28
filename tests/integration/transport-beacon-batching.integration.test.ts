@@ -12,7 +12,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { configureLogging, createLogger } from '../../src/index.js';
+import { NoopTransport, configureLogging, createLogger } from '../../src/index.js';
 import { createBeaconTransport } from '../../src/transport-beacon/index.js';
 import {
   installAddEventListenerSpy,
@@ -45,6 +45,12 @@ afterEach(() => {
   harness?.fetch.uninstall();
   harness?.beacon.uninstall();
   harness = null;
+  // Reset the runtime so the previous test's beacon transport
+  // (still installed at this point) gets its shutdown / pagehide
+  // listener removal AFTER this test's spies are uninstalled. The
+  // next test's `beforeEach` then starts with no beacon transport
+  // configured, so its spy isn't polluted by a runtime swap.
+  configureLogging({ transports: [NoopTransport] });
 });
 
 function recordedBodyTexts(): Promise<(string | null)[]> {
@@ -52,7 +58,7 @@ function recordedBodyTexts(): Promise<(string | null)[]> {
   return Promise.all(harness.beacon.calls.map((c) => c.blob?.text() ?? Promise.resolve(null)));
 }
 
-describe.skip('createBeaconTransport batching (unlocks at T028)', () => {
+describe('createBeaconTransport batching', () => {
   it('B-2: envelope shape is exactly { events: LogEvent[] } with no extra fields', async () => {
     if (harness === null) throw new Error('harness not initialised');
     configureLogging({
@@ -159,13 +165,20 @@ describe.skip('createBeaconTransport batching (unlocks at T028)', () => {
       ],
     });
     const logger = createLogger();
-    logger.warn('e0', { v: 'x'.repeat(100) });
-    logger.warn('e1', { v: 'x'.repeat(70_000) }); // oversized — ejected
-    logger.warn('e2', { v: 'x'.repeat(100) });
-    logger.warn('e3', { v: 'x'.repeat(100) }); // threshold (size-3) reached counting non-oversized
-    // The oversized event fired one notice and never entered the batch.
-    const oversizedNotices = notices.filter((n) =>
-      (n as Error & { code?: string }).code === 'oversized_event',
+    // To trigger transport-level oversize after the pipeline (which
+    // caps individual string values at 8192 chars per the sanitizer),
+    // we need MANY large attributes — 50 × 8192-char strings produces
+    // a ~410 KB JSON payload, well over the 64 KiB sendBeacon budget.
+    const big: Record<string, string> = {};
+    for (let i = 0; i < 50; i += 1) big[`pad${i}`] = 'x'.repeat(8192);
+
+    logger.warn('e0', { tag: 'small-0' });
+    logger.warn('e1-oversized', big); // > 64 KiB after JSON.stringify → ejected
+    logger.warn('e2', { tag: 'small-2' });
+    logger.warn('e3', { tag: 'small-3' }); // threshold (size 3 of NON-oversized) reached
+
+    const oversizedNotices = notices.filter(
+      (n) => (n as Error & { code?: string }).code === 'oversized_event',
     );
     expect(oversizedNotices.length).toBe(1);
     // Remaining batch (e0, e2, e3) flushed normally.

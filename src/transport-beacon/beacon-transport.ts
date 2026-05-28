@@ -40,6 +40,7 @@
 
 import type { LogEvent, Transport } from '../api/types.js';
 
+import { type Batcher, createBatcher } from './batcher.js';
 import { BeaconError, type BeaconErrorCode } from './errors.js';
 import { validateEndpoint } from './endpoint-validation.js';
 import {
@@ -74,7 +75,8 @@ interface BeaconTransportState {
   readonly name: string;
   readonly onInternalError: (err: Error) => void;
   readonly batching: BeaconTransportOptions['batching'] | undefined;
-  buffer: LogEvent[];
+  /** Batcher instance when batching is enabled; `null` in default mode. */
+  batcher: Batcher | null;
   pagehideInstalled: boolean;
   pagehideUninstall: (() => void) | null;
   shutdownComplete: boolean;
@@ -179,6 +181,35 @@ function notifyOversized(state: BeaconTransportState, event: LogEvent, bytes: nu
   }
 }
 
+/**
+ * Fire a `beacon_batch_drop` notice for a failed batch flush. The
+ * notice payload is **structural only** (B-11): droppedCount + a short
+ * reason summary + the transport name. No event content (no message,
+ * no attrs, no error, no context) — including such content would risk
+ * leaking the same payload whose size or shape was the problem in the
+ * first place.
+ */
+function notifyBatchDrop(
+  state: BeaconTransportState,
+  droppedCount: number,
+  reason: string,
+  cause?: unknown,
+): void {
+  if (state.notified.beacon_batch_drop) return;
+  state.notified.beacon_batch_drop = true;
+  const err = new BeaconError(
+    'beacon_batch_drop',
+    state.name,
+    `beacon transport '${state.name}' dropped batch: droppedCount=${droppedCount}, reason=${reason}`,
+    cause,
+  );
+  try {
+    state.onInternalError(err);
+  } catch {
+    // swallow per FR-003
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public factory
 // ---------------------------------------------------------------------------
@@ -213,7 +244,7 @@ export function createBeaconTransport(
     name: options.name ?? 'beacon',
     onInternalError: options.onInternalError ?? noopOnInternalError,
     batching: options.batching,
-    buffer: [],
+    batcher: null, // assigned below when batching is enabled
     pagehideInstalled: false,
     pagehideUninstall: null,
     shutdownComplete: false,
@@ -226,9 +257,33 @@ export function createBeaconTransport(
     },
   };
 
+  // Batching is opt-in. When enabled, the batcher owns the in-memory
+  // buffer; `send()` pushes per-event-sized payloads onto it and the
+  // batcher invokes `dispatchBatch` on every flush trigger
+  // (size-threshold, age-timer, manual `flush()`, `shutdown()`,
+  // pagehide). When disabled, `send()` dispatches the event
+  // immediately via `dispatchOne`.
+  if (options.batching !== undefined) {
+    const batcherOptions: Parameters<typeof createBatcher>[0] = {
+      maxBatchSize: options.batching.maxBatchSize,
+      flush: (events) => {
+        dispatchBatch(state, events);
+      },
+    };
+    if (options.batching.maxBatchAgeMs !== undefined) {
+      batcherOptions.maxBatchAgeMs = options.batching.maxBatchAgeMs;
+    }
+    state.batcher = createBatcher(batcherOptions);
+  }
+
   const pagehideHandler = (): void => {
-    // Default mode: no buffered state to flush. T028's batching layer
-    // overrides this behaviour by attaching its own pagehide handling.
+    // Default mode: no buffered state to flush. Batching mode: drain
+    // the pending batch via the batcher's flush API, which routes
+    // through `dispatchBatch` for the same envelope encoding +
+    // primitive dispatch as a size/age-triggered flush (B-9).
+    if (state.batcher !== null) {
+      state.batcher.flush();
+    }
   };
 
   function ensureLazyInstall(): void {
@@ -255,15 +310,73 @@ export function createBeaconTransport(
 
     const bytes = getPayloadByteLength(payload);
     if (bytes > BEACON_SIZE_LIMIT_BYTES) {
+      // B-7 / F-2: oversized single event is ejected pre-push with one
+      // oversized_event notice (rate-limited per session). In batching
+      // mode this guarantees the envelope is constructed from
+      // bounded-size events only; the per-envelope size check (B-6)
+      // still catches over-aggressive maxBatchSize settings.
       notifyOversized(state, event, bytes);
       return;
     }
 
     ensureLazyInstall();
 
-    const nav = (globalThis as { navigator?: Navigator }).navigator;
-    const hasSendBeacon = nav !== undefined && typeof nav.sendBeacon === 'function';
-    const hasFetch = typeof (globalThis as { fetch?: typeof fetch }).fetch === 'function';
+    if (state.batcher !== null) {
+      // Batching mode: buffer the event. The batcher decides when to
+      // flush (size threshold, optional age timer, pagehide, shutdown).
+      state.batcher.push(event);
+      return;
+    }
+
+    dispatchOne(state, payload);
+  }
+
+  function flush(): Promise<void> {
+    // Default mode: no buffer to drain.
+    // Batching mode: trigger an immediate flush of the current batch.
+    if (state.batcher !== null) {
+      state.batcher.flush();
+    }
+    return Promise.resolve();
+  }
+
+  function shutdown(): Promise<void> {
+    if (state.shutdownComplete) return Promise.resolve();
+    state.shutdownComplete = true;
+
+    // Best-effort drain of the pending batch BEFORE detaching the
+    // listener (B-10). The batcher's flush callback fires either a
+    // successful delivery or a `beacon_batch_drop` notice. After
+    // `batcher.shutdown()`, the batcher discards any further events
+    // and a queued timer callback becomes a no-op.
+    if (state.batcher !== null) {
+      state.batcher.flush();
+      state.batcher.shutdown();
+    }
+
+    if (state.pagehideUninstall !== null) {
+      try {
+        state.pagehideUninstall();
+      } catch (cause) {
+        notify(
+          state,
+          'transport_shutdown_failed',
+          `beacon transport '${state.name}' shutdown: listener removal threw`,
+          cause,
+        );
+      }
+      state.pagehideUninstall = null;
+      state.pagehideInstalled = false;
+    }
+    return Promise.resolve();
+  }
+
+  // -------------------------------------------------------------------------
+  // Dispatch helpers (closure-scoped — read state via `state` reference)
+  // -------------------------------------------------------------------------
+
+  function dispatchOne(state: BeaconTransportState, payload: string): void {
+    const { hasSendBeacon, hasFetch } = primitiveAvailability();
 
     if (!hasSendBeacon && !hasFetch) {
       notify(
@@ -275,7 +388,7 @@ export function createBeaconTransport(
     }
 
     if (hasSendBeacon && tryBeacon(state.endpoint, payload)) {
-      return; // delivered via sendBeacon
+      return; // delivered
     }
 
     if (hasFetch) {
@@ -301,7 +414,6 @@ export function createBeaconTransport(
       return;
     }
 
-    // sendBeacon was present but returned false, and fetch is unavailable.
     notify(
       state,
       'transport_send_failed',
@@ -309,29 +421,79 @@ export function createBeaconTransport(
     );
   }
 
-  function flush(): Promise<void> {
-    // Default mode has no buffer to drain.
-    return Promise.resolve();
+  function dispatchBatch(state: BeaconTransportState, events: LogEvent[]): void {
+    if (events.length === 0) return;
+
+    // Encode envelope. Failure here is unexpected (the events came
+    // straight from the pipeline) — handle defensively as a batch
+    // drop with the original cause attached.
+    let envelope: string;
+    try {
+      envelope = JSON.stringify({ events });
+    } catch (cause) {
+      notifyBatchDrop(state, events.length, 'JSON.stringify threw on the envelope', cause);
+      return;
+    }
+
+    const bytes = getPayloadByteLength(envelope);
+    if (bytes > BEACON_SIZE_LIMIT_BYTES) {
+      // B-6: oversized envelope (consumer's maxBatchSize was too
+      // aggressive for the average event size). No primitive call —
+      // both sendBeacon and fetch-keepalive share the same per-origin
+      // ~64 KiB budget so attempting them would waste a network call.
+      notifyBatchDrop(
+        state,
+        events.length,
+        `envelope size ${bytes} bytes exceeds ${BEACON_SIZE_LIMIT_BYTES} bytes`,
+      );
+      return;
+    }
+
+    const { hasSendBeacon, hasFetch } = primitiveAvailability();
+
+    if (!hasSendBeacon && !hasFetch) {
+      notify(
+        state,
+        'beacon_unavailable',
+        `beacon transport '${state.name}' has no usable delivery primitive (sendBeacon and fetch both unavailable)`,
+      );
+      return;
+    }
+
+    if (hasSendBeacon && tryBeacon(state.endpoint, envelope)) {
+      return; // delivered
+    }
+
+    if (hasFetch) {
+      tryFetchKeepalive(state.endpoint, envelope).then(
+        (ok) => {
+          if (!ok) {
+            notifyBatchDrop(
+              state,
+              events.length,
+              `fetch fallback resolved with non-2xx`,
+            );
+          }
+        },
+        (cause: unknown) => {
+          notifyBatchDrop(state, events.length, `fetch fallback rejected`, cause);
+        },
+      );
+      return;
+    }
+
+    notifyBatchDrop(
+      state,
+      events.length,
+      `sendBeacon returned false and fetch fallback is unavailable`,
+    );
   }
 
-  function shutdown(): Promise<void> {
-    if (state.shutdownComplete) return Promise.resolve();
-    state.shutdownComplete = true;
-    if (state.pagehideUninstall !== null) {
-      try {
-        state.pagehideUninstall();
-      } catch (cause) {
-        notify(
-          state,
-          'transport_shutdown_failed',
-          `beacon transport '${state.name}' shutdown: listener removal threw`,
-          cause,
-        );
-      }
-      state.pagehideUninstall = null;
-      state.pagehideInstalled = false;
-    }
-    return Promise.resolve();
+  function primitiveAvailability(): { hasSendBeacon: boolean; hasFetch: boolean } {
+    const nav = (globalThis as { navigator?: Navigator }).navigator;
+    const hasSendBeacon = nav !== undefined && typeof nav.sendBeacon === 'function';
+    const hasFetch = typeof (globalThis as { fetch?: typeof fetch }).fetch === 'function';
+    return { hasSendBeacon, hasFetch };
   }
 
   return {

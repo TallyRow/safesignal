@@ -226,7 +226,7 @@ subsequent batches deliver normally.
   Acceptance: Exports `createBatcher(opts: { maxBatchSize: number; maxBatchAgeMs?: number; flush: (events: LogEvent[]) => void })` returning `{ push, flush, shutdown }`. State: `{ buffer: LogEvent[]; maxAgeTimer: ReturnType<typeof setTimeout> | null }`. `push(event)`: append to buffer; if `buffer.length === 1 && maxBatchAgeMs != null` arm a one-shot timer that calls `flush` once; if `buffer.length >= maxBatchSize`, call `flush(buffer)` after cancelling the timer and resetting state. `flush()`: if buffer is non-empty, copy out + clear buffer + cancel timer + call the provided flush callback. `shutdown()`: cancel timer; null the callback reference so timer callbacks queued before shutdown are no-ops. The module is import-pure; no listeners attached at module scope.
   Parallel: No (depends on T004–T007)
 
-- [ ] T028 [US3] Wire batching path through `createBeaconTransport` in `src/transport-beacon/beacon-transport.ts`
+- [X] T028 [US3] Wire batching path through `createBeaconTransport` in `src/transport-beacon/beacon-transport.ts`
   Acceptance: When `options.batching` is present and validated, instance state acquires a `batcher` from T027 whose `flush` callback runs the same delivery path as default-mode `send()` but with the envelope `{ events: LogEvent[] }` JSON-encoded and size-checked. Oversized envelope short-circuits to `beacon_batch_drop` notice (B-6). Oversized single event is ejected pre-push with `oversized_event` notice (B-7). `flush()` API method delegates to the batcher. `shutdown()` drains the batcher's buffer with one best-effort flush, then proceeds with listener removal. T024..T026 pass. T010..T015 still pass (default-mode regression).
   Parallel: No (depends on T027)
 
