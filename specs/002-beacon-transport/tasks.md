@@ -36,7 +36,7 @@ independently testable. Review-boundary tasks gate each phase.
 **Purpose**: Build/test plumbing for the new subpath; placeholders that
 later phases fill in.
 
-- [ ] T001 Add subpath entry plumbing in `tsup.config.ts`, `package.json`, and create `src/transport-beacon/` directory
+- [X] T001 Add subpath entry plumbing in `tsup.config.ts`, `package.json`, and create `src/transport-beacon/` directory
   Acceptance: `tsup.config.ts` `entry` map gains `'transport-beacon': 'src/transport-beacon/index.ts'`. `package.json` `exports` gains `"./transport-beacon": { "types": "./dist/transport-beacon.d.ts", "import": "./dist/transport-beacon.mjs", "require": "./dist/transport-beacon.cjs" }`. `src/transport-beacon/` directory exists with a `.gitkeep` placeholder so subsequent tasks can write files without race. `npm run build` succeeds (emitting empty `dist/transport-beacon.{mjs,cjs,d.ts}`).
   Parallel: No
 

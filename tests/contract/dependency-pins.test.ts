@@ -378,11 +378,11 @@ describe('T070 (d) — published `dist/index.d.{ts,cts}` contain no vendor-speci
 // `package.json` `exports` map and `sideEffects` are correct
 // ---------------------------------------------------------------------------
 
-describe('T070 sanity — `package.json` exports map exposes only `.` and `./testing`, sideEffects:false', () => {
-  it('exports map keys are exactly { ".", "./testing" }', () => {
+describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `./transport-beacon`, sideEffects:false', () => {
+  it('exports map keys are exactly { ".", "./testing", "./transport-beacon" }', () => {
     const pkg = loadPackageJson();
     const exports = pkg.exports ?? {};
-    expect(Object.keys(exports).sort()).toEqual(['.', './testing']);
+    expect(Object.keys(exports).sort()).toEqual(['.', './testing', './transport-beacon']);
   });
 
   it('sideEffects is explicitly false', () => {

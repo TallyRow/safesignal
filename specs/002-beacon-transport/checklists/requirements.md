@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [X] No [NEEDS CLARIFICATION] markers remain
 - [X] Requirements are testable and unambiguous
 - [X] Success criteria are measurable
 - [X] Success criteria are technology-agnostic (no implementation details)
@@ -31,11 +31,11 @@
 
 ## Notes
 
-- Three [NEEDS CLARIFICATION] markers are present by design (FR-009,
-  FR-016, FR-017), each carrying a recommended answer so the
-  `/speckit-clarify` pass can resolve them quickly. Items marked
-  incomplete require spec updates before `/speckit-clarify` or
-  `/speckit-plan`.
+- Three [NEEDS CLARIFICATION] markers were present by design at
+  spec creation (FR-009, FR-016, FR-017). All three were resolved
+  by the `/speckit-clarify` pass on 2026-05-27 and recorded in
+  spec.md's `## Clarifications` section. Zero markers remain
+  (verified by `grep -c 'NEEDS CLARIFICATION' spec.md` → 0).
 - One small departure from "no implementation details": the spec names
   `navigator.sendBeacon`, `fetch({ keepalive: true })`, and
   `pagehide` / `visibilitychange` explicitly. These are browser
