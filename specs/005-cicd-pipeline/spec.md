@@ -6,6 +6,13 @@
 
 **Status**: Draft
 
+## Clarifications
+
+### Session 2026-05-28
+
+- Q: Node.js version matrix for CI → A: Node `20.x` + `22.x` (current LTS and next LTS). Two parallel jobs. Drop `18.x` from CI matrix despite `package.json` `engines: ">=18.0.0"` — `18.x` is at end-of-active-LTS as of April 2025 and reaches end-of-life April 2026; testing against it is increasingly low-signal. Bumping `package.json` `engines` to `>=20.0.0` is NOT part of this feature (would be a breaking change for consumers still on `18.x`); decision deferred to a future release.
+- Q: CHANGELOG.md release-entry automation → A: Manual entries. Matches Feature 003's v1.0.0 entry pattern. Maintainer writes the CHANGELOG entry by hand BEFORE creating the release tag. The release pipeline READS the existing CHANGELOG to validate that the tagged version matches a documented entry — if the tag is `v1.0.1` but CHANGELOG has no `## [1.0.1]` section, pipeline fails the validation step. No commit to Conventional Commits or other formal commit-message convention. Re-evaluatable if release cadence grows.
+
 **Input**: User description: "Establish SafeSignal's CI/CD pipeline,
 release workflow, and operational hardening — the work that Feature
 004's community documents already promise but don't enforce. Add a
@@ -403,12 +410,16 @@ wrong.
 - **FR-009**: The CI pipeline MUST surface a per-stage pass/fail
   summary in the GitLab MR UI such that a reviewer can identify
   which stage failed without opening the raw job log.
-- **FR-010**: The CI pipeline MUST run against the Node.js
-  version(s) the project supports (per `package.json` `engines`).
-  Currently `"node": ">=18.0.0"` — the pipeline MUST test against
-  the latest LTS releases that satisfy the constraint (at minimum
-  Node `20.x`, additionally Node `22.x` if available in the CI
-  runner's image registry).
+- **FR-010**: The CI pipeline MUST run against Node `20.x` and
+  Node `22.x` (the current LTS and next-current LTS as of
+  2026-05-28). The two Node versions run as parallel jobs within
+  each pipeline stage where Node version matters (typecheck,
+  test, build). `package.json` `engines` remains `">=18.0.0"`
+  for now — bumping it is a breaking change for consumers and
+  is deferred to a future release. Node `18.x` is dropped from
+  the CI matrix because it reaches end-of-active-LTS in
+  April 2025 and end-of-life April 2026; CI signal against EOL'd
+  runtimes is low-value.
 
 #### Release pipeline — signed-tag-driven publish with provenance
 
@@ -444,6 +455,14 @@ wrong.
   `v1.0.1`) MUST publish under the default `latest` dist-tag.
   The dist-tag derivation MUST be deterministic from the tag
   string.
+- **FR-017a**: The release pipeline MUST validate that the
+  pushed tag's version matches a documented entry in
+  `CHANGELOG.md` before publishing. If the tag is `vX.Y.Z` and
+  `CHANGELOG.md` does not contain a `## [X.Y.Z]` (or
+  `## [vX.Y.Z]`) heading, the pipeline fails at the validation
+  step and publish does NOT execute. This enforces the manual-
+  CHANGELOG-first workflow (Clarification Q2) — the maintainer
+  cannot accidentally tag a version that has no release notes.
 
 #### Branch protections and default-branch rename
 
@@ -492,10 +511,15 @@ wrong.
   default-branch pipeline status.
 - **FR-024**: `CONTRIBUTING.md` MUST include a new "Cutting a
   release" section documenting: (a) the SemVer policy, (b) the
-  `git tag -s` command syntax with an example, (c) the release
-  pipeline's stages in execution order, (d) how to verify a
-  published release on npm (including provenance attestation),
-  (e) the rollback procedure if publish fails partway.
+  manual CHANGELOG-entry-first workflow (write the
+  `## [vX.Y.Z]` entry in `CHANGELOG.md`, commit it on the release
+  branch, THEN create the signed tag), (c) the `git tag -s`
+  command syntax with an example, (d) the release pipeline's
+  stages in execution order including the CHANGELOG-validation
+  step that confirms the tag matches a documented entry, (e) how
+  to verify a published release on npm (including provenance
+  attestation), (f) the rollback procedure if publish fails
+  partway.
 
 #### Invariants preserved
 
@@ -620,23 +644,14 @@ wrong.
 The following items have reasonable defaults baked in but the
 maintainer MAY want to revise via `/speckit-clarify`:
 
-1. **Node.js version matrix for CI** — the spec defaults to
-   "latest LTS releases satisfying `>=18.0.0`" (currently `20.x`,
-   `22.x`). The maintainer MAY pick a narrower matrix
-   (`20.x` only, for speed) or wider (`18.x`, `20.x`, `22.x`,
-   `24.x`).
-2. **`npm install` vs `npm ci` in CI** — `npm ci` is more
+1. **`npm install` vs `npm ci` in CI** — `npm ci` is more
    reproducible (locks to `package-lock.json` exactly, fails on
    drift); `npm install` is more flexible. Best practice for CI
    is `npm ci`; baked-in default.
 3. **CI runner choice** — GitLab.com's shared runners (free,
    sufficient for SafeSignal's needs) vs. self-hosted runners
    (more control, more setup). Default: shared runners.
-4. **CHANGELOG.md release-entry automation** — manual entries (the
-   maintainer writes them) vs. automated (a tool like `release-please`
-   or `changesets` generates them from commit messages). Default:
-   manual, matching Feature 003's pattern.
-5. **GitLab project-level pipeline schedule** — should CI run on a
+4. **GitLab project-level pipeline schedule** — should CI run on a
    nightly schedule against `main` to catch dependency-drift
    issues, or only on MR/push? Default: only MR/push (nightly
    scheduled runs are a Feature 006 ergonomics concern).
@@ -672,9 +687,12 @@ maintainer MAY want to revise via `/speckit-clarify`:
   requirement. The CI check is the operational mechanism that
   makes the documented requirement enforceable.
 - The release pipeline does NOT automatically generate
-  `CHANGELOG.md` entries. The maintainer writes the entry before
-  cutting the release tag; the pipeline reads the existing entry
-  to validate that the tagged version matches a documented entry.
+  `CHANGELOG.md` entries (per Clarification Q2). The maintainer
+  writes the `## [vX.Y.Z]` entry by hand on the release branch
+  BEFORE creating the signed tag. The pipeline's validation step
+  (FR-017a) reads the existing CHANGELOG and fails if the tagged
+  version has no matching `## [X.Y.Z]` heading — preventing
+  silent releases without notes.
 - No new `devDependencies` are added to `package.json` by this
   feature. CI-time tooling (e.g., `npm publish --provenance`
   CLI flags) is provided by the CI runner's pre-installed npm
