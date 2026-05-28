@@ -251,7 +251,7 @@ migration that completes the feature.
   Acceptance: The existing dependency-pins test gains a new block that asserts after this feature: `package.json` `dependencies` is still empty (no new runtime deps); `package.json` `devDependencies` adds no new vendor SDK; `package.json` `exports` map contains exactly three entries (`.`, `./testing`, `./transport-beacon`) with the documented `types` / `import` / `require` shape on each. Locks TB-12.
   Parallel: Yes
 
-- [ ] T031 [P] Remove the obsolete consumer example in `examples/shared/beacon-transport.ts`
+- [X] T031 [P] Remove the obsolete consumer example in `examples/shared/beacon-transport.ts`
   Acceptance: The file is deleted. Any imports of it from `examples/host-app/` and `examples/federated-module/` already migrated to the first-party transport in T018 / T022 are double-checked. The `examples/shared/` directory may keep a README pointing readers at the first-party transport, but the JavaScript file is gone (feature 001's "consumer example" contract is satisfied by the first-party transport now). `git grep -l 'examples/shared/beacon-transport'` returns nothing.
   Parallel: Yes
 
