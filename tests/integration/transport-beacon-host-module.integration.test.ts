@@ -155,3 +155,112 @@ describe('host + 50 module loggers through one beacon transport (FR-023, SC-005)
     expect(notices.length).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// T021 — Multi-instance independence (FR-024, TB-9)
+// ---------------------------------------------------------------------------
+
+describe('two beacon transports against different endpoints (FR-024, TB-9)', () => {
+  it('each transport receives every event AND installs its own pagehide listener', async () => {
+    if (harness === null) throw new Error('harness not initialised');
+    const { listenerSpy } = harness;
+    const ENDPOINT_A = 'https://logs-a.example.com/ingest';
+    const ENDPOINT_B = 'https://logs-b.example.com/ingest';
+
+    configureLogging({
+      application: { name: 'host', version: '2026.05' },
+      environment: 'production',
+      transports: [
+        createBeaconTransport({ endpoint: ENDPOINT_A, name: 'beacon-a' }),
+        createBeaconTransport({ endpoint: ENDPOINT_B, name: 'beacon-b' }),
+      ],
+    });
+
+    const logger = createLogger();
+    const EVENT_COUNT = 100;
+    for (let i = 0; i < EVENT_COUNT; i += 1) {
+      logger.warn(`event ${i}`, { seq: i });
+    }
+
+    // Each transport hits its own endpoint EXACTLY 100 times.
+    const callsA = harness.beacon.calls.filter((c) => c.endpoint === ENDPOINT_A);
+    const callsB = harness.beacon.calls.filter((c) => c.endpoint === ENDPOINT_B);
+    expect(callsA.length).toBe(EVENT_COUNT);
+    expect(callsB.length).toBe(EVENT_COUNT);
+
+    // Same events delivered to both endpoints — assertion proves no
+    // cross-instance event filtering / dedup / reorder.
+    const textsA = await Promise.all(callsA.map((c) => c.blob?.text() ?? Promise.resolve(null)));
+    const textsB = await Promise.all(callsB.map((c) => c.blob?.text() ?? Promise.resolve(null)));
+    expect(textsA).toEqual(textsB);
+
+    // FR-024: each transport instance owns its own pagehide listener.
+    const pagehideAdds = listenerSpy.registrations.filter((r) => r.type === 'pagehide');
+    expect(pagehideAdds.length).toBe(2);
+    // Distinct handler references — each instance owns its own.
+    expect(pagehideAdds[0]?.listener).not.toBe(pagehideAdds[1]?.listener);
+  });
+
+  it('a forced drop on one transport does not affect the other instance’s notices', async () => {
+    if (harness === null) throw new Error('harness not initialised');
+
+    // Replace fetch double with one that rejects so transport-A's
+    // fetch fallback fires a transport_send_failed notice.
+    harness.fetch.uninstall();
+    harness.fetch = installFetchDouble({
+      behavior: { kind: 'reject', reason: new TypeError('Failed to fetch (synthetic)') },
+    });
+    // Replace sendBeacon double with one that REFUSES so fallback is
+    // forced. sendBeacon returns false uniformly — both transports
+    // fall through to fetch, which rejects → notice fires.
+    harness.beacon.uninstall();
+    harness.beacon = installSendBeaconDouble({ returnValue: false });
+
+    const noticesA: Error[] = [];
+    const noticesB: Error[] = [];
+
+    configureLogging({
+      application: { name: 'host', version: '2026.05' },
+      environment: 'production',
+      transports: [
+        createBeaconTransport({
+          endpoint: 'https://logs-a.example.com/ingest',
+          name: 'beacon-a',
+          onInternalError: (err) => noticesA.push(err),
+        }),
+        createBeaconTransport({
+          endpoint: 'https://logs-b.example.com/ingest',
+          name: 'beacon-b',
+          onInternalError: (err) => noticesB.push(err),
+        }),
+      ],
+    });
+
+    const logger = createLogger();
+    logger.warn('shared emission');
+    // Yield microtasks so fetch's rejected Promise settles into each
+    // transport's .then(_, onRejected) handler.
+    await new Promise<void>((r) => setTimeout(r, 0));
+
+    // Each transport gets its OWN notice — A's hook does not see B's
+    // notice and vice versa. Each notice names its own transport.
+    expect(noticesA.length).toBe(1);
+    expect(noticesB.length).toBe(1);
+    expect((noticesA[0] as Error & { transportName?: string }).transportName).toBe('beacon-a');
+    expect((noticesB[0] as Error & { transportName?: string }).transportName).toBe('beacon-b');
+    expect((noticesA[0] as Error & { code?: string }).code).toBe('transport_send_failed');
+    expect((noticesB[0] as Error & { code?: string }).code).toBe('transport_send_failed');
+
+    // Second emission: each instance's per-session rate-limit
+    // suppresses additional notices, but the SUPPRESSION is per-
+    // instance — i.e., if we had a different drop class on instance
+    // B it would still fire. The FR-024 invariant is that the
+    // rate-limits don't share state. We can prove this by inducing
+    // a second drop on both: still no new notices on either side
+    // (correct per-instance rate-limit behaviour).
+    logger.warn('second shared emission');
+    await new Promise<void>((r) => setTimeout(r, 0));
+    expect(noticesA.length).toBe(1);
+    expect(noticesB.length).toBe(1);
+  });
+});

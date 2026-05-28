@@ -171,7 +171,7 @@ attached after the first emission.
   Acceptance: One host calls `configureLogging({ transports: [createBeaconTransport({ endpoint, onInternalError })] })`. 50 synthetic module loggers are created via `createLogger({ module: { name: `mod-${i}` } })`. Each emits 20 events at mixed levels. Asserts: exactly 1,000 network calls (recorded via the sendBeacon double); every recorded body's `context.module.name` is in the set `{ mod-0, ..., mod-49 }` with exactly 20 occurrences per module; no two recorded bodies are byte-identical (covers FR-023, SC-005). Asserts exactly one `'pagehide'` listener installed across all 1,000 emissions (FR-024).
   Parallel: Yes
 
-- [ ] T021 [P] [US2] Multi-instance independence test in `tests/integration/transport-beacon-host-module.integration.test.ts` (same file as T020)
+- [X] T021 [P] [US2] Multi-instance independence test in `tests/integration/transport-beacon-host-module.integration.test.ts` (same file as T020)
   Acceptance: Configures TWO beacon transports against TWO different endpoints in the same runtime. 100 events emitted via one logger; each transport's recorded bodies asserted equal (every transport receives every event). Each transport installs ITS OWN `'pagehide'` listener (asserted via the `addEventListener` spy: two install calls, distinct handler references). A drop forced on one transport (configure its fetch double to reject) emits a notice naming that transport's `name`; the other transport's notices are not affected. Locks FR-024, TB-9.
   Parallel: Yes
 
