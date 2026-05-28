@@ -165,6 +165,7 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
     while ((match = IMPORT_REGEX.exec(source)) !== null) {
       const typeOnly = match[1] === 'type';
       const from = match[2];
+      if (from === undefined) continue;
 
       if (from.startsWith('./')) {
         // Intra-subpath import — always permitted.
@@ -183,7 +184,7 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
         continue;
       }
 
-      if (FORBIDDEN_RELATIVE_PREFIXES.some((prefix) => from.startsWith(prefix))) {
+      if (FORBIDDEN_RELATIVE_PREFIXES.some((prefix: string) => from.startsWith(prefix))) {
         violations.push({
           from,
           typeOnly,
@@ -205,7 +206,7 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
       }
 
       // Bare specifier (npm package) — must NOT be a vendor SDK.
-      if (VENDOR_PACKAGE_NAMES.some((vendor) => from.startsWith(vendor))) {
+      if (VENDOR_PACKAGE_NAMES.some((vendor: string) => from.startsWith(vendor))) {
         violations.push({
           from,
           typeOnly,
