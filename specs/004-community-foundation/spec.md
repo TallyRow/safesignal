@@ -20,6 +20,14 @@ since v1.0.0 has shipped). Out of scope: CI/CD pipeline, npm publish
 workflow, branch protections, lint/format config, GitLab admin
 settings — those go in separate features."
 
+## Clarifications
+
+### Session 2026-05-28
+
+- Q: Copyright holder name in the `LICENSE` file → A: `John Goure` (the maintainer's individual legal name as it appears in git config; TallyRow remains the brand/publisher and npm-scope name but is not the legal copyright holder)
+- Q: Contact addresses for SECURITY.md and CODE_OF_CONDUCT.md → A: same inbox, distinct aliases — `security@tallyrow.com` for SECURITY.md vulnerability reports, `conduct@tallyrow.com` for CODE_OF_CONDUCT.md enforcement reports, both routing to the same maintainer-owned destination on the `tallyrow.com` domain
+- Q: Contributor sign-off requirement → A: DCO (Developer Certificate of Origin) via `git commit -s`. Contributors attest by adding a `Signed-off-by:` footer to every commit. No separate CLA document; no contributor-tracking infrastructure. Verified mechanically by reviewers (and later by CI in Feature 006).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — First-time visitor orients to the project (Priority: P1)
@@ -278,7 +286,7 @@ grows past 1?
   vulnerability details in a public issue body — it should be a
   redirect-style template that says "DO NOT file vulnerability
   details here; use the private channel at
-  security@<domain-tbd>".
+  security@tallyrow.com".
 - **SafeSignal scope split signal.** The README rewrite must NOT
   promise RUM features, monitoring backend functionality, or
   anything from the planned `safesignal-server` repo. SafeSignal
@@ -337,8 +345,9 @@ grows past 1?
 
 - **FR-001**: A `LICENSE` file MUST exist at the repository root
   containing the verbatim MIT License text with the copyright year
-  (`2026`) and the copyright holder (`TallyRow` — or the
-  maintainer's chosen legal name).
+  (`2026`) and the copyright holder `John Goure` (the maintainer's
+  individual legal name). `TallyRow` remains the brand and npm
+  scope but is not the legal copyright holder.
 - **FR-002**: `package.json` MUST include a `"license": "MIT"`
   field consistent with the `LICENSE` file. This field MUST appear
   in the published npm artifact (verifiable via `npm view
@@ -368,15 +377,25 @@ grows past 1?
 - **FR-009**: `CONTRIBUTING.md` MUST describe the local development
   setup at a high level (clone, install, build, test) without
   duplicating content already in `README.md`'s quickstart.
+- **FR-009a**: `CONTRIBUTING.md` MUST document the DCO (Developer
+  Certificate of Origin) sign-off requirement. The document MUST:
+  (a) reproduce or link to the canonical DCO 1.1 text
+  (https://developercertificate.org/), (b) instruct contributors
+  to sign every commit with `git commit -s` (which appends a
+  `Signed-off-by: Name <email>` footer), (c) state that MRs whose
+  commits lack the sign-off footer will not be merged. The
+  expected footer format is the standard git form:
+  `Signed-off-by: Full Name <email@example.com>`.
 
 #### Security disclosure
 
 - **FR-010**: A `SECURITY.md` file MUST exist at the repository
   root.
-- **FR-011**: `SECURITY.md` MUST name a private contact method for
-  vulnerability reports — an email address (e.g.,
-  `security@<domain>`) or a GitLab private security advisory URL.
-  The contact MUST NOT be a public-issue tracker URL.
+- **FR-011**: `SECURITY.md` MUST name `security@tallyrow.com` as
+  the private contact for vulnerability reports. The contact MUST
+  NOT be a public-issue tracker URL. A GitLab private security
+  advisory URL MAY be listed as a secondary option but the email
+  is the canonical channel.
 - **FR-012**: `SECURITY.md` MUST state an explicit response-time
   policy with acknowledgement and initial-assessment targets.
 - **FR-013**: `SECURITY.md` MUST state a coordinated-disclosure
@@ -392,9 +411,10 @@ grows past 1?
 
 - **FR-016**: A `CODE_OF_CONDUCT.md` file MUST exist at the
   repository root containing the verbatim Contributor Covenant
-  version 2.1 text, with the enforcement-contact placeholder filled
-  in with a real address (which MAY be the same as the
-  `SECURITY.md` contact or a distinct one).
+  version 2.1 text, with the enforcement-contact placeholder
+  filled in as `conduct@tallyrow.com` (a distinct alias from
+  SECURITY.md's `security@tallyrow.com`, both routing to the same
+  maintainer-owned inbox on the `tallyrow.com` domain).
 - **FR-017**: The Contributor Covenant version (`2.1`) MUST be
   identified in the file.
 
@@ -431,8 +451,11 @@ grows past 1?
   details publicly.
 - **FR-026**: A `.gitlab/merge_request_templates/Default.md` file
   MUST exist with sections: Summary, What changed, Verification,
-  Test plan, Constitution touchpoints. Sections MAY be optional
-  per MR type but MUST be enumerated in the template.
+  Test plan, Constitution touchpoints, **DCO sign-off checklist**
+  (a checkbox the author confirms by ticking, reminding reviewers
+  to verify every commit in the MR carries a `Signed-off-by:`
+  footer). Sections MAY be optional per MR type but MUST be
+  enumerated in the template.
 
 #### README rewrite
 
@@ -557,7 +580,8 @@ grows past 1?
   `CONTRIBUTING.md` can correctly answer: where does the
   constitution live? What is the Spec Kit workflow? Where do I
   file a bug / feature / security report? What is the MR template?
-  Is there a Code of Conduct?
+  Is there a Code of Conduct? **How do I sign my commits (DCO,
+  `git commit -s`)?**
 - **SC-003**: A security researcher reading `SECURITY.md` finds a
   private contact method, an acknowledgement-time target, an
   initial-assessment target, an embargo policy, and a supported-
@@ -589,17 +613,11 @@ grows past 1?
 
 ## Open Questions / Clarifications Needed
 
-The following items have reasonable defaults baked in (see
-Assumptions) but the maintainer MAY want to revise before
-`/speckit-clarify`:
+The maintainer MAY want to revise the following items before
+`/speckit-plan`. SECURITY.md and CODE_OF_CONDUCT.md contact
+addresses are now resolved (see Clarifications).
 
-1. **SECURITY.md contact address.** Default placeholder:
-   `<security-email-tbd>` (or `security@tallyrow.com` if a domain
-   is in hand). Maintainer fills in real value before merge.
-2. **CODE_OF_CONDUCT.md enforcement-contact address.** Default
-   placeholder: same as SECURITY.md, or a distinct address like
-   `conduct@tallyrow.com`. Maintainer chooses.
-3. **GOVERNANCE.md "evolution path" thresholds.** Default
+1. **GOVERNANCE.md "evolution path" thresholds.** Default
    suggestion: "2+ regular contributors → adopt CODEOWNERS; 5+ →
    formalize steering group." Maintainer MAY pick different
    thresholds or omit the evolution path entirely.
@@ -612,13 +630,12 @@ Assumptions) but the maintainer MAY want to revise before
   of scope for this feature.
 - The maintainer chooses Contributor Covenant 2.1 (verbatim, not
   a fork) as the community standard.
-- The contact email address(es) for `SECURITY.md` and
-  `CODE_OF_CONDUCT.md` enforcement are resolvable; the maintainer
-  will set up the address(es) or designate existing inboxes
-  before this feature merges. If the email isn't ready by spec
-  time, a clearly-marked placeholder (e.g.,
-  `<security-email-tbd>`) is acceptable for the spec but MUST be
-  resolved before merge.
+- The maintainer controls the `tallyrow.com` domain and will set
+  up two aliases — `security@tallyrow.com` (SECURITY.md
+  vulnerability reports) and `conduct@tallyrow.com`
+  (CODE_OF_CONDUCT.md enforcement reports) — both routing to the
+  same maintainer-owned inbox. Both addresses MUST be deliverable
+  before this feature merges.
 - The current sole-maintainer governance state is acceptable to
   document explicitly in `GOVERNANCE.md`. The document
   acknowledges the evolution path but does not pre-empt
