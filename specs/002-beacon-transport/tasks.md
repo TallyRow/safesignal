@@ -247,7 +247,7 @@ subsequent batches deliver normally.
 **Purpose**: Audits, regressions, documentation, and the consumer-example
 migration that completes the feature.
 
-- [ ] T030 [P] Extend `tests/contract/dependency-pins.test.ts` (feature 001) with a beacon-subpath audit
+- [X] T030 [P] Extend `tests/contract/dependency-pins.test.ts` (feature 001) with a beacon-subpath audit
   Acceptance: The existing dependency-pins test gains a new block that asserts after this feature: `package.json` `dependencies` is still empty (no new runtime deps); `package.json` `devDependencies` adds no new vendor SDK; `package.json` `exports` map contains exactly three entries (`.`, `./testing`, `./transport-beacon`) with the documented `types` / `import` / `require` shape on each. Locks TB-12.
   Parallel: Yes
 

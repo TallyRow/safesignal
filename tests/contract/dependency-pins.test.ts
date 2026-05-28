@@ -396,6 +396,54 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
     expect(pkg.module).toMatch(/^\.\/dist\/index\.(mjs|cjs)$/);
     expect(pkg.types).toMatch(/^\.\/dist\/index\.d\.(c?ts)$/);
   });
+
+  // T030 — extend the sanity block with the full TB-12 shape-check
+  // per exports entry. Every entry MUST carry the documented
+  // types / import / require triple pointing into dist/.
+  it.each([
+    ['.', 'index'],
+    ['./testing', 'testing'],
+    ['./transport-beacon', 'transport-beacon'],
+  ])('entry %s has the documented { types, import, require } triple for "%s"', (key, name) => {
+    const pkg = loadPackageJson();
+    const entry = (pkg.exports as Record<string, Record<string, string>> | undefined)?.[key];
+    expect(entry).toEqual({
+      types: `./dist/${name}.d.ts`,
+      import: `./dist/${name}.mjs`,
+      require: `./dist/${name}.cjs`,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T030 sanity — `package.json` dependencies + devDependencies after
+// the beacon-transport feature (TB-12)
+// ---------------------------------------------------------------------------
+
+describe('T030 sanity — no new runtime or vendor deps after 002-beacon-transport', () => {
+  it('package.json `dependencies` is empty (zero runtime deps)', () => {
+    const pkg = loadPackageJson();
+    expect(pkg.dependencies ?? {}).toEqual({});
+  });
+
+  it('package.json `devDependencies` does not contain any observability-vendor SDK beyond feature 001 baseline', () => {
+    const pkg = loadPackageJson();
+    const dev = Object.keys(pkg.devDependencies ?? {});
+    // The beacon-transport feature MUST NOT add any vendor SDK to
+    // devDependencies. The pre-existing @opentelemetry/* pins from
+    // feature 001 are documented as a retained reference adapter
+    // surface (per plan.md 'Vendor-Neutral Core Architecture'),
+    // never linked into the default or beacon-transport bundles —
+    // enforced separately by feature 001's bundle-shape test and
+    // by tests/security/transport-beacon-bundle-shape.security.test.ts.
+    const newVendorIntroductions = dev.filter((name) =>
+      name.startsWith('@datadog/') ||
+      name === 'dd-rum' ||
+      name === 'dd-trace' ||
+      name.startsWith('@sentry/'),
+    );
+    expect(newVendorIntroductions).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
