@@ -1,7 +1,25 @@
 {
-  "name": "@your-org/frontend-logging-sdk",
-  "version": "0.1.0",
-  "description": "Reusable browser-first structured logging package with secure-by-default sanitization, redaction, and pluggable transports.",
+  "name": "@tallyrow/safesignal",
+  "version": "1.0.0",
+  "description": "SafeSignal — secure structured logging facade and safety boundary for browser applications and federated frontend modules. Browser-first, vendor-neutral, secure-by-default sanitization, redaction, and pluggable transports.",
+  "keywords": [
+    "safesignal",
+    "logging",
+    "structured-logging",
+    "browser",
+    "frontend",
+    "federated",
+    "module-federation",
+    "sanitization",
+    "redaction",
+    "transport",
+    "observability",
+    "secure-by-default"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://gitlab.com/tallyrow/safesignal.git"
+  },
   "type": "module",
   "sideEffects": false,
   "files": [

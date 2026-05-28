@@ -1,7 +1,45 @@
-# @your-org/frontend-logging-sdk
+# SafeSignal
 
-A reusable browser-first structured logging package for web applications,
-including federated host/module architectures.
+**SafeSignal** is a browser-first, vendor-neutral structured logging
+facade and safety boundary for browser applications and federated
+frontend modules. It ships secure-by-default sanitization, URL
+scrubbing, key + shape redaction, control-character escaping, and a
+pluggable transport boundary — all applied before any transport sees
+an event. Published on npm as `@tallyrow/safesignal` (TallyRow is the
+publishing organization; SafeSignal is the product).
+
+## Renamed from `frontend-logging-sdk`
+
+This package was previously developed under the working name
+`@your-org/frontend-logging-sdk`. As of v1.0.0 it ships as
+**SafeSignal**, published on npm as `@tallyrow/safesignal`.
+
+**Migration**:
+
+```bash
+# Install the new package
+npm install @tallyrow/safesignal
+```
+
+```ts
+// Update every import:
+// Before
+import { createLogger } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+
+// After
+import { createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
+```
+
+Subpaths (`/testing`, `/transport-beacon`) are unchanged — only the
+package-name segment moves. No runtime behavior, public API,
+redaction default, sanitizer limit, URL-scrubber behavior, or
+transport-security contract change in this release. Bundle sizes
+remain within ±1 KiB of the pre-rename baseline. See
+[`CHANGELOG.md`](CHANGELOG.md) for the release entry.
 
 > **Status**: in development. US1 (public API, level filtering),
 > US2 (pluggable transports, failure isolation, `/testing` subpath),
@@ -40,7 +78,7 @@ including federated host/module architectures.
 ## Install
 
 ```bash
-npm install @your-org/frontend-logging-sdk
+npm install @tallyrow/safesignal
 ```
 
 ## Quickstart
@@ -50,7 +88,7 @@ import {
   configureLogging,
   createLogger,
   ConsoleTransport,
-} from '@your-org/frontend-logging-sdk';
+} from '@tallyrow/safesignal';
 
 configureLogging({
   application: { name: 'checkout-web', version: '2025.05.0' },
@@ -75,8 +113,8 @@ construction — see
 write-up.
 
 ```ts
-import { configureLogging, createLogger } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging, createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 const onInternalError = (err: Error): void => myReporter.captureException(err);
 
@@ -209,7 +247,7 @@ string.
 ### Canonical sample
 
 The first-party `createBeaconTransport` from
-`@your-org/frontend-logging-sdk/transport-beacon` (used in the
+`@tallyrow/safesignal/transport-beacon` (used in the
 [Quickstart](#ship-logs-over-https--transport-beacon-subpath)
 section above) is the body-only beacon reference both example
 projects use. It tries `sendBeacon` first, falls back to `fetch`
@@ -228,8 +266,8 @@ not in production code:
 
 ```ts
 // my-transport.test.ts
-import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 test('my transport satisfies the security contract', async () => {
   await assertTransportContract(
@@ -262,7 +300,7 @@ package copies", and "Vendor neutrality".
 
 - [`examples/host-app/`](examples/host-app/) — single-app consumer;
   uses the first-party `createBeaconTransport` from
-  `@your-org/frontend-logging-sdk/transport-beacon` for body-only
+  `@tallyrow/safesignal/transport-beacon` for body-only
   HTTPS delivery.
 - [`examples/federated-module/`](examples/federated-module/) —
   federated module consumer; demonstrates `createLogger({ module })`

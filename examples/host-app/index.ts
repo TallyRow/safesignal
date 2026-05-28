@@ -1,5 +1,5 @@
 /**
- * Single-app consumer example for `@your-org/frontend-logging-sdk`.
+ * Single-app consumer example for **SafeSignal** (`@tallyrow/safesignal`).
  *
  * Demonstrates the safe-by-default patterns required by the package
  * constitution and `docs/safe-logging.md`:
@@ -10,7 +10,7 @@
  *   - Per-emit `correlation()` for cheap, synchronous dynamic context
  *     (trace id, route).
  *   - **First-party beacon transport** from
- *     `@your-org/frontend-logging-sdk/transport-beacon`, replacing
+ *     `@tallyrow/safesignal/transport-beacon`, replacing
  *     the previous hand-rolled `examples/shared/beacon-transport.ts`.
  *     Body-only HTTPS delivery via `navigator.sendBeacon`, falling
  *     back to `fetch({ keepalive: true })`.
@@ -34,8 +34,8 @@ import {
   ConsoleTransport,
   configureLogging,
   createLogger,
-} from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+} from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 // 1. A single diagnostics hook wired into both layers. The beacon
 //    transport's async drop paths surface via this callback; the
@@ -164,8 +164,8 @@ checkoutCartLog.error(
 //    already passes this contract; consumers wrapping or extending it
 //    should re-verify:
 //
-//      import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-//      import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+//      import { assertTransportContract } from '@tallyrow/safesignal/testing';
+//      import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 //
 //      await assertTransportContract(
 //        createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),

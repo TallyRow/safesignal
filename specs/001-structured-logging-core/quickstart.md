@@ -1,4 +1,4 @@
-# Quickstart: Frontend Logging SDK
+# Quickstart: SafeSignal
 
 A short tour of the public API. Every example below uses ONLY the package's
 public exports. The package's internal OpenTelemetry usage is invisible.
@@ -6,7 +6,7 @@ public exports. The package's internal OpenTelemetry usage is invisible.
 ## Install
 
 ```bash
-npm install @your-org/frontend-logging-sdk
+npm install @tallyrow/safesignal
 ```
 
 ## Configure once, log everywhere
@@ -16,7 +16,7 @@ import {
   configureLogging,
   createLogger,
   ConsoleTransport,
-} from '@your-org/frontend-logging-sdk';
+} from '@tallyrow/safesignal';
 
 configureLogging({
   application: { name: 'checkout-web', version: '2025.05.0' },
@@ -75,7 +75,7 @@ log.error('reducer failed', { state });        // state may include tokens
 
 // 4. Don't put secrets in URL query strings, and don't log raw URLs that
 //    might. Use scrubUrl().
-import { scrubUrl } from '@your-org/frontend-logging-sdk';
+import { scrubUrl } from '@tallyrow/safesignal';
 log.info('redirected', { to: scrubUrl(window.location.href) });
 ```
 
@@ -100,7 +100,7 @@ log.info('redirected', { to: scrubUrl(window.location.href) });
 You can customize:
 
 ```ts
-import { configureLogging, createRedactor } from '@your-org/frontend-logging-sdk';
+import { configureLogging, createRedactor } from '@tallyrow/safesignal';
 
 configureLogging({
   redactor: createRedactor([
@@ -134,7 +134,7 @@ host owns `configureLogging()` by convention**; the module calls
 runtime through that handle (per FR-029 / FR-030 / FR-031 / FR-032).
 
 ```ts
-import { createLogger } from '@your-org/frontend-logging-sdk';
+import { createLogger } from '@tallyrow/safesignal';
 
 const moduleLog = createLogger({
   module: { name: 'product-recommendations', version: '0.4.2' },
@@ -216,7 +216,7 @@ import {
   configureLogging,
   type Transport,
   type LogEvent,
-} from '@your-org/frontend-logging-sdk';
+} from '@tallyrow/safesignal';
 
 const beaconTransport: Transport = {
   name: 'beacon',
@@ -240,7 +240,7 @@ the emit site is unaffected. Other transports still receive the event.
 ### Validating your transport
 
 ```ts
-import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
 
 await assertTransportContract(beaconTransport);
 // Throws if your transport puts data in URLs, uses HTTP instead of HTTPS

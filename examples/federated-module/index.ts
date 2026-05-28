@@ -1,5 +1,6 @@
 /**
- * Federated module consumer example for `@your-org/frontend-logging-sdk`.
+ * Federated module consumer example for **SafeSignal**
+ * (`@tallyrow/safesignal`).
  *
  * Demonstrates the federated/module-federation usage pattern documented
  * in `spec.md` (US4 + the federated configuration-ownership clauses in
@@ -17,7 +18,7 @@
  *      `withContext()` — never mutates a shared logger reference.
  *   4. The host's transport is the first-party
  *      `createBeaconTransport` from
- *      `@your-org/frontend-logging-sdk/transport-beacon` — the
+ *      `@tallyrow/safesignal/transport-beacon` — the
  *      module never imports or installs a transport. If the module
  *      ever needs to ship its own transport for standalone iteration
  *      (e.g., Storybook), it imports the same first-party factory
@@ -66,7 +67,7 @@
  * --------------------------------------------------------------------
  */
 
-import { createLogger } from '@your-org/frontend-logging-sdk';
+import { createLogger } from '@tallyrow/safesignal';
 
 // A normal federated module does NOT import `createBeaconTransport`
 // and does NOT call `configureLogging`. The HOST owns the configured
@@ -76,7 +77,7 @@ import { createLogger } from '@your-org/frontend-logging-sdk';
 // The standalone-iteration block at the bottom of this file shows
 // the no-host fallback pattern, where the developer wires up a
 // `createBeaconTransport` from
-// `@your-org/frontend-logging-sdk/transport-beacon` for visible
+// `@tallyrow/safesignal/transport-beacon` for visible
 // local output. That is the ONLY place a module imports a transport.
 
 // 1. Create the module logger. This is the ONLY public-API call a
@@ -155,8 +156,8 @@ subFeatureLog.info('related items loaded', { count: 4 });
 //   // call replaces the host's active runtime atomically, which is
 //   // almost never what you want in production.
 //   //
-//   // import { configureLogging } from '@your-org/frontend-logging-sdk';
-//   // import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+//   // import { configureLogging } from '@tallyrow/safesignal';
+//   // import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 //   // configureLogging({
 //   //   application: { name: 'product-recs-standalone' },
 //   //   transports: [
@@ -196,8 +197,8 @@ subFeatureLog.info('related items loaded', { count: 4 });
 //   import {
 //     ConsoleTransport,
 //     configureLogging,
-//   } from '@your-org/frontend-logging-sdk';
-//   import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+//   } from '@tallyrow/safesignal';
+//   import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 //
 //   if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
 //     configureLogging({

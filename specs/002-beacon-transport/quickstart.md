@@ -4,15 +4,15 @@
 · **Plan**: [plan.md](./plan.md)
 
 This is a consumer-facing quickstart for the new
-`@your-org/frontend-logging-sdk/transport-beacon` subpath. The
+`@tallyrow/safesignal/transport-beacon` subpath. The
 five-minute path: install, import, configure, ship.
 
 ## Five-minute path (single application)
 
 ```ts
 // 1. Configure the runtime once at app boot.
-import { configureLogging, createLogger } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging, createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 configureLogging({
   application: { name: 'payments', version: '2.4.1' },
@@ -46,8 +46,8 @@ through the host's runtime and never touch the transport:
 
 ```ts
 // Host application — bootstraps the runtime once.
-import { configureLogging } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 configureLogging({
   application: { name: 'shell', version: '1.0.0' },
@@ -60,7 +60,7 @@ configureLogging({
 
 ```ts
 // Federated module — does NOT configure logging. Just emits.
-import { createLogger } from '@your-org/frontend-logging-sdk';
+import { createLogger } from '@tallyrow/safesignal';
 
 const logger = createLogger({
   module: { name: 'cart-module', version: '0.7.0' },
@@ -248,7 +248,7 @@ HTTPS-only, no header injection). Anti-patterns to avoid are on the
   vocabulary or extend the redactor:
 
   ```ts
-  import { createRedactor } from '@your-org/frontend-logging-sdk';
+  import { createRedactor } from '@tallyrow/safesignal';
 
   const redactor = createRedactor([{ key: /^x-internal-/i }]);
   configureLogging({ /* ... */ redactor });
@@ -268,8 +268,8 @@ first-party beacon transport. Use it in your own tests if you wrap or
 extend the transport:
 
 ```ts
-import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 await assertTransportContract(
   createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
@@ -292,7 +292,7 @@ import { makeBeaconTransport } from './shared/beacon-transport';
 const transport = makeBeaconTransport({ endpoint: '...' });
 
 // After:
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 const transport = createBeaconTransport({ endpoint: '...' });
 ```
 
@@ -304,10 +304,10 @@ existing ingestion endpoint sees the same JSON.
 
 ## Bundle impact
 
-- The default entry (`@your-org/frontend-logging-sdk`) is bit-
+- The default entry (`@tallyrow/safesignal`) is bit-
   identical or smaller than its v1 size. Adding the beacon transport
   to your dependencies has no impact on the default-entry bundle.
-- The new subpath bundle (`@your-org/frontend-logging-sdk/transport-beacon`)
+- The new subpath bundle (`@tallyrow/safesignal/transport-beacon`)
   is under 5 KiB gzipped.
 - Tree-shaking: the package's `"sideEffects": false` declaration is
   preserved. A consumer who imports `createBeaconTransport` but never
