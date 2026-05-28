@@ -32,7 +32,7 @@ attach lazily on first `send()`, gated against double-install.
 Batching is **off by default**; an explicit `batching` constructor flag
 opts in with a documented envelope `{ events: LogEvent[] }`. Every
 drop — single-event or batch — surfaces exactly once through
-`onInternalError` with a documented `PackageErrorCode` (`oversized_event`,
+`onInternalError` with a documented `BeaconErrorCode` (`oversized_event`,
 `beacon_batch_drop`, `beacon_unavailable`, plus the inherited
 `transport_send_failed`).
 
@@ -48,10 +48,13 @@ strict mode (matches feature 001 — no per-feature toolchain change).
 
 **Primary Dependencies**:
 - **Runtime**: zero new runtime dependencies. The transport imports
-  **public types only** from `@your-org/frontend-logging-sdk`
-  (`LogEvent`, `Transport`) via the package's own root path — it does
-  not reach into `src/internal/**`. Locked by FR-010 and the new
-  bundle-shape audit (T-bundle-boundary below).
+  **public types only** (`LogEvent`, `Transport`) from
+  `src/api/types.js` via a relative path — it does not import anything
+  from `src/internal/**`, `src/runtime/**`, `src/pipeline/**`,
+  `src/config/**`, `src/context/**`, or `src/transport/**`. The
+  subpath defines its own internal `BeaconError` class rather than
+  importing the core's `PackageError`. Locked by FR-010 and the new
+  bundle-shape audit (TB-11).
 - **Dev**: no new devDependencies; reuses `tsup`, `vitest`,
   `happy-dom`, `@vitest/coverage-v8` already pinned for v1.
 - **No observability-vendor SDK** is added by this feature. Inherited
@@ -195,7 +198,7 @@ end of plan.*
 - **VI. Log Integrity & Monitoring Suitability**:
   - No silent drops. Every drop fires `onInternalError` exactly once
     per drop occurrence (single-event mode) or per batch (batch mode)
-    with a documented `PackageErrorCode`. No silent reordering, no
+    with a documented `BeaconErrorCode`. No silent reordering, no
     deduplication, no mutation. Batching, when enabled, preserves
     pipeline-emission order inside the envelope.
 - **VII. Lightweight Logger Instances & Federated Runtime Discipline**:
@@ -256,9 +259,11 @@ src/
     └── secret-fixtures.ts
 ```
 
-The new subpath imports **only** public types (`LogEvent`, `Transport`,
-`PackageError` via a public-only path TBD — see research §4) from the
-core. It does not import anything from `src/internal/**`.
+The new subpath imports **only** public types (`LogEvent`,
+`Transport`) from `../api/types.js` via a relative path. Drop notices
+are routed through `BeaconTransportOptions.onInternalError` carrying
+`BeaconError` instances owned by the subpath; the core's
+`PackageError` is **not** imported. See research §4 and §5.
 
 ### Build output
 
@@ -302,12 +307,22 @@ export interface BeaconTransportOptions {
   };
   allowInsecureLoopback?: boolean;  // default false
   name?: string;                    // default 'beacon'
+  /** Async-drop diagnostics hook. See "Failure Modes & Error Codes". */
+  onInternalError?: (err: Error) => void;
 }
 ```
 
 The factory returns a `Transport` (the same interface from
 `@your-org/frontend-logging-sdk`) — consumers pass the result directly
 into `configureLogging({ transports: [...] })`.
+
+The `onInternalError` option is the channel through which **async**
+drop paths (fetch keepalive rejection, timer-fired batch flush
+failure, pagehide flush failure) surface. Sync drops also route
+through the same hook for consistency. Recommended pattern: the
+consumer passes the same callback to both
+`LoggerConfig.onInternalError` and
+`BeaconTransportOptions.onInternalError`.
 
 ### Delivery pipeline (single event, default mode)
 
@@ -412,29 +427,55 @@ their own `transport.name` distinguishing the error notice.
 
 ## Failure Modes & Error Codes
 
-This feature introduces three new internal `PackageErrorCode` values
-to feature 001's existing enum:
+This feature introduces a **subpath-owned** `BeaconError` class
+(`extends Error`) with five `BeaconErrorCode` values. The class lives
+at `src/transport-beacon/errors.ts` and is **not** exported. The codes
+are **not** added to feature 001's `PackageErrorCode` union — the
+subpath has zero runtime imports from `src/internal/**` per TB-11.
+
+`BeaconError` shape is by-convention compatible with `PackageError`:
+
+```ts
+class BeaconError extends Error {
+  readonly code: BeaconErrorCode;
+  readonly transportName: string;
+  declare cause?: unknown;
+}
+```
+
+So a consumer's `onInternalError` handler reading `err.code` and
+`err.transportName` sees a unified shape regardless of whether the
+notice came from `SafeTransport` (a `PackageError`) or the beacon
+transport itself (a `BeaconError`).
+
+The five codes:
 
 - `oversized_event` — single event's serialized body exceeds the
   ~64 KiB sendBeacon size limit. One notice per session. Payload
-  metadata: event `message` + serialized byte count. Event `attrs`,
-  `error`, `context` are **not** in the notice payload.
-- `beacon_batch_drop` — a batch flush attempt failed (both sendBeacon
-  refused and fetch fallback failed/rejected). One notice per dropped
-  batch. Payload metadata: drop count + reason summary.
+  metadata: event `message` (≤ 256 chars) + serialized byte count.
+- `beacon_batch_drop` — a batch flush attempt failed (sendBeacon
+  refused, fetch fallback rejected, or serialized envelope > 64 KiB).
+  One notice per session. Payload metadata: drop count + reason
+  summary.
 - `beacon_unavailable` — the transport saw no usable delivery
   primitive (neither `navigator.sendBeacon` nor `fetch` is available).
-  One notice per session. No drop count (events drop per emit; the
-  per-session rate-limit means we report once).
+  One notice per session. No drop count.
+- `transport_send_failed` — default-mode single-event drop after
+  sendBeacon refused and fetch fallback rejected.
+- `transport_shutdown_failed` — shutdown-flush threw unexpectedly
+  (defense-in-depth).
 
-The existing `transport_send_failed` code is reused for the
-default-mode single-event drop after sendBeacon+fetch both failed.
-The existing `transport_shutdown_failed` is reused if the shutdown
-flush attempt throws (it won't, but the wrapper is there).
+All drop paths — sync and async — route through
+`BeaconTransportOptions.onInternalError` (defaults to a no-op). This
+is the ONLY notification channel; the transport never throws from
+`send()`/`flush()`/`shutdown()` and never returns a rejecting Promise.
+Feature 001's `SafeTransport` still wraps the beacon transport for
+defense-in-depth, but in normal operation its notify path is
+unreachable.
 
 | Failure                                             | Behavior                                          | Code                  |
 |-----------------------------------------------------|----------------------------------------------------|-----------------------|
-| Construction with non-HTTPS endpoint                | Throw at construction (NOT a `PackageError`)       | — (thrown to caller)  |
+| Construction with non-HTTPS endpoint                | Throw at construction (a plain `Error` / `TypeError`, NOT a `BeaconError`) | — (thrown to caller)  |
 | Construction with non-loopback `http://` AND `allowInsecureLoopback: true` | Throw at construction                              | —                     |
 | Construction with invalid `batching.maxBatchSize`   | Throw at construction                              | —                     |
 | `JSON.stringify(event)` throws                      | Drop event; one notice                             | `transport_send_failed` |
@@ -595,8 +636,11 @@ See [research.md](./research.md) for full findings. Topics covered:
    public type from the package's own root via the same import path
    consumers use, gated by a build-time path alias in tests and a
    relative path in the source).
-5. **`PackageErrorCode` extension** — internal enum value addition
-   does not break the public surface; verified.
+5. **Subpath-owned `BeaconError` class** — the new subpath defines
+   its own `BeaconError extends Error` instead of extending the core's
+   `PackageErrorCode` union. Keeps the subpath boundary clean
+   (no `src/internal/**` imports) while preserving a consistent
+   `.code` / `.transportName` shape for diagnostics handlers.
 6. **Batching strategy** — single in-memory array, length + age
    triggers, flush-on-pagehide, flush-on-shutdown. Why not a
    ring buffer / priority queue / per-level batching.
@@ -624,8 +668,8 @@ See:
   batching state-machine, envelope shape, flush triggers,
   drop-notice rules.
 - [contracts/failure-modes.md](./contracts/failure-modes.md) — full
-  enumeration of failure modes, the `PackageErrorCode` mapping, and
-  the rate-limit guarantees inherited from FS-12.
+  enumeration of failure modes, the `BeaconErrorCode` mapping, and
+  the rate-limit guarantees mirroring FS-12.
 - [quickstart.md](./quickstart.md) — consumer-facing five-minute
   walkthrough, including the federated-module pattern.
 

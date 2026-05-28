@@ -146,7 +146,7 @@ agnostic to whether the transport batches.
 - `createBeaconTransport({ endpoint: '...', name: 'beacon-ingest' }).name === 'beacon-ingest'`.
 - Two instances constructed with different `name` values are
   distinguishable in `onInternalError` notices via the
-  `PackageError.transportName` field.
+  `BeaconError.transportName` field.
 
 ## TB-9. The factory is referentially transparent (no shared state across instances)
 
@@ -172,14 +172,17 @@ fire-and-forget).
 
 (Asserted by `tests/security/transport-beacon-bundle-shape.security.test.ts`.)
 
-- The built `dist/transport-beacon.{mjs,cjs}` MUST NOT import any
-  module from `src/internal/**`, `src/runtime/**`, `src/pipeline/**`,
-  `src/config/**`, or `src/context/**`. Type-only imports of
-  `LogEvent` / `Transport` from `src/api/types.ts` are permitted
-  (they erase at compile time).
-- The built `dist/transport-beacon.{mjs,cjs}` MUST NOT import any
-  observability-vendor package (`@opentelemetry/*`, `@datadog/*`,
-  `dd-rum`, `@sentry/*`, etc.).
+- The new subpath's source under `src/transport-beacon/**` MUST NOT
+  import (runtime or value imports) from any module under
+  `src/internal/**`, `src/runtime/**`, `src/pipeline/**`,
+  `src/config/**`, `src/context/**`, or `src/transport/**`. The only
+  permitted import is type-only:
+  `import type { LogEvent, Transport } from '../api/types.js'`. The
+  test scans the subpath's source files directly (a regex / AST walk)
+  to flag any forbidden import.
+- The built `dist/transport-beacon.{mjs,cjs}` MUST NOT contain any
+  observability-vendor package name (`@opentelemetry/*`,
+  `@datadog/*`, `dd-rum`, `@sentry/*`, etc.).
 - The built `dist/transport-beacon.{mjs,cjs,d.ts}` MUST NOT contain
   vendor-specific identifiers (`SeverityNumber`, `LoggerProvider`,
   `Span`, `Exporter`, `Processor`).

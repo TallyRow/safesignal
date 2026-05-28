@@ -165,38 +165,59 @@ Each instance:
 - Installs its own `pagehide` listener.
 - Has its own drop-notice rate-limit flags.
 - Is named distinctly in any drop notice via
-  `PackageError.transportName`.
+  `BeaconError.transportName`.
 
 ## Drop notices
 
-Every dropped event surfaces through `LoggerConfig.onInternalError`:
+> **Important**: wire `onInternalError` to **both** `configureLogging`
+> AND `createBeaconTransport`. They are independent diagnostics hooks
+> at different layers — passing only one means async beacon failures
+> (fetch keepalive rejection, batch timer flush failure, pagehide
+> flush failure) are invisible.
 
 ```ts
+const onInternalError = (err: Error) => {
+  // err is an Error instance carrying a discriminating .code
+  // (e.g., 'oversized_event') and a .transportName ('beacon')
+  // so you can route by transport.
+  myErrorReporter.captureException(err);
+};
+
 configureLogging({
   // ...
-  transports: [createBeaconTransport({ endpoint: '...' })],
-  onInternalError(err) {
-    // err is an Error instance carrying a discriminating .code
-    // and a .transportName so you can route by transport.
-    myErrorReporter.captureException(err);
-  },
+  transports: [
+    createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      onInternalError,            // ← also pass it here
+    }),
+  ],
+  onInternalError,                // ← and here (defense-in-depth)
 });
 ```
 
+Why two places? Feature 001's runtime wraps every transport in a
+`SafeTransport` that holds `LoggerConfig.onInternalError` — but that
+wrapper only catches throws and rejections from the synchronous
+`send()` / `flush()` / `shutdown()` calls. Async failures (a `fetch`
+keepalive Promise rejecting later, a batch timer firing a flush that
+fails) execute outside that boundary. The beacon transport's own
+`onInternalError` hook is the channel through which those async
+drops surface.
+
 Codes the beacon transport may emit:
 
-| `err.code`               | When                                                                                |
-|--------------------------|--------------------------------------------------------------------------------------|
-| `oversized_event`        | A single event's serialized body exceeds ~64 KiB. The event is dropped.              |
-| `transport_send_failed`  | (Default mode) `sendBeacon` returned `false` AND the `fetch` keepalive fallback rejected. |
-| `beacon_batch_drop`      | (Batch mode) A batch flush failed (sendBeacon refused, fetch fallback rejected, OR envelope > 64 KiB). |
-| `beacon_unavailable`     | Neither `navigator.sendBeacon` nor `fetch` is available. (Vanishingly rare.)         |
-| `transport_shutdown_failed` | The shutdown-flush attempt threw unexpectedly.                                    |
+| `err.code`                  | When                                                                                  |
+|-----------------------------|----------------------------------------------------------------------------------------|
+| `oversized_event`           | A single event's serialized body exceeds ~64 KiB. The event is dropped.                |
+| `transport_send_failed`     | (Default mode) `sendBeacon` returned `false` AND the `fetch` keepalive fallback rejected. |
+| `beacon_batch_drop`         | (Batch mode) A batch flush failed (sendBeacon refused, fetch fallback rejected, OR envelope > 64 KiB). |
+| `beacon_unavailable`        | Neither `navigator.sendBeacon` nor `fetch` is available. (Vanishingly rare.)           |
+| `transport_shutdown_failed` | The shutdown-flush threw unexpectedly (defense-in-depth).                              |
 
-Each code fires **at most once per transport per session**, per
-feature 001's FS-12 rate-limit. If your transport drops persistently,
-you see the first drop and nothing more — instrument at the application
-level if you need per-occurrence metrics.
+Each code fires **at most once per transport per session**, mirroring
+feature 001's FS-12 rate-limit. If your endpoint is persistently
+broken you see the first drop and nothing more — instrument at the
+application level for per-occurrence metrics.
 
 The notice payload is **structural** — no event content, no `attrs`,
 no `error`, no `context`. The notice's purpose is to tell you the

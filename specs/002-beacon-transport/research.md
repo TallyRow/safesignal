@@ -192,48 +192,66 @@ both invariants.
   source MUST be buildable without the default entry being built
   first.
 
-## 5. Extending `PackageErrorCode` with new internal values
+## 5. Subpath-owned `BeaconError` class
 
 ### Decision
-Add `oversized_event`, `beacon_batch_drop`, and `beacon_unavailable`
-to the existing `PackageErrorCode` union in
-`src/internal/errors/internal-errors.ts`. Reuse the existing
-`transport_send_failed` for the default-mode single-event drop after
-the fetch fallback also fails, and `transport_shutdown_failed` for
-shutdown-flush failures.
+Define a new `BeaconError extends Error` class **inside the
+`./transport-beacon` subpath** (at `src/transport-beacon/errors.ts`,
+NOT exported), with `code: BeaconErrorCode` and
+`transportName: string` fields. The codes (`oversized_event`,
+`beacon_batch_drop`, `beacon_unavailable`, `transport_send_failed`,
+`transport_shutdown_failed`) are owned by the subpath. The transport
+calls `options.onInternalError(beaconError)` directly for every drop.
+The subpath does NOT import from `src/internal/errors/**`.
 
 ### Rationale
-- `PackageErrorCode` is declared in `src/internal/errors/internal-errors.ts`,
-  which is **not** exported from `src/index.ts` and is **not**
-  reachable via the package's public surface (gated by the `exports`
-  map). The type is internal; adding values to it is not a breaking
-  change for consumers.
-- Consumers see `PackageError` instances via the
-  `LoggerConfig.onInternalError(err: Error)` callback. They may
-  inspect `err.code` (typed at the call site as `string`) for
-  diagnostic routing. Adding new code values widens the set of
-  possible strings consumers may see; this is documented in
-  `quickstart.md`'s drop-notice section and in `docs/safe-logging.md`.
-- The transport's name (`err.transportName === 'beacon'` by default)
-  distinguishes beacon-emitted notices from notices emitted by other
-  transports configured in the same runtime.
+- The contract (TB-11) keeps the subpath isolated from `src/internal/**`,
+  `src/runtime/**`, `src/pipeline/**`, `src/config/**`, and
+  `src/context/**`. Importing the core's `PackageError` class would
+  violate that.
+- Async drop paths (fetch keepalive rejection, timer-fired flush
+  failure, pagehide flush failure) execute **outside** the synchronous
+  `send()` boundary that `SafeTransport` wraps. `SafeTransport`'s
+  try/catch around `send()` does not catch a Promise rejection
+  observed via `.catch()` in a deferred callback, and it does not
+  observe timer-callback throws at all. The transport therefore needs
+  its **own** diagnostics hook — `BeaconTransportOptions.onInternalError`
+  — to surface those drops. Routing every notice through this hook
+  (sync + async) gives a single, consistent code path.
+- The `BeaconError` shape is **by-convention compatible** with the
+  core's `PackageError` (`.code: string`, `.transportName: string`,
+  optional `.cause`). A consumer's diagnostics handler cannot tell
+  the difference. The minor duplication (a 30-line class) is far
+  cheaper than the alternatives.
 
 ### Implementation consequences
-- `src/internal/errors/internal-errors.ts` gains three new code
-  values. No public surface change. No documentation change in the
-  public API spec.
+- `src/transport-beacon/errors.ts` is a new internal module owned by
+  the subpath. Not exported from the subpath's `index.ts`.
+- `BeaconTransportOptions` gains an optional `onInternalError`
+  callback. Recommended pattern (documented in quickstart.md): the
+  consumer wires the same function into both
+  `LoggerConfig.onInternalError` and
+  `BeaconTransportOptions.onInternalError`.
 - `tests/integration/transport-beacon-batching.integration.test.ts`
-  and the secret-sweep / contract tests assert the correct code
-  reaches the `onInternalError` hook for each drop scenario.
+  and the secret-sweep / contract tests assert the correct
+  `BeaconError.code` reaches the hook for each drop scenario.
+- Feature 001's `src/internal/errors/internal-errors.ts` is **not**
+  modified by this feature. No new `PackageErrorCode` values are
+  added.
 
 ### Alternatives considered
-- **Define a `BeaconErrorCode` separate from `PackageErrorCode`**:
-  rejected. Two enums for one diagnostics channel add cognitive
-  overhead with no real boundary benefit — both flow through the
-  same hook with the same `transportName` discriminator.
-- **Encode the new codes as message-string prefixes (`'beacon: ...'`)
-  rather than a `.code` field**: rejected. We already have a `.code`
-  field on `PackageError`; codes are the typed way.
+- **Extend `PackageErrorCode`** in `src/internal/errors/internal-errors.ts`:
+  rejected. Forces the subpath to import from `src/internal/**`,
+  violating the boundary in TB-11.
+- **Make `send()` return a Promise that rejects on failure, letting
+  `SafeTransport` observe it**: rejected. (a) Batched async drops
+  fire in timer callbacks that don't run inside any `send()` Promise.
+  (b) Returning a Promise that may resolve after page unload has
+  weird semantics and breaks the documented "send is synchronous"
+  contract (D-1).
+- **Encode codes as message-string prefixes (`'beacon: oversized'`)**
+  on a plain `Error`: rejected. Less discoverable than a typed
+  `.code` field and forces consumers to parse strings.
 
 ## 6. Batching strategy: array + length-or-age triggers, single-flush-attempt
 

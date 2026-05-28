@@ -547,13 +547,15 @@ documented error code, all subsequent batches deliver normally.
   enabled. Carries an `events: LogEvent[]` field in pipeline-emission
   order. No additional transport-level metadata fields beyond what is
   necessary to distinguish a batched body from a single-event body.
-- **DropNotice**: a `PackageError` value passed to `onInternalError`
+- **DropNotice**: an `Error`-shaped value passed to `onInternalError`
   when the transport drops events. Carries a documented error code
-  (e.g., `oversized_event`, `send_failed`, `batch_drop`,
-  `transport_unavailable`), the dropped count, the transport's `name`,
-  and a non-leaky message. The `oversized_event` code additionally
-  carries the originating event's `message` field and the serialized
-  byte count, never its `attrs`/`error`/`context`.
+  (e.g., `oversized_event`, `transport_send_failed`,
+  `beacon_batch_drop`, `beacon_unavailable`), the transport's `name`,
+  the dropped count where applicable, and a non-leaky message. The
+  `oversized_event` code additionally carries the originating event's
+  `message` field and the serialized byte count, never its
+  `attrs`/`error`/`context`. Concrete class is a design-time decision
+  (see plan.md / data-model.md).
 
 ## Success Criteria *(mandatory)*
 
@@ -616,9 +618,13 @@ documented error code, all subsequent batches deliver normally.
   `shutdown()` shape — is the surface this transport implements. No
   changes to that interface are in scope.
 - The `onInternalError` diagnostic hook from feature 001 is the
-  channel for drop notices. The `PackageError` shape from feature 001
-  is the carrier; this feature adds one or more documented error codes
-  to that taxonomy.
+  channel for drop notices on the runtime side. The beacon transport
+  additionally accepts its own `onInternalError` hook via
+  `BeaconTransportOptions` so async drops (timer-fired batch flush,
+  pagehide-fired flush, fetch keepalive rejection observed outside
+  the synchronous `send()` boundary) can surface. Consumers wire the
+  same callback to both hooks; the hook receives an `Error` with a
+  documented `code` and `transportName`.
 - The browser environment provides `navigator.sendBeacon` and `fetch`
   with `keepalive: true` support — both are baseline-available in
   every modern browser in scope for this package. Legacy fallback

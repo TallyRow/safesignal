@@ -4,20 +4,34 @@
 · **Plan**: [../plan.md](../plan.md)
 
 This contract enumerates every failure mode of the beacon transport,
-the resulting behavior, and the `PackageErrorCode` that surfaces
-through `LoggerConfig.onInternalError`. It is the single source of
-truth for the drop-and-notify behavior — the spec, plan, and other
-contracts cross-reference this document.
+the resulting behavior, and the `BeaconErrorCode` that surfaces
+through `BeaconTransportOptions.onInternalError`. It is the single
+source of truth for the drop-and-notify behavior — the spec, plan,
+and other contracts cross-reference this document.
 
-All `onInternalError` notices are subject to feature 001's FS-12
-rate-limit: **one notice per failure class per transport per session**.
+All notices are subject to a per-session, per-instance rate-limit
+(one notice per failure class per beacon transport instance per
+session), modeled after feature 001's FS-12.
+
+**Routing**: every notice goes through
+`BeaconTransportOptions.onInternalError` (passed at construction
+time). This is the ONLY notification channel for the transport. The
+transport never throws from `send()`/`flush()`/`shutdown()`, and
+never returns a rejecting Promise. Feature 001's `SafeTransport`
+still wraps the beacon transport at `configureLogging()` time as
+defense-in-depth, but in normal operation its notify path is
+unreachable for beacon-emitted failures (the inner hook already
+caught everything). A consumer who wires the same callback into both
+`LoggerConfig.onInternalError` and
+`BeaconTransportOptions.onInternalError` sees each failure exactly
+once.
 
 ## F-1. Construction-time failures (do NOT route through `onInternalError`)
 
 Construction-time failures throw synchronously to the consumer
 calling `createBeaconTransport()`. They are NOT routed through
-`onInternalError` because no runtime has been configured yet — the
-consumer holds the call stack.
+`onInternalError` because the call stack is the consumer's own and
+no runtime is yet configured.
 
 | Failure                                            | Thrown error                                                                        |
 |----------------------------------------------------|--------------------------------------------------------------------------------------|
@@ -48,7 +62,8 @@ caught silently by the package — the consumer's call site sees them.
 - The remaining buffered events continue to accumulate; the next
   flush trigger still attempts to deliver them.
 
-**Notice payload**:
+**Notice payload** (a `BeaconError` instance):
+- `error instanceof Error === true`
 - `error.message`: `'beacon transport dropped oversized event: bytes=<N>, message=<first-256-chars-of-event.message>'`
 - `error.code`: `'oversized_event'`
 - `error.transportName`: the transport's `name` (default `'beacon'`)
@@ -67,7 +82,7 @@ This is vanishingly rare in 2026 browsers — `fetch` is baseline-
 available everywhere the package targets — but the path exists for
 legacy / test environments.
 
-**Notice payload**:
+**Notice payload** (a `BeaconError` instance):
 - `error.message`: `'beacon transport has no usable delivery primitive (sendBeacon and fetch both unavailable)'`
 - `error.code`: `'beacon_unavailable'`
 - `error.transportName`: the transport's `name`
@@ -83,21 +98,20 @@ legacy / test environments.
 - The event is dropped.
 - One notice fires per session with code `transport_send_failed`.
 
-**Notice payload**:
-- `error.message`: `'Transport '<name>' failed: <cause description>'`
-  (same shape as the `SafeTransport`-emitted notice for any other
-  transport).
+**Notice payload** (a `BeaconError` instance):
+- `error.message`: `'beacon transport '<name>' failed: <cause description>'`
 - `error.code`: `'transport_send_failed'`
 - `error.cause`: the original cause if available (the rejected
   Promise's reason, or a synthetic `Error('sendBeacon returned false; fetch fallback failed')`).
 - `error.transportName`: the transport's `name`
 
-**Note**: `SafeTransport` from feature 001 already provides a
-try/catch around `send()`. The beacon transport's own try/catch
-inside `send()` is in addition to that — it lets the transport
-distinguish `sendBeacon`-refused from `JSON.stringify`-threw from
-`fetch`-rejected at the notice level. The outer `SafeTransport` is
-a defense-in-depth backstop.
+**Note**: `SafeTransport` from feature 001 wraps the beacon transport
+at `configureLogging()` time. Its try/catch around `send()` would emit
+a `PackageError(transport_send_failed)` if the beacon transport ever
+threw — but the beacon transport's own try/catch prevents that, so
+`SafeTransport`'s path is unreachable in normal operation. The beacon
+transport's own `BeaconError(transport_send_failed)` notice is the
+one consumers observe.
 
 ## F-5. `beacon_batch_drop` (batching-mode flush failure)
 
@@ -144,10 +158,11 @@ errors. The notice exists to preserve symmetry with
 
 Where a notice originates from an upstream cause (a rejected
 `fetch` Promise, a thrown `JSON.stringify` error, a thrown
-`addEventListener` error), the `PackageError.cause` field carries
-the original value via the ES2022 `Error.cause` mechanism (see
-feature 001's `wrapAsPackageError` helper). This lets a consumer's
-diagnostic reporter chain back to the underlying reason if desired.
+`addEventListener` error), the `BeaconError.cause` field carries
+the original value via the ES2022 `Error.cause` mechanism. This lets
+a consumer's diagnostic reporter chain back to the underlying reason
+if desired. The `BeaconError` constructor sets `.cause` directly; no
+helper-function dependency on the core's `wrapAsPackageError`.
 
 ## F-8. Rate-limit semantics
 
@@ -193,24 +208,37 @@ explicit-configuration contract.
 
 Every transport configured via `LoggerConfig.transports` is wrapped
 in feature 001's `SafeTransport` at `configureLogging()` time. This
-wrapper provides its own try/catch around `send()` / `flush()` /
-`shutdown()` and emits a `transport_send_failed` /
-`transport_shutdown_failed` notice on uncaught errors.
+outer wrapper holds the `LoggerConfig.onInternalError` callback and
+emits a `PackageError(transport_send_failed)` or
+`PackageError(transport_shutdown_failed)` if the inner transport
+throws or returns a rejecting Promise.
 
-The beacon transport's internal try/catch boundaries are **inside**
-the `SafeTransport`'s — they fire notices with more specific codes
-(`oversized_event`, `beacon_unavailable`, `beacon_batch_drop`) when
-the transport itself can recognize the failure class. The outer
-`SafeTransport` catches anything that escapes the inner boundary
-(which should be nothing, but is a defense-in-depth net).
+The beacon transport NEVER throws and NEVER returns a rejecting
+Promise from `send()` / `flush()` / `shutdown()`. Every drop path
+inside the beacon transport is caught by its own try/catch and
+routed through `BeaconTransportOptions.onInternalError`. The outer
+`SafeTransport`'s notify path is therefore unreachable in normal
+operation — but it remains as defense-in-depth for unexpected runtime
+bugs.
 
-The result: a consumer's `onInternalError` may receive one of:
-- A specific beacon code (`oversized_event`, `beacon_unavailable`,
-  `beacon_batch_drop`) — the beacon transport recognized the failure.
-- A generic `transport_send_failed` — either the default-mode
-  primitive-failure-after-fallback path emitted it, or
-  `SafeTransport` caught something unexpected.
-- A generic `transport_shutdown_failed` — same, for shutdown.
+A consumer wiring the same callback into both
+`LoggerConfig.onInternalError` and
+`BeaconTransportOptions.onInternalError`:
+
+- Beacon-recognized drops (every code in this contract) fire
+  `BeaconError` instances through the inner hook.
+- The outer `SafeTransport` path fires `PackageError` instances —
+  but in practice never does, because the inner path captures
+  everything.
+- The consumer sees each failure exactly once.
+
+A consumer wiring `LoggerConfig.onInternalError` but NOT
+`BeaconTransportOptions.onInternalError` will see **no** beacon
+drops — async failures (fetch keepalive rejection, timer-fired
+flush failure) are invisible to `SafeTransport` because they execute
+outside the synchronous `send()` boundary. This is documented in
+quickstart.md as a configuration pitfall: pass the hook to **both**
+places.
 
 In every case, `error.transportName === transport.name` (defaults to
 `'beacon'`) distinguishes beacon notices from notices emitted by
