@@ -1,0 +1,224 @@
+# SafeSignal CI/CD pipeline.
+#
+# Two logical pipelines defined by job rules:
+#   1. Quality-gate pipeline — every MR + every default-branch push.
+#      Stages: typecheck, test, build, audit (bundle-invariance,
+#      dependency-pins, dco-check).
+#   2. Release pipeline — push of a signed `v*.*.*` git tag.
+#      Stages: typecheck (verify-tag-signed), test, build, audit
+#      (bundle-invariance, dependency-pins, changelog-validate),
+#      publish (npm publish --provenance via GitLab OIDC trusted-
+#      publisher), publish (provenance-verify).
+#
+# Spec:      specs/005-cicd-pipeline/spec.md
+# Plan:      specs/005-cicd-pipeline/plan.md
+# Contracts: specs/005-cicd-pipeline/contracts/
+#
+# Constraint: GitLab.com free-tier shared runners
+# (saas-linux-small-amd64).
+
+default:
+  image: node:22-alpine
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+      - node_modules/
+  before_script:
+    - apk add --no-cache git bash gpg openssh-client
+    - npm config set cache .npm --location=project
+    - npm ci --prefer-offline --no-audit --no-fund
+
+stages:
+  - typecheck
+  - test
+  - build
+  - audit
+  - publish
+
+# ----------------------------------------------------------------
+# Reusable definitions
+# ----------------------------------------------------------------
+
+# Node version matrix for stages where it matters
+# (typecheck / test / build). Single-Node stages
+# (audit / publish) use the default Node 22 image.
+.node_matrix:
+  parallel:
+    matrix:
+      - NODE_VERSION: ["20", "22"]
+  image: node:${NODE_VERSION}-alpine
+
+# Run on every merge request to the default branch
+# and on every default-branch push.
+.quality_gate_rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# Run only on signed release tags.
+# Tag must match v[MAJOR].[MINOR].[PATCH] with optional
+# pre-release suffix (-rc.N, -beta.N, etc.).
+.release_only:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[\w.]+)?$/
+
+# ----------------------------------------------------------------
+# Quality-gate jobs (MR + default-branch pipelines)
+# ----------------------------------------------------------------
+
+typecheck:
+  stage: typecheck
+  extends: [.node_matrix, .quality_gate_rules]
+  script:
+    - npm run typecheck
+
+test:
+  stage: test
+  extends: [.node_matrix, .quality_gate_rules]
+  script:
+    - npm test
+
+build:
+  stage: build
+  extends: [.node_matrix, .quality_gate_rules]
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 day
+
+bundle-invariance:
+  stage: audit
+  extends: .quality_gate_rules
+  needs:
+    - job: build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - scripts/ci/bundle-invariance-check.sh
+
+dependency-pins:
+  stage: audit
+  extends: .quality_gate_rules
+  script:
+    - npm test -- tests/contract/dependency-pins.test.ts tests/security/bundle-shape.security.test.ts tests/security/transport-beacon-bundle-shape.security.test.ts
+
+dco-check:
+  stage: audit
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - scripts/ci/dco-check.sh
+
+# ----------------------------------------------------------------
+# Release pipeline jobs (signed-tag triggered)
+# ----------------------------------------------------------------
+
+verify-tag-signed:
+  stage: typecheck   # fail-fast: earliest stage
+  extends: .release_only
+  before_script: []  # skip default (no npm install needed)
+  image: alpine:latest
+  script:
+    - apk add --no-cache git gnupg
+    - git tag -v "$CI_COMMIT_TAG" || { echo "FAIL: tag $CI_COMMIT_TAG is not signed"; exit 1; }
+    - git fetch --depth=100 origin "$CI_DEFAULT_BRANCH"
+    - git merge-base --is-ancestor "$CI_COMMIT_SHA" "origin/$CI_DEFAULT_BRANCH" \
+        || { echo "FAIL: tag $CI_COMMIT_TAG points at $CI_COMMIT_SHA which is NOT an ancestor of origin/$CI_DEFAULT_BRANCH"; exit 1; }
+    - echo "Tag $CI_COMMIT_TAG verified: signed + ancestor of $CI_DEFAULT_BRANCH"
+
+# Release-pipeline matrix jobs (typecheck/test/build × 2 Node versions)
+release-typecheck:
+  stage: typecheck
+  extends: [.node_matrix, .release_only]
+  script:
+    - npm run typecheck
+
+release-test:
+  stage: test
+  extends: [.node_matrix, .release_only]
+  script:
+    - npm test
+
+release-build:
+  stage: build
+  extends: [.node_matrix, .release_only]
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 day
+
+release-bundle-invariance:
+  stage: audit
+  extends: .release_only
+  needs:
+    - job: release-build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - scripts/ci/bundle-invariance-check.sh
+
+release-dependency-pins:
+  stage: audit
+  extends: .release_only
+  script:
+    - npm test -- tests/contract/dependency-pins.test.ts tests/security/bundle-shape.security.test.ts tests/security/transport-beacon-bundle-shape.security.test.ts
+
+changelog-validate:
+  stage: audit
+  extends: .release_only
+  script:
+    - scripts/ci/changelog-validate.sh
+
+publish:
+  stage: publish
+  extends: .release_only
+  needs:
+    - verify-tag-signed
+    - release-typecheck
+    - release-test
+    - job: release-build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+    - release-bundle-invariance
+    - release-dependency-pins
+    - changelog-validate
+  id_tokens:
+    NPM_ID_TOKEN:
+      aud: https://registry.npmjs.org
+  script:
+    # Derive dist-tag from the version string:
+    #   v1.0.1     → latest (stable release)
+    #   v1.0.1-rc.1 → next (pre-release)
+    - |
+      if [[ "$CI_COMMIT_TAG" == *-* ]]; then
+        DIST_TAG="next"
+      else
+        DIST_TAG="latest"
+      fi
+      echo "Publishing $CI_COMMIT_TAG under dist-tag '$DIST_TAG'"
+    # Authenticate with npm via OIDC trusted-publisher
+    # (no long-lived NPM_TOKEN in CI variables; GitLab issues a
+    # short-lived OIDC token that npm exchanges for publish auth).
+    - npm config set //registry.npmjs.org/:_authToken "$NPM_ID_TOKEN"
+    - npm publish --provenance --tag "$DIST_TAG"
+
+provenance-verify:
+  stage: publish
+  extends: .release_only
+  needs:
+    - publish
+  script:
+    - scripts/ci/provenance-verify.sh "$CI_COMMIT_TAG"

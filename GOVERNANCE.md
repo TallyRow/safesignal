@@ -50,11 +50,12 @@ the constitution wins.
 ### MR approval
 
 - **Currently**: the maintainer reviews and approves all merge
-  requests against `master` (the current default branch — a
-  rename to `main` is planned in a subsequent feature). No MR is
-  merged without their explicit approval.
+  requests against `main`. No MR is merged without their explicit
+  approval. (The default branch was renamed from `master` to
+  `main` in Feature 005; GitLab serves automatic redirects from
+  the old `master` URL.)
 - **Required checks**: every MR must pass the project's CI checks
-  (see Feature 006 when shipped), satisfy the Spec Kit workflow if
+  (see Feature 005 for the configured CI/CD pipeline), satisfy the Spec Kit workflow if
   applicable, and follow the contributor expectations in
   [CONTRIBUTING.md](CONTRIBUTING.md) (including DCO sign-off on
   every commit).
@@ -95,11 +96,13 @@ the constitution wins.
   `@tallyrow/` npm scope.
 - **Account protections**: 2FA is enforced on the npm account.
   Long-lived publish tokens are NOT stored anywhere.
-- **CI-mediated publish**: planned via Feature 006 (CI/CD
-  pipeline). The intended setup is GitLab CI/CD using npm's OIDC
+- **CI-mediated publish**: configured in Feature 005 (CI/CD
+  pipeline). Setup: GitLab CI/CD using npm's OIDC
   trusted-publisher mechanism — no long-lived token in CI
   variables; publishes are tied verifiably to a specific GitLab
-  CI workflow run via npm provenance.
+  CI workflow run via npm provenance attestation. See
+  `CONTRIBUTING.md` § Cutting a release for the operator-facing
+  release workflow.
 - **Manual publish fallback**: if the OIDC pipeline is unavailable,
   the maintainer may publish manually from a development machine
   after running `npm test && npm run build` and verifying the
