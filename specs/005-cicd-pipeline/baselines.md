@@ -85,5 +85,38 @@ cuts the v1.0.1-rc.1 signed tag.)
 
 ## Post-feature measurements
 
-(Populated by T026 + Polish phase after all in-repo work + dogfood
-tests land.)
+Captured 2026-05-28 after T010-T023 in-repo work shipped.
+
+### T024 audit-script outcome
+
+- All 5 required new files exist with mode 100755 on `scripts/ci/*.sh`: **PASS**
+- All `.gitlab-ci.yml` content markers present (stages, jobs, matrix `["20", "22"]`, `id_tokens:`, `npm publish --provenance`): **PASS**
+- README badge present: **PASS**
+- CONTRIBUTING "Cutting a release" section present: **PASS**
+- GOVERNANCE "Feature 006" → "Feature 005" fix: **PASS**
+- No long-lived `NPM_TOKEN`/`NODE_AUTH_TOKEN` references in CI config (one false-positive flagged in a documentation comment that says "no NPM_TOKEN in CI variables"): **PASS**
+- Forward-going `master` sweep: only documented rename-history hits in CHANGELOG / README / CONTRIBUTING / GOVERNANCE — no `master` references as the current default branch. **PASS**
+
+### T026 test suite invariance
+
+| Metric | Pre-feature | Post-feature | Status |
+|---|---|---|---|
+| Test files | 48 | 48 | ✅ |
+| Tests passing | 1,088 | 1,088 | ✅ |
+| Tests todo | 10 | 10 | ✅ |
+| Tests failing | 0 | 0 | ✅ |
+| Unhandled errors | 0 | 0 | ✅ |
+
+### T026 bundle invariance
+
+| Artifact | Bytes (gz) | Status vs F003/F004 baseline |
+|---|---|---|
+| `dist/index.mjs` | 8,162 | ✅ identical |
+| `dist/transport-beacon.mjs` | 3,101 | ✅ identical |
+| `dist/testing.mjs` | 2,724 | ✅ identical |
+
+## Final-review record
+
+See [`checklists/final-review.md`](./checklists/final-review.md)
+for the consolidated acceptance statement, contract outcomes, and
+the outstanding maintainer-side ops + dogfood-test items.
