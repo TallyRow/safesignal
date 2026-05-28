@@ -305,10 +305,11 @@ SDK; the server lives in its own repo when it ships.
 
 ## Migration history
 
-This package was previously developed under the working name
-`@your-org/frontend-logging-sdk`. The following migration block
-was the v1.0.0 (2026-05-28) rename notice and remains here for
-consumers arriving via the legacy name.
+The v1.0.0 release on 2026-05-28 renamed the project from its
+working name (`@your-org/frontend-logging-sdk`) to **SafeSignal**,
+published on npm as `@tallyrow/safesignal`. The original rename
+notice from that release follows verbatim for consumers arriving
+via the legacy package name.
 
 This package was previously developed under the working name
 `@your-org/frontend-logging-sdk`. As of v1.0.0 it ships as
