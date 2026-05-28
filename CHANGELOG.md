@@ -8,6 +8,16 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [1.0.0] — 2026-05-28
 
+> **Note**: v1.0.0 was an in-repo version-bump and rename milestone
+> documenting the project's transition from `@your-org/frontend-logging-sdk`
+> to **SafeSignal** (`@tallyrow/safesignal`). No npm artifact was
+> published for this version — the publish pipeline shipped in
+> Feature 005 (CI/CD). The first installable version on npm is
+> **v1.0.1-rc.1** (release candidate, `next` dist-tag) followed
+> by **v1.0.1** (stable, `latest` dist-tag). The v1.0.0 entry
+> below documents the project state at the rename milestone for
+> historical reference.
+
 ### Renamed to SafeSignal
 
 This release renames the project from its working identity

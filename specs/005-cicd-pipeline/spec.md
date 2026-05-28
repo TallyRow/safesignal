@@ -200,13 +200,15 @@ with valid CI runs through the protection gates as expected.
    anyone attempts to merge, **Then** GitLab disables the merge
    button with a "resolve all threads" message.
 6. **Given** the repo has been swept for `master` references,
-   **When** a reviewer runs `grep -rn 'master' --include='*.md'
-   --include='*.yml' --include='*.json' --include='*.ts'` against
-   the repo (excluding archival historical artifacts and
-   third-party / generated files), **Then** every remaining
-   occurrence either refers to (a) a different concept than the
-   default branch (e.g., "master copy" in legal text), or (b) an
-   archival historical artifact explicitly out of scope.
+   **When** a reviewer runs the canonical sweep command defined in
+   [`contracts/branch-protection-policy.md`](../005-cicd-pipeline/contracts/branch-protection-policy.md#in-repo-master-reference-sweep)
+   (which is the authoritative form — includes `*.md`, `*.yml`,
+   `*.yaml`, `*.json`, `*.ts`, `*.sh` patterns and excludes
+   `node_modules`, `dist`, `.git`, archival `specs/00[1-4]-*` dirs,
+   `package-lock.json`), **Then** every remaining occurrence
+   either refers to (a) a different concept than the default
+   branch (e.g., "master copy" in legal text), or (b) an archival
+   historical artifact explicitly out of scope.
 
 ---
 
@@ -409,7 +411,12 @@ wrong.
   dependency-pins).
 - **FR-009**: The CI pipeline MUST surface a per-stage pass/fail
   summary in the GitLab MR UI such that a reviewer can identify
-  which stage failed without opening the raw job log.
+  which stage failed without opening the raw job log. **Note**:
+  GitLab CI satisfies this automatically — the MR's pipeline
+  widget displays every job's status with stage grouping. No
+  bespoke implementation is required; the requirement is met by
+  using GitLab CI normally (i.e., naming jobs descriptively and
+  organizing them into the `stages:` list per FR-001).
 - **FR-010**: The CI pipeline MUST run against Node `20.x` and
   Node `22.x` (the current LTS and next-current LTS as of
   2026-05-28). The two Node versions run as parallel jobs within
@@ -594,19 +601,31 @@ wrong.
 ### Measurable Outcomes
 
 - **SC-001**: A merge request whose pipeline fails any gate has
-  its merge button disabled in the GitLab UI within 60 seconds of
-  the failure being reported.
+  its merge button disabled in the GitLab UI within ~60 seconds
+  of the failure being reported. (Wall-clock target assumes
+  normal shared-runner availability and image-cache hit; CI
+  queue depth or cold caches may extend this. The hard
+  requirement is "merge button disables on failure"; the 60s
+  number is the expected typical latency, not a strict ceiling.)
 - **SC-002**: A merge request whose commits lack `Signed-off-by:`
   footers cannot be merged. The DCO check stage fails on every
   such MR and the failure message clearly identifies the offending
   commits.
 - **SC-003**: A push to the default branch that exceeds the
   bundle-invariance threshold (±1 KiB gzipped on `dist/index.mjs`
-  or `dist/transport-beacon.mjs`) fails CI within 5 minutes of
-  the push.
+  or `dist/transport-beacon.mjs`) fails CI within ~5 minutes of
+  the push under typical shared-runner conditions. (Wall-clock
+  target; cold caches or queue depth may extend this. The hard
+  requirement is "the check fails on threshold breach"; the
+  5-minute number is the expected typical latency.)
 - **SC-004**: A signed git tag matching `v[0-9]+.[0-9]+.[0-9]+`
   triggers a release pipeline that completes (successfully or
-  with a clear failure) within 10 minutes of the tag push.
+  with a clear failure) within ~10 minutes of the tag push under
+  typical shared-runner conditions. (Wall-clock target; cold
+  caches, queue depth, or npm registry propagation delays may
+  extend this. The hard requirement is "the pipeline triggers
+  and runs to completion"; the 10-minute number is the expected
+  typical wall-clock.)
 - **SC-005**: A successful release publish attaches valid
   Sigstore-backed provenance attestation to the npm package
   version. The attestation is independently verifiable via
