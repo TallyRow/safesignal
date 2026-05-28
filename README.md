@@ -2,78 +2,19 @@
 
 **SafeSignal** is a browser-first, vendor-neutral structured logging
 facade and safety boundary for browser applications and federated
-frontend modules. It ships secure-by-default sanitization, URL
-scrubbing, key + shape redaction, control-character escaping, and a
-pluggable transport boundary — all applied before any transport sees
-an event. Published on npm as `@tallyrow/safesignal` (TallyRow is the
+frontend modules. Secure-by-default sanitization, URL scrubbing,
+key + shape redaction, control-character escaping, and a pluggable
+transport boundary — all applied before any transport sees an event.
+Published on npm as `@tallyrow/safesignal` (TallyRow is the
 publishing organization; SafeSignal is the product).
 
-## Renamed from `frontend-logging-sdk`
+## Why SafeSignal
 
-This package was previously developed under the working name
-`@your-org/frontend-logging-sdk`. As of v1.0.0 it ships as
-**SafeSignal**, published on npm as `@tallyrow/safesignal`.
-
-**Migration**:
-
-```bash
-# Install the new package
-npm install @tallyrow/safesignal
-```
-
-```ts
-// Update every import:
-// Before
-import { createLogger } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
-import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-
-// After
-import { createLogger } from '@tallyrow/safesignal';
-import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
-import { assertTransportContract } from '@tallyrow/safesignal/testing';
-```
-
-Subpaths (`/testing`, `/transport-beacon`) are unchanged — only the
-package-name segment moves. No runtime behavior, public API,
-redaction default, sanitizer limit, URL-scrubber behavior, or
-transport-security contract change in this release. Bundle sizes
-remain within ±1 KiB of the pre-rename baseline. See
-[`CHANGELOG.md`](CHANGELOG.md) for the release entry.
-
-> **Status**: in development. US1 (public API, level filtering),
-> US2 (pluggable transports, failure isolation, `/testing` subpath),
-> and US3 (full security pipeline — sanitization, URL scrubbing,
-> redaction, control-character escaping, dev-mode freeze) are
-> functional end-to-end. US4 (federated host/module context) and
-> US5 (many-`Logger`-per-page scale + vendor-neutral runtime) follow.
-> See `specs/001-structured-logging-core/tasks.md`.
-
-## What this package gives you
-
-- A stable public `Logger` API (`debug | info | warn | error`) with structured
-  attributes.
-- Production-safe defaults: `warn` and `error` are the baseline; `debug` and
-  `info` are opt-in.
-- A pluggable transport boundary — bring your own HTTP/beacon/file delivery.
-- **Secure-by-default** sanitization, URL scrubbing, key + shape redaction,
-  control-character escaping, and a dev-mode deep freeze — all applied
-  **before** any transport sees an event. The pipeline order is locked
-  by automated security tests and cannot be bypassed.
-- Failure isolation: a misbehaving transport never breaks the host app.
-- Fail-closed redaction: if a redactor throws or returns an invalid
-  value, the affected event is dropped (never partially emitted) and
-  `onInternalError` is invoked.
-
-## What this package does NOT do (in v1)
-
-- Ship an HTTP/beacon transport — implement `Transport` yourself; body-only
-  delivery is required by the transport contract.
-- Read `process.env.NODE_ENV`, `import.meta.env`, `location`, or
-  `document.cookie` — pass `environment` explicitly.
-- Install global listeners or singletons.
-- Persist events.
-- Batch, sample, or deduplicate events.
+- **Secure-by-default**: token / cookie / authorization-header / known-PII fields stripped before any transport sees an event. Fail-closed redaction — a redactor failure drops the field, never emits unredacted.
+- **Never-throw boundary**: no transport, redactor, or sanitizer failure propagates into your `log.info(...)` call site. Logging cannot break rendering, navigation, or state updates.
+- **Vendor-neutral transport**: ship to Datadog, Honeycomb, your own ingestion, or the built-in `./transport-beacon` subpath for body-only HTTPS delivery — same API regardless of destination.
+- **Federated-runtime aware**: host owns the configured runtime; modules import loggers without re-configuring. Hundreds of `Logger` instances per page stay constant-cost.
+- **Lightweight**: ~8 KB gzipped default entry; structured events with bounded depth and bounded size; no global listeners, no ambient state reads, no per-instance backend init.
 
 ## Install
 
@@ -84,11 +25,7 @@ npm install @tallyrow/safesignal
 ## Quickstart
 
 ```ts
-import {
-  configureLogging,
-  createLogger,
-  ConsoleTransport,
-} from '@tallyrow/safesignal';
+import { configureLogging, createLogger, ConsoleTransport } from '@tallyrow/safesignal';
 
 configureLogging({
   application: { name: 'checkout-web', version: '2025.05.0' },
@@ -97,13 +34,27 @@ configureLogging({
 });
 
 const log = createLogger();
-
 log.info('checkout opened', { cartItems: 3 });
-log.warn('coupon rejected', { code: 'SUMMER25', reason: 'expired' });
-log.error('payment failed', { provider: 'acme-pay' }, new Error('declined'));
 ```
 
-### Ship logs over HTTPS — `./transport-beacon` subpath
+> Previously known as `@your-org/frontend-logging-sdk`? See [Migration history](#migration-history) for the install + import upgrade path.
+
+## What this package does NOT do (in v1)
+
+- Ship an HTTP/beacon transport in the default entry — use the
+  `./transport-beacon` subpath for the first-party body-only HTTPS
+  transport, or implement `Transport` yourself for a custom
+  delivery primitive.
+- Read `process.env.NODE_ENV`, `import.meta.env`, `location`, or
+  `document.cookie` — pass `environment` explicitly.
+- Install global listeners or singletons (RUM-style automatic
+  error capture, view tracking, web vitals, network
+  instrumentation are forward-looking; see Roadmap below).
+- Persist events to IndexedDB or any storage layer.
+- Batch, sample, or deduplicate events by default (opt-in
+  batching is available via the `./transport-beacon` subpath).
+
+## Ship logs over HTTPS — `./transport-beacon` subpath
 
 For body-only HTTPS delivery, import the first-party
 `createBeaconTransport` from the `./transport-beacon` subpath. It
@@ -153,7 +104,7 @@ The transport:
   `transport_shutdown_failed`. Wire the hook to **both** layers
   above for full coverage.
 
-### Level configuration
+## Level configuration
 
 In `production`, `debug` and `info` are dropped by default. Raise the
 threshold per environment:
@@ -248,7 +199,7 @@ string.
 
 The first-party `createBeaconTransport` from
 `@tallyrow/safesignal/transport-beacon` (used in the
-[Quickstart](#ship-logs-over-https--transport-beacon-subpath)
+[`./transport-beacon` subpath](#ship-logs-over-https--transport-beacon-subpath)
 section above) is the body-only beacon reference both example
 projects use. It tries `sendBeacon` first, falls back to `fetch`
 with `keepalive: true`, and refuses non-HTTPS endpoints at
@@ -309,15 +260,83 @@ package copies", and "Vendor neutrality".
   state). See its [README](examples/federated-module/README.md) for
   pointers into the federated docs.
 
-## Where to learn more
+## Project resources
 
-- `specs/001-structured-logging-core/spec.md` — feature specification
-- `specs/001-structured-logging-core/plan.md` — implementation plan
-- `specs/001-structured-logging-core/contracts/` — public API, transport,
-  log-event, logger-config, failure-safety, redaction, sanitization contracts
-- `specs/001-structured-logging-core/quickstart.md` — consumer onboarding tour
+Community and legal:
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to file issues, send MRs, sign commits (DCO)
+- [`SECURITY.md`](SECURITY.md) — vulnerability disclosure policy
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — Contributor Covenant 2.1
+- [`GOVERNANCE.md`](GOVERNANCE.md) — how project decisions get made
+- [`LICENSE`](LICENSE) — MIT license
+- [`CHANGELOG.md`](CHANGELOG.md) — version-by-version release notes
+
+Reference docs and design history:
+
 - [`docs/safe-logging.md`](docs/safe-logging.md) — full DO/DON'T sweep,
   documented drops/transforms/bounded behaviors, configuration
   ownership for federated deployments, duplicate-copy classification,
   vendor neutrality
+- `specs/001-structured-logging-core/` — core feature spec, plan,
+  contracts, quickstart (public API, transport, log-event,
+  failure-safety, redaction, sanitization)
+- `specs/002-beacon-transport/` — first-party `./transport-beacon`
+  feature spec, plan, contracts, quickstart
+- `specs/003-rename-safesignal/` — v1.0.0 rename feature
 - `.specify/memory/constitution.md` — governing principles (v1.2.0)
+
+## Roadmap
+
+The following are forward-looking items (not shipping today):
+
+- **Trace-context propagation** — W3C Trace Context (`traceparent`,
+  `tracestate`) for correlating frontend logs with backend traces.
+- **`./transport-otlp` subpath** — OTel-formatted events; ships to
+  any OTLP-compatible backend (Datadog, Honeycomb, Grafana
+  Tempo + Loki, self-hosted ClickHouse, etc.).
+- **RUM features** — Web Vitals, automatic error capture, view
+  tracking, network instrumentation (planned as opt-in subpaths
+  under `./rum-*`).
+
+A separate sibling project, **`safesignal-server`**, is planned as
+a self-hostable monitoring backend that consumes SafeSignal's
+OTLP-formatted events. SafeSignal stays a small vendor-neutral
+SDK; the server lives in its own repo when it ships.
+
+## Migration history
+
+This package was previously developed under the working name
+`@your-org/frontend-logging-sdk`. The following migration block
+was the v1.0.0 (2026-05-28) rename notice and remains here for
+consumers arriving via the legacy name.
+
+This package was previously developed under the working name
+`@your-org/frontend-logging-sdk`. As of v1.0.0 it ships as
+**SafeSignal**, published on npm as `@tallyrow/safesignal`.
+
+**Migration**:
+
+```bash
+# Install the new package
+npm install @tallyrow/safesignal
+```
+
+```ts
+// Update every import:
+// Before
+import { createLogger } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+
+// After
+import { createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
+```
+
+Subpaths (`/testing`, `/transport-beacon`) are unchanged — only the
+package-name segment moves. No runtime behavior, public API,
+redaction default, sanitizer limit, URL-scrubber behavior, or
+transport-security contract change in this release. Bundle sizes
+remain within ±1 KiB of the pre-rename baseline. See
+[`CHANGELOG.md`](CHANGELOG.md) for the release entry.
