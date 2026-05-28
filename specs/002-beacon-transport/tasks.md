@@ -136,7 +136,7 @@ the URL.
   Acceptance: Replaces T003's `throw new Error('not implemented')` stub with the real export. Re-exports `createBeaconTransport` from `./beacon-transport.js` and `BeaconTransportOptions` from `./beacon-transport.js` (or wherever the public type ends up). No other names exported. `tests/contract/transport-beacon.contract.test.ts` TB-1 (exactly 2 names) passes. `npm run build` produces a bundle whose gzipped size is well under 5 KiB.
   Parallel: No (depends on T016)
 
-- [ ] T018 [US1] Update host-app example in `examples/host-app/index.ts` and `examples/host-app/package.json`
+- [X] T018 [US1] Update host-app example in `examples/host-app/index.ts` and `examples/host-app/package.json`
   Acceptance: `index.ts` imports `createBeaconTransport` from `@your-org/frontend-logging-sdk/transport-beacon`, removes any hand-rolled fallback, and demonstrates the quickstart five-minute path with `onInternalError` wired into both `configureLogging` and `createBeaconTransport`. `package.json` does not depend on any vendor SDK. The example builds standalone.
   Parallel: No (depends on T017)
 

@@ -2,17 +2,27 @@
  * Single-app consumer example for `@your-org/frontend-logging-sdk`.
  *
  * Demonstrates the safe-by-default patterns required by the package
- * constitution and the plan's "Logging safely" guidance:
+ * constitution and `docs/safe-logging.md`:
  *   - Structured `attributes`, never template-interpolated values in
  *     the message string.
  *   - Production-safe level defaults (`warn`/`error` baseline; `debug`/
  *     `info` opt-in via `level`).
  *   - Per-emit `correlation()` for cheap, synchronous dynamic context
  *     (trace id, route).
- *   - Body-only beacon delivery via the canonical shared transport in
- *     `examples/shared/beacon-transport.ts` — the same transport the
- *     federated-module example reuses.
+ *   - **First-party beacon transport** from
+ *     `@your-org/frontend-logging-sdk/transport-beacon`, replacing
+ *     the previous hand-rolled `examples/shared/beacon-transport.ts`.
+ *     Body-only HTTPS delivery via `navigator.sendBeacon`, falling
+ *     back to `fetch({ keepalive: true })`.
  *   - Built-in `ConsoleTransport` alongside for visible local output.
+ *   - `onInternalError` wired into BOTH `configureLogging` AND
+ *     `createBeaconTransport` — the beacon transport's async drop
+ *     paths (fetch keepalive rejection, oversized event, both
+ *     primitives unavailable) execute outside the synchronous
+ *     `send()` boundary that `SafeTransport` wraps, so the inner
+ *     hook is the only channel for those notices. See
+ *     `specs/002-beacon-transport/quickstart.md`'s "Drop notices"
+ *     section.
  *
  * Run:
  *   cd examples/host-app
@@ -25,21 +35,36 @@ import {
   configureLogging,
   createLogger,
 } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 
-import { makeBeaconTransport } from '../shared/beacon-transport.js';
+// 1. A single diagnostics hook wired into both layers. The beacon
+//    transport's async drop paths surface via this callback; the
+//    runtime's SafeTransport wrapper also routes generic failures
+//    through the same hook. Consumers see one consistent diagnostic
+//    shape regardless of which layer emitted the notice.
+const onInternalError = (err: Error): void => {
+  // In real apps: route to your error reporter (Sentry, Bugsnag, etc.).
+  // For this example we use console.error so the developer can see the
+  // notice during local development.
+  // eslint-disable-next-line no-console
+  console.error('[logging-sdk] internal error:', err.message);
+};
 
-// 1. Configure once at app startup. Pass `environment` explicitly — the
-//    package never reads `process.env.NODE_ENV` or `import.meta.env`.
-//    The beacon transport delivers events POST-body-only over HTTPS —
-//    NEVER as URL query params. See `examples/shared/beacon-transport.ts`
-//    and `docs/safe-logging.md` for the security contract.
+// 2. Configure once at app startup. Pass `environment` explicitly —
+//    the package never reads `process.env.NODE_ENV` or
+//    `import.meta.env`. The beacon transport delivers events
+//    POST-body-only over HTTPS — NEVER as URL query params.
 configureLogging({
   application: { name: 'checkout-web', version: '2025.05.0' },
   environment: 'production',
   transports: [
-    makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+    createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      onInternalError, // ← inner hook for async beacon drops
+    }),
     ConsoleTransport(),
   ],
+  onInternalError, // ← outer hook for SafeTransport-wrapped failures
   // Optional per-emit dynamic context. Must be cheap and synchronous.
   correlation: () => ({
     attributes: {
@@ -50,14 +75,14 @@ configureLogging({
   }),
 });
 
-// 2. Create a logger anywhere. Loggers are cheap and hold no captured
+// 3. Create a logger anywhere. Loggers are cheap and hold no captured
 //    state — every emit reads the current configuration, so a later
 //    `configureLogging()` call affects loggers created earlier.
 const log = createLogger();
 
-// 3. Emit STRUCTURED events. Each method takes a fixed-string `message`
-//    plus a structured `attributes` bag. Values stay reviewable downstream
-//    instead of disappearing into an interpolated string.
+// 4. Emit STRUCTURED events. Each method takes a fixed-string `message`
+//    plus a structured `attributes` bag. Values stay reviewable
+//    downstream instead of disappearing into an interpolated string.
 
 log.info('checkout opened', { cartItems: 3 });
 
@@ -72,7 +97,7 @@ log.error(
   new Error('declined'),
 );
 
-// 4. A child logger derives extra context for a unit of work — e.g., a
+// 5. A child logger derives extra context for a unit of work — e.g., a
 //    single request, page, or component lifecycle. Parents are
 //    unaffected by the child's context layer.
 const requestLog = log.child({
@@ -80,7 +105,7 @@ const requestLog = log.child({
 });
 requestLog.info('fetching cart');
 
-// 5. In `production`, the default level is `warn` — `debug` and `info`
+// 6. In `production`, the default level is `warn` — `debug` and `info`
 //    are dropped unless the consumer raises the threshold. Override
 //    per-environment when you need verbose dev output:
 //
@@ -90,20 +115,32 @@ requestLog.info('fetching cart');
 //        transports: [ConsoleTransport()],
 //      });
 //
-// 6. Verify any custom transport against the security contract using
-//    the `./testing` subpath helper. Run this inside your consumer's
-//    test suite — NEVER in production code:
+// 7. Local development against a localhost ingestion endpoint: the
+//    beacon transport refuses non-HTTPS endpoints at construction by
+//    default. Opt into loopback delivery explicitly — and ONLY for
+//    `localhost`, `127.0.0.1`, or `[::1]`:
+//
+//      createBeaconTransport({
+//        endpoint: 'http://localhost:4318/ingest',
+//        allowInsecureLoopback: true,
+//        onInternalError,
+//      });
+//
+//    The flag is the only escape from HTTPS at construction time, and
+//    it never reads ambient state — your code makes the opt-in visible
+//    at the call site.
+//
+// 8. Verify any custom transport against the security contract using
+//    the `./testing` subpath helper. The first-party beacon transport
+//    already passes this contract; consumers wrapping or extending it
+//    should re-verify:
 //
 //      import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-//      import { makeBeaconTransport } from '../shared/beacon-transport.js';
+//      import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 //
 //      await assertTransportContract(
-//        makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+//        createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
 //      );
-//
-//    The helper asserts T-S1..T-S5: no event data in URL paths /
-//    queries / fragments, body-only delivery, HTTPS cross-origin,
-//    transport never mutates the event, flush/shutdown idempotent.
 
 // ANTI-PATTERNS — do NOT do any of these in real consumer code. They
 // are listed here as references for code reviewers; uncomment to see
