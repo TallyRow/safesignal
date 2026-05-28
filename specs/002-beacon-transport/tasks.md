@@ -61,7 +61,7 @@ bundle-shape guard that every subsequent phase relies on.
   Acceptance: Exports `BeaconErrorCode` (union of `'oversized_event' | 'beacon_batch_drop' | 'beacon_unavailable' | 'transport_send_failed' | 'transport_shutdown_failed'`) and `BeaconError extends Error` with readonly `code: BeaconErrorCode`, readonly `transportName: string`, optional `cause?: unknown`. Constructor sets `.name = 'BeaconError'` and `.cause` via `Object.defineProperty` for ES2022 compatibility. NOT re-exported from `src/transport-beacon/index.ts` (internal-only). Zero imports from `src/internal/**` or any other top-level source dir.
   Parallel: Yes
 
-- [ ] T005 [P] Implement endpoint validation in `src/transport-beacon/endpoint-validation.ts`
+- [X] T005 [P] Implement endpoint validation in `src/transport-beacon/endpoint-validation.ts`
   Acceptance: Exports `validateEndpoint(endpoint: string, allowInsecureLoopback: boolean): URL` that returns a parsed `URL` on success and throws a typed error matching F-1's matrix on every violation (non-string endpoint, parse failure, non-HTTPS without flag, non-loopback HTTP with flag). Loopback allowlist: `localhost`, `127.0.0.1`, `[::1]` (the bracketed-IPv6 form is canonicalised by `URL` to host `[::1]` — accept the `URL.hostname` form which is `'[::1]'`). Error messages name the field, the violation, and the offending value. Pure function; no side effects.
   Parallel: Yes
 
