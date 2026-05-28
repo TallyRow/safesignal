@@ -22,7 +22,7 @@ unchanged.
 |----------|--------|----------|
 | `contracts/file-presence-audit.md` (SC-005, SC-006, FR-041) | ✅ PASS | T017: all 9 required files exist (LICENSE, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, GOVERNANCE, 3 issue templates, 1 MR template). All required content markers present per file. |
 | `contracts/readme-front-matter.md` (SC-001, FR-027/029/030/034) | ✅ PASS | T018: 9 of 9 checks pass — H1 line 1, SafeSignal in first 6 lines, "Why SafeSignal" header within first 12 lines, install command within first 24 lines, quickstart import within first 32 lines, no migration content above line 30, migration pointer in lines 30-60, Project resources section present, "What this package does NOT do (in v1)" section preserved. |
-| `contracts/migration-note-preservation.md` (SC-007, FR-028) | ✅ PASS | T019: 25 lines extracted from feature 003's `## Renamed from \`frontend-logging-sdk\`` block (stripping the adjacent `> **Status**: in development...` blockquote which was stale feature-001 metadata, not migration content). Byte-identical to 25 lines of relocated body in the new `## Migration history` section. All 8 marker elements present (legacy name, new name, install one-liner, `createLogger`, `createBeaconTransport`, `/testing`, `/transport-beacon`, `v1.0.0`). |
+| `contracts/migration-note-preservation.md` (SC-007, FR-028) | ✅ PASS | T019: migration block body extracted from feature 003's `## Renamed from \`frontend-logging-sdk\`` block (stripping the adjacent `> **Status**: in development...` blockquote which was stale feature-001 metadata, not migration content) — 30 lines after the strip. Byte-identical to the relocated body in the new `## Migration history` section (verified via `diff -q` against `1c11952:README.md`). All 8 marker elements present (legacy name, new name, install one-liner, `createLogger`, `createBeaconTransport`, `/testing`, `/transport-beacon`, `v1.0.0`). |
 | `contracts/test-suite-invariance.md` (SC-009, FR-037/044) | ✅ PASS | T020: 48 files / 1,088 passing / 10 todo / 0 failing / 0 unhandled — byte-identical to the T001 pre-feature baseline. |
 | T020a invariant diff check (FR-036, FR-038, FR-039, FR-040) | ✅ PASS | `git diff` against the 003 branch base shows `src/**` and `tests/**` completely empty; `package.json` shows exactly one line added (`"license": "MIT"`). No source/test/dep drift. |
 | T021 quickstart walkthrough | ✅ PASS | All 10 steps of `specs/004-community-foundation/quickstart.md` verified: first-screen orientation, migration pointer + section, Project resources link resolution, CONTRIBUTING content (constitution / Spec Kit / DCO / CoC / local dev), 3 issue templates, GOVERNANCE 4-domain decision authority + constitution authority + evolution path, MR template DCO checklist, LICENSE + `package.json` `license=MIT`. |
@@ -93,9 +93,6 @@ the contributor-facing layer by this feature:
   + LICENSE + CODE_OF_CONDUCT + GOVERNANCE deliverables fulfill
   the documentation requirements; the MR template's checklist
   gates each MR against the testability + maintainability bar.
-- **Principle VIII (Test & Documentation Coverage)** — every new
-  file is documentation per Principle VIII; the constitution
-  itself is now discoverable from CONTRIBUTING + GOVERNANCE.
 
 ## Tasks summary
 

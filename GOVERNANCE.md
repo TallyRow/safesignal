@@ -50,8 +50,9 @@ the constitution wins.
 ### MR approval
 
 - **Currently**: the maintainer reviews and approves all merge
-  requests against `main`. No MR is merged without their explicit
-  approval.
+  requests against `master` (the current default branch — a
+  rename to `main` is planned in a subsequent feature). No MR is
+  merged without their explicit approval.
 - **Required checks**: every MR must pass the project's CI checks
   (see Feature 006 when shipped), satisfy the Spec Kit workflow if
   applicable, and follow the contributor expectations in
