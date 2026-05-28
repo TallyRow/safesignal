@@ -208,7 +208,7 @@ subsequent batches deliver normally.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T024 [P] [US3] Batcher state-machine unit tests in `tests/unit/transport-beacon/batcher.test.ts`
+- [X] T024 [P] [US3] Batcher state-machine unit tests in `tests/unit/transport-beacon/batcher.test.ts`
   Acceptance: Tests B-5 (single-flush-attempt + buffer cleared before delivery) and B-8 (one-shot maxAge timer, armed once per batch, cancelled on flush). Uses `installSetTimeoutSpy`. Cases: pushing N < maxBatchSize events does not flush; pushing the (maxBatchSize)-th event flushes synchronously at the end of `push`; clearing the buffer happens BEFORE the network primitive is invoked (asserted by injecting a re-entrant push during the primitive's call); flush failure doesn't re-push events; timer is armed exactly once when the first event enters an empty batch; timer is cleared at flush; subsequent push after flush re-arms the timer.
   Parallel: Yes
 
