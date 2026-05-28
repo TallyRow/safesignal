@@ -53,7 +53,7 @@ bundle-shape guard that every subsequent phase relies on.
 
 **⚠️ CRITICAL**: No user story work begins until this phase is complete.
 
-- [ ] T003 Create subpath entry stub in `src/transport-beacon/index.ts`
+- [X] T003 Create subpath entry stub in `src/transport-beacon/index.ts`
   Acceptance: Exports a `createBeaconTransport` function (initial body: `throw new Error('not implemented')`) and `BeaconTransportOptions` interface so test scaffolding can compile. Imports types ONLY from `../api/types.js` (`LogEvent`, `Transport`) via `import type` syntax. No runtime imports from anywhere in `src/`. `npm run build` emits a non-empty `dist/transport-beacon.mjs` (gzipped well under 5 KiB at this stage).
   Parallel: No
 
