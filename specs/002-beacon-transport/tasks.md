@@ -177,7 +177,7 @@ attached after the first emission.
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Update federated-module example in `examples/federated-module/index.ts`
+- [X] T022 [US2] Update federated-module example in `examples/federated-module/index.ts`
   Acceptance: The module imports `createLogger` from `@your-org/frontend-logging-sdk` only — it does NOT import `createBeaconTransport` and does NOT call `configureLogging`. The module's emissions flow through the host's runtime. The example's README explains the host-owns-transport contract referencing FR-030..FR-032 from feature 001.
   Parallel: No
 
