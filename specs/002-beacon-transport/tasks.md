@@ -275,7 +275,7 @@ migration that completes the feature.
   Acceptance: Re-runs `tests/security/transport-beacon-bundle-shape.security.test.ts`. Confirms (a) default entry `dist/index.{mjs,cjs,d.ts}` is bit-identical or smaller than the pre-feature snapshot (SC-007) — checked via the existing feature-001 size snapshot file or a freshly captured pre-feature snapshot; (b) `dist/transport-beacon.mjs` gzipped ≤ 5120 bytes (SC-008); (c) no vendor SDK references; (d) no source-boundary violations. Includes a check that the `examples/shared/beacon-transport.ts` removal has not regressed any other test.
   Parallel: No
 
-- [ ] T037 Final review boundary: Constitution v1.2.0 compliance + SC verification
+- [X] T037 Final review boundary: Constitution v1.2.0 compliance + SC verification
   Acceptance: A documented checklist run-through:
   - **I. Stable Consumer API**: default entry surface bit-identical to v1 (verified by surface-reflection test); only one new subpath; safe path is the easy path.
   - **II. Browser Resilience**: every primitive wrapped; never throws from `send`/`flush`/`shutdown`; `SafeTransport` defense-in-depth verified.
