@@ -65,7 +65,7 @@ bundle-shape guard that every subsequent phase relies on.
   Acceptance: Exports `validateEndpoint(endpoint: string, allowInsecureLoopback: boolean): URL` that returns a parsed `URL` on success and throws a typed error matching F-1's matrix on every violation (non-string endpoint, parse failure, non-HTTPS without flag, non-loopback HTTP with flag). Loopback allowlist: `localhost`, `127.0.0.1`, `[::1]` (the bracketed-IPv6 form is canonicalised by `URL` to host `[::1]` — accept the `URL.hostname` form which is `'[::1]'`). Error messages name the field, the violation, and the offending value. Pure function; no side effects.
   Parallel: Yes
 
-- [ ] T006 [P] Implement delivery primitives in `src/transport-beacon/delivery.ts`
+- [X] T006 [P] Implement delivery primitives in `src/transport-beacon/delivery.ts`
   Acceptance: Exports `tryBeacon(endpoint: string, payload: string): boolean` (wraps `navigator.sendBeacon` with a `Blob('application/json')`; returns false on unavailable or false-return; never throws) and `tryFetchKeepalive(endpoint: string, payload: string): Promise<boolean>` (POST + keepalive + `credentials: 'same-origin'`; resolves true on 2xx, false on non-2xx or unavailable; rejection bubbles to caller). Exports `getPayloadByteLength(payload: string): number` using `new TextEncoder().encode(payload).length`. Exports `BEACON_SIZE_LIMIT_BYTES = 65536` constant. Zero imports from `src/internal/**`.
   Parallel: Yes
 
