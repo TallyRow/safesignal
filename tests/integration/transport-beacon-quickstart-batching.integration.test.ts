@@ -30,8 +30,8 @@ import { resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { NoopTransport, configureLogging, createLogger } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { NoopTransport, configureLogging, createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 import {
   installFetchDouble,

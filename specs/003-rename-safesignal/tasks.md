@@ -45,8 +45,8 @@ touches metadata + docs + examples + spec quickstarts; `src/` and
 invariance contracts in Phase 6. No edits to consumer-facing files
 permitted until baselines are committed.
 
-- [ ] T001 Capture pre-rename bundle baselines: run `npm run build` from repo root, then run `gzip -c dist/index.mjs | wc -c` and `gzip -c dist/transport-beacon.mjs | wc -c`. Record both values into a new file `specs/003-rename-safesignal/baselines.md` under a "## Pre-rename baselines" section (subsections: "Bundle sizes (gzipped, bytes)")
-- [ ] T002 [P] Capture pre-rename test-suite baseline: run `npm test` from repo root. Record the headline counts (test files / tests passing / tests todo / tests failing / unhandled errors) into `specs/003-rename-safesignal/baselines.md` under a "## Pre-rename baselines" → "Test suite" subsection
+- [X] T001 Capture pre-rename bundle baselines: run `npm run build` from repo root, then run `gzip -c dist/index.mjs | wc -c` and `gzip -c dist/transport-beacon.mjs | wc -c`. Record both values into a new file `specs/003-rename-safesignal/baselines.md` under a "## Pre-rename baselines" section (subsections: "Bundle sizes (gzipped, bytes)")
+- [X] T002 [P] Capture pre-rename test-suite baseline: run `npm test` from repo root. Record the headline counts (test files / tests passing / tests todo / tests failing / unhandled errors) into `specs/003-rename-safesignal/baselines.md` under a "## Pre-rename baselines" → "Test suite" subsection
 
 **Checkpoint**: Baselines committed to `baselines.md`. Phase 2 can begin.
 
@@ -83,16 +83,18 @@ example uses `from '@tallyrow/safesignal'`.
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Update `package.json` `name` from `"@your-org/frontend-logging-sdk"` to `"@tallyrow/safesignal"` (maps R-001 / FR-001)
-- [ ] T005 [US1] Update `package.json` `description` to name SafeSignal and describe the project as a secure structured logging facade and safety boundary for browser applications and federated frontend modules (maps R-002 / FR-002)
-- [ ] T006 [US1] Update `package.json` `keywords` array to include `"safesignal"` alongside the existing topical terms (logging, structured, browser, federated, etc.) (maps R-002 / FR-003)
-- [ ] T007 [US1] Update `package.json` `repository.url` to the new URL captured in T003 (depends on T003) (maps R-003 / FR-004)
-- [ ] T008 [P] [US1] If `package.json` `homepage` field is present, update it to a URL identifying the project as SafeSignal; if absent, skip (FR-005)
-- [ ] T009 [US1] Update `README.md` H1 to name SafeSignal (maps R-004 / FR-006 / SC-001)
-- [ ] T010 [US1] Update `README.md` first paragraph to identify the project as SafeSignal and describe the secure-by-default posture (browser-first, vendor-neutral, structured logging facade and safety boundary) (maps R-004 / FR-006 / SC-001)
-- [ ] T011 [US1] Update every install-command example in `README.md` to `npm install @tallyrow/safesignal`
-- [ ] T012 [US1] Update every `import` statement in `README.md` code blocks to `from '@tallyrow/safesignal'` (default entry) or `from '@tallyrow/safesignal/<subpath>'` (subpath entries — `/testing`, `/transport-beacon`). Subpath suffixes are unchanged; only the package-name segment moves
-- [ ] T013 [US1] Run a partial grep audit limited to `package.json` and `README.md` (outside any migration callout — that block is added in US2/T014); confirm zero remaining `frontend-logging-sdk` or `@your-org` literals. If matches remain, fix and re-run
+- [X] T004 [US1] Update `package.json` `name` from `"@your-org/frontend-logging-sdk"` to `"@tallyrow/safesignal"` (maps R-001 / FR-001)
+- [X] T005 [US1] Update `package.json` `description` to name SafeSignal and describe the project as a secure structured logging facade and safety boundary for browser applications and federated frontend modules (maps R-002 / FR-002)
+- [X] T006 [US1] Update `package.json` `keywords` array to include `"safesignal"` alongside the existing topical terms (logging, structured, browser, federated, etc.) (maps R-002 / FR-003)
+- [X] T007 [US1] Update `package.json` `repository.url` to the new URL captured in T003 (depends on T003) (maps R-003 / FR-004) — **deterministic projected URL applied** (`git+https://gitlab.com/tallyrow/safesignal.git`); maintainer confirms the GitLab UI rename out-of-band in T003
+- [X] T008 [P] [US1] If `package.json` `homepage` field is present, update it to a URL identifying the project as SafeSignal; if absent, skip (FR-005) — **confirmed no-op** (no `homepage` field present)
+- [X] T009 [US1] Update `README.md` H1 to name SafeSignal (maps R-004 / FR-006 / SC-001)
+- [X] T010 [US1] Update `README.md` first paragraph to identify the project as SafeSignal and describe the secure-by-default posture (browser-first, vendor-neutral, structured logging facade and safety boundary) (maps R-004 / FR-006 / SC-001)
+- [X] T011 [US1] Update every install-command example in `README.md` to `npm install @tallyrow/safesignal`
+- [X] T012 [US1] Update every `import` statement in `README.md` code blocks to `from '@tallyrow/safesignal'` (default entry) or `from '@tallyrow/safesignal/<subpath>'` (subpath entries — `/testing`, `/transport-beacon`). Subpath suffixes are unchanged; only the package-name segment moves
+- [X] T013 [US1] Run a partial grep audit limited to `package.json` and `README.md` (outside any migration callout — that block is added in US2/T014); confirm zero remaining `frontend-logging-sdk` or `@your-org` literals. If matches remain, fix and re-run — **PASS: zero matches**
+- [X] T013a [US1] **(scope-amendment, not in original tasks.md)** Update import strings in the three feature-002 test files that resolve the package by name (`tests/contract/transport-beacon.contract.test.ts`, `tests/integration/transport-beacon-quickstart.integration.test.ts`, `tests/integration/transport-beacon-quickstart-batching.integration.test.ts`) from `@your-org/frontend-logging-sdk[/subpath]` to `@tallyrow/safesignal[/subpath]`. FR-021 prohibits test-LOGIC changes; this is an import-string mirror update consistent with the consumer migration contract. Test count + pass count + assertions unchanged (48/1088/10/0/0)
+- [X] T026 [US3] (PULLED FORWARD to US1 because the two integration tests in T013a embed `EMBEDDED_QUICKSTART_CODE` constants compared line-for-line against this file) Update `specs/002-beacon-transport/quickstart.md` — identity references → SafeSignal; every `import` statement → `@tallyrow/safesignal[/subpath]`; flow and code structure preserved (maps R-006 / FR-009)
 
 **Checkpoint**: US1 complete — npm metadata + README discovery path identifies SafeSignal. MVP shippable here.
 

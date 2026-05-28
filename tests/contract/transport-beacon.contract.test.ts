@@ -26,7 +26,7 @@
  * No imports from `src/internal/**`. The test resolves
  * `createBeaconTransport` via the package's published subpath the
  * same way consumers will: `import * as TB from
- * '@your-org/frontend-logging-sdk/transport-beacon'`. happy-dom
+ * '@tallyrow/safesignal/transport-beacon'`. happy-dom
  * resolves the subpath through `package.json`'s `exports` map.
  */
 
@@ -35,9 +35,9 @@ import { resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import * as TB from '@your-org/frontend-logging-sdk/transport-beacon';
-import * as Pkg from '@your-org/frontend-logging-sdk';
-import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+import * as TB from '@tallyrow/safesignal/transport-beacon';
+import * as Pkg from '@tallyrow/safesignal';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
 import {
   installAddEventListenerSpy,
   installFetchDouble,

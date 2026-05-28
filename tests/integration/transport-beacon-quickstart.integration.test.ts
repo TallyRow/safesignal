@@ -27,8 +27,8 @@ import { resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { configureLogging, createLogger } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging, createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 import {
   installFetchDouble,
@@ -40,8 +40,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const EMBEDDED_QUICKSTART_CODE = `// 1. Configure the runtime once at app boot.
-import { configureLogging, createLogger } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging, createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 configureLogging({
   application: { name: 'payments', version: '2.4.1' },
