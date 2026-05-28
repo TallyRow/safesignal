@@ -34,7 +34,7 @@ log.info('user.registered', {
 
 ```ts
 // Use scrubUrl() before logging any URL you don't fully control.
-import { scrubUrl } from '@your-org/frontend-logging-sdk';
+import { scrubUrl } from '@tallyrow/safesignal';
 
 log.info('navigation', {
   from: scrubUrl(previousUrl),
@@ -155,7 +155,7 @@ A `LoggerConfig.redactor` value **fully replaces** the default ruleset.
 To extend the defaults with project-specific rules, **compose**:
 
 ```ts
-import { configureLogging, createRedactor } from '@your-org/frontend-logging-sdk';
+import { configureLogging, createRedactor } from '@tallyrow/safesignal';
 
 const base = createRedactor();
 const extra = createRedactor([
@@ -190,7 +190,7 @@ Rule semantics (see `contracts/redaction.md` for the full table):
 ### Pre-scrubbing URLs in attributes
 
 ```ts
-import { scrubUrl } from '@your-org/frontend-logging-sdk';
+import { scrubUrl } from '@tallyrow/safesignal';
 
 scrubUrl('https://example.com/api?token=abc&page=2');
 // → 'https://example.com/api?token=%5BREDACTED%5D&page=2'
@@ -253,7 +253,7 @@ string.
 ### The canonical sample
 
 The first-party `createBeaconTransport` from
-`@your-org/frontend-logging-sdk/transport-beacon` is the body-only
+`@tallyrow/safesignal/transport-beacon` is the body-only
 beacon reference both example projects use and the recommended
 ingestion path for HTTPS delivery. It implements the security
 contract above by construction: prefer `sendBeacon` with a JSON
@@ -267,8 +267,8 @@ section below for the complete API surface, drop-notice taxonomy,
 and federated-deployment recommendations.
 
 ```ts
-import { configureLogging } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 configureLogging({
   application: { name: 'my-app' },
@@ -294,8 +294,8 @@ your own test suite — never in production code:
 
 ```ts
 // my-transport.test.ts
-import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 test('my transport satisfies the security contract', async () => {
   await assertTransportContract(
@@ -348,15 +348,15 @@ See `contracts/failure-safety.md` (FS-1..FS-17) and the test in
 ## Beacon transport (first-party HTTPS peer transport)
 
 The package ships a first-party body-only HTTPS beacon transport at
-the subpath `@your-org/frontend-logging-sdk/transport-beacon`. It
+the subpath `@tallyrow/safesignal/transport-beacon`. It
 satisfies T-S1..T-S5 above by construction and is the recommended
 ingestion path for most consumers. The default entry is
 unchanged — the new transport is reachable only via the explicit
 subpath import.
 
 ```ts
-import { configureLogging } from '@your-org/frontend-logging-sdk';
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { configureLogging } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 const onInternalError = (err: Error): void => myReporter.captureException(err);
 
@@ -463,7 +463,7 @@ import { makeBeaconTransport } from '../shared/beacon-transport.js';
 const transport = makeBeaconTransport({ endpoint: '...' });
 
 // After:
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 const transport = createBeaconTransport({ endpoint: '...' });
 ```
 
@@ -476,12 +476,12 @@ batching (see the next section).
 ## Beacon transport batching (opt-in)
 
 The first-party beacon transport at
-`@your-org/frontend-logging-sdk/transport-beacon` supports optional
+`@tallyrow/safesignal/transport-beacon` supports optional
 in-memory batching to reduce network calls on chatty pages. Batching
 is **off by default**; pass a `batching` field to opt in:
 
 ```ts
-import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
 
 createBeaconTransport({
   endpoint: 'https://logs.example.com/ingest',
@@ -695,7 +695,7 @@ host will configure the runtime.
 
 When module bundlers ship multiple physical copies of this package
 on a single page (e.g., a host bundle and a federated module bundle
-each include their own `node_modules/@your-org/frontend-logging-sdk`
+each include their own `node_modules/@tallyrow/safesignal`
 build), the **classification this package commits to is isolated**.
 
 ### What "isolated" means
@@ -754,7 +754,7 @@ module.exports = {
         product_recs: 'product_recs@https://cdn.example.com/recs/remoteEntry.js',
       },
       shared: {
-        '@your-org/frontend-logging-sdk': {
+        '@tallyrow/safesignal': {
           singleton: true,
           requiredVersion: '^1.0.0',
           eager: true,
@@ -774,7 +774,7 @@ module.exports = {
       filename: 'remoteEntry.js',
       exposes: { './ProductRecs': './src/index.ts' },
       shared: {
-        '@your-org/frontend-logging-sdk': {
+        '@tallyrow/safesignal': {
           singleton: true,
           requiredVersion: '^1.0.0',
           // eager: false on the remote so the host wins the singleton race
@@ -834,7 +834,7 @@ cjs}` does not import any of them.
 - The package's only delivery primitive is the `Transport`
   interface. Consumers either use the first-party
   `createBeaconTransport` from
-  `@your-org/frontend-logging-sdk/transport-beacon` or implement
+  `@tallyrow/safesignal/transport-beacon` or implement
   their own transport against the documented contract; the
   package never makes vendor-specific choices on the consumer's
   behalf.

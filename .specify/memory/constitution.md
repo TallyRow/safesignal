@@ -26,7 +26,7 @@ Sync Impact Report
     (isolated / shared / explicitly unsupported) are intentionally routed to
     feature plans, not the constitution.
 -->
-# Frontend Logging SDK Constitution
+# SafeSignal Constitution
 
 ## Core Principles
 

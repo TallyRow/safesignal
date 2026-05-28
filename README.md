@@ -8,6 +8,39 @@ pluggable transport boundary — all applied before any transport sees
 an event. Published on npm as `@tallyrow/safesignal` (TallyRow is the
 publishing organization; SafeSignal is the product).
 
+## Renamed from `frontend-logging-sdk`
+
+This package was previously developed under the working name
+`@your-org/frontend-logging-sdk`. As of v1.0.0 it ships as
+**SafeSignal**, published on npm as `@tallyrow/safesignal`.
+
+**Migration**:
+
+```bash
+# Install the new package
+npm install @tallyrow/safesignal
+```
+
+```ts
+// Update every import:
+// Before
+import { createLogger } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+
+// After
+import { createLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
+import { assertTransportContract } from '@tallyrow/safesignal/testing';
+```
+
+Subpaths (`/testing`, `/transport-beacon`) are unchanged — only the
+package-name segment moves. No runtime behavior, public API,
+redaction default, sanitizer limit, URL-scrubber behavior, or
+transport-security contract change in this release. Bundle sizes
+remain within ±1 KiB of the pre-rename baseline. See
+[`CHANGELOG.md`](CHANGELOG.md) for the release entry.
+
 > **Status**: in development. US1 (public API, level filtering),
 > US2 (pluggable transports, failure isolation, `/testing` subpath),
 > and US3 (full security pipeline — sanitization, URL scrubbing,
