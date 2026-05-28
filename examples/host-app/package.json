@@ -2,13 +2,13 @@
   "name": "host-app-example",
   "version": "0.0.0",
   "private": true,
-  "description": "Single-app consumer example for @your-org/frontend-logging-sdk.",
+  "description": "Single-app consumer example for SafeSignal (@tallyrow/safesignal).",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@your-org/frontend-logging-sdk": "file:../.."
+    "@tallyrow/safesignal": "file:../.."
   },
   "devDependencies": {
     "typescript": "^5.4.0"
