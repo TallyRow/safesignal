@@ -167,7 +167,7 @@ attached after the first emission.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] Multi-module integration test in `tests/integration/transport-beacon-host-module.integration.test.ts`
+- [X] T020 [P] [US2] Multi-module integration test in `tests/integration/transport-beacon-host-module.integration.test.ts`
   Acceptance: One host calls `configureLogging({ transports: [createBeaconTransport({ endpoint, onInternalError })] })`. 50 synthetic module loggers are created via `createLogger({ module: { name: `mod-${i}` } })`. Each emits 20 events at mixed levels. Asserts: exactly 1,000 network calls (recorded via the sendBeacon double); every recorded body's `context.module.name` is in the set `{ mod-0, ..., mod-49 }` with exactly 20 occurrences per module; no two recorded bodies are byte-identical (covers FR-023, SC-005). Asserts exactly one `'pagehide'` listener installed across all 1,000 emissions (FR-024).
   Parallel: Yes
 
