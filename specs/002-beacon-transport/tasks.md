@@ -128,7 +128,7 @@ the URL.
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Implement default-mode `createBeaconTransport` in `src/transport-beacon/beacon-transport.ts`
+- [X] T016 [US1] Implement default-mode `createBeaconTransport` in `src/transport-beacon/beacon-transport.ts`
   Acceptance: Composes T004 (BeaconError) + T005 (endpoint-validation) + T006 (delivery primitives) + T007 (lifecycle). Construction: validates options shape (data-model.md validation rules); validates endpoint; allocates instance state (`buffer = []`, `pagehideInstalled = false`, `shutdownComplete = false`, `notified = { ...all false }`); returns a plain-object `Transport` with `name`, `send`, `flush`, `shutdown` methods. `send(event)`: if `shutdownComplete`, no-op; encode + size-check + dispatch per D-3..D-7; on async fetch rejection emit `transport_send_failed` via `options.onInternalError` once per session. `flush()`: no-op (default mode). `shutdown()`: removes pagehide listener, marks `shutdownComplete`, resolves. Idempotent. NEVER throws from `send`/`flush`/`shutdown`. Every notice is rate-limited per `state.notified[code]`. T010..T015 pass.
   Parallel: No (depends on T004–T007)
 
