@@ -73,7 +73,7 @@ bundle-shape guard that every subsequent phase relies on.
   Acceptance: Exports `installPagehideHandler(handler: () => void): () => void` that adds a `'pagehide'` listener (gated by `typeof globalThis.addEventListener === 'function'`) and returns an `uninstall()` function. Calling `install...` twice is a no-op on the second call (uses a closure-private `installed` flag in the returned API: in practice the caller maintains the flag — this module only provides the primitives). Module is side-effect-free at import.
   Parallel: Yes
 
-- [ ] T008 Add bundle-shape & boundary security test in `tests/security/transport-beacon-bundle-shape.security.test.ts`
+- [X] T008 Add bundle-shape & boundary security test in `tests/security/transport-beacon-bundle-shape.security.test.ts`
   Acceptance: Asserts (a) every `.ts` file under `src/transport-beacon/**` has no import statement resolving to `src/internal/**`, `src/runtime/**`, `src/pipeline/**`, `src/config/**`, `src/context/**`, or `src/transport/**` (regex scan over the source — type-only imports from `'../api/types.js'` are permitted); (b) the built `dist/transport-beacon.{mjs,cjs}` does not contain any vendor-package name (`@opentelemetry`, `@datadog`, `dd-rum`, `@sentry`) or vendor-identifier (mirror of feature 001's T049 list); (c) the built `dist/index.{mjs,cjs,d.ts}` does not contain `createBeaconTransport`, `BeaconError`, the `oversized_event` / `beacon_batch_drop` / `beacon_unavailable` literal strings, or other beacon-source-distinctive symbols; (d) `gzipSync(readFileSync('dist/transport-beacon.mjs')).length <= 5120`. Build step is a hard prerequisite (mirror feature 001's `beforeAll` pattern).
   Parallel: No
 
