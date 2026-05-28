@@ -62,7 +62,7 @@ the new URL exists.
 emits the instruction; the user executes the rename in the GitLab
 web UI and reports back the new repository URL.
 
-- [ ] T003 Rename the GitLab project slug to `safesignal` (or `safesignal-sdk`) via the GitLab project UI: Settings → General → Advanced → "Change path". The **agent pauses** after emitting this instruction; the **user** performs the rename in the GitLab web UI and pastes back the new full repository URL (HTTPS form). Record the URL into `specs/003-rename-safesignal/baselines.md` under a "## Repository URL" section. T007 stays blocked until this task completes
+- [X] T003 Rename the GitLab project slug to `safesignal` (or `safesignal-sdk`) via the GitLab project UI: Settings → General → Advanced → "Change path". The **agent pauses** after emitting this instruction; the **user** performs the rename in the GitLab web UI and pastes back the new full repository URL (HTTPS form). Record the URL into `specs/003-rename-safesignal/baselines.md` under a "## Repository URL" section. T007 stays blocked until this task completes — **DONE 2026-05-28: slug = `safesignal`; URL = `https://gitlab.com/tallyrow/safesignal.git`; T007's projected URL matched, no follow-up edit required**
 
 **Checkpoint**: New repository URL captured. T007 can proceed.
 

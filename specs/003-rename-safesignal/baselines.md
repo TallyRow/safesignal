@@ -35,7 +35,11 @@ Captured via `npm test` (vitest run). Duration ~2.0s.
 
 ## Repository URL
 
-(Populated in T003 after the maintainer renames the GitLab project slug.)
+GitLab project slug renamed to `safesignal` (no `-sdk` suffix) on 2026-05-28.
+
+- Confirmed remote URL: `https://gitlab.com/tallyrow/safesignal.git`
+- `package.json` `repository.url`: `git+https://gitlab.com/tallyrow/safesignal.git` (npm canonical form with `git+` protocol prefix)
+- Local `origin` remote: updated to the new URL by the maintainer
 
 ## Post-rename measurements
 
