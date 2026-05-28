@@ -255,7 +255,7 @@ migration that completes the feature.
   Acceptance: The file is deleted. Any imports of it from `examples/host-app/` and `examples/federated-module/` already migrated to the first-party transport in T018 / T022 are double-checked. The `examples/shared/` directory may keep a README pointing readers at the first-party transport, but the JavaScript file is gone (feature 001's "consumer example" contract is satisfied by the first-party transport now). `git grep -l 'examples/shared/beacon-transport'` returns nothing.
   Parallel: Yes
 
-- [ ] T032 [P] Document the beacon transport in `docs/safe-logging.md`
+- [X] T032 [P] Document the beacon transport in `docs/safe-logging.md`
   Acceptance: New section "Beacon transport (first-party HTTPS peer transport)" covers: import path; HTTPS-only construction with the loopback opt-in pattern (explicit, never ambient); body-only delivery guarantee; the documented drop scenarios with their `BeaconErrorCode` values; the recommendation to wire `onInternalError` into both `configureLogging` and `createBeaconTransport`; multi-instance coexistence; the migration note from `examples/shared/beacon-transport.ts`. No insecure-pattern normalization. Locks SC-011.
   Parallel: Yes
 

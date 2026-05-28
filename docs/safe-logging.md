@@ -252,35 +252,39 @@ string.
 
 ### The canonical sample
 
-`examples/shared/beacon-transport.ts` is the body-only beacon reference
-both example projects use. It demonstrates the safe shape end-to-end:
-prefer `sendBeacon` with a JSON `Blob`, fall back to `fetch` with
-`keepalive: true` and a JSON body, reject non-HTTPS cross-origin
-endpoints at construction time, and treat the received event as
-immutable.
+The first-party `createBeaconTransport` from
+`@your-org/frontend-logging-sdk/transport-beacon` is the body-only
+beacon reference both example projects use and the recommended
+ingestion path for HTTPS delivery. It implements the security
+contract above by construction: prefer `sendBeacon` with a JSON
+`Blob`, fall back to `fetch` with `keepalive: true` and a JSON body,
+reject non-HTTPS endpoints at construction time, treat the received
+event as immutable, and surface every drop through
+`onInternalError` with a documented `BeaconErrorCode`.
+
+See the [Beacon transport (first-party HTTPS peer transport)](#beacon-transport-first-party-https-peer-transport)
+section below for the complete API surface, drop-notice taxonomy,
+and federated-deployment recommendations.
 
 ```ts
-import type { LogEvent, Transport } from '@your-org/frontend-logging-sdk';
+import { configureLogging } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 
-export function makeBeaconTransport(opts: { endpoint: string }): Transport {
-  return {
-    name: 'beacon',
-    send(event: LogEvent) {
-      const body = JSON.stringify(event);
-      if (typeof navigator?.sendBeacon === 'function') {
-        if (navigator.sendBeacon(opts.endpoint, new Blob([body], { type: 'application/json' }))) return;
-      }
-      void fetch(opts.endpoint, {
-        method: 'POST',
-        body,
-        headers: { 'content-type': 'application/json' },
-        keepalive: true,
-        credentials: 'same-origin',
-      });
-    },
-  };
-}
+configureLogging({
+  application: { name: 'my-app' },
+  environment: 'production',
+  transports: [
+    createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+  ],
+});
 ```
+
+Consumers who need a different delivery primitive (a custom auth
+header on every request, a non-HTTPS internal endpoint that isn't
+loopback, a per-event sampling layer, etc.) implement the
+`Transport` interface themselves and follow the same T-S1..T-S5
+contract above. The first-party beacon transport is the easy
+default; it is not the only option.
 
 ### Verify with `assertTransportContract`
 
@@ -291,11 +295,11 @@ your own test suite — never in production code:
 ```ts
 // my-transport.test.ts
 import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-import { makeBeaconTransport } from '../shared/beacon-transport.js';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 
 test('my transport satisfies the security contract', async () => {
   await assertTransportContract(
-    makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+    createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
   );
 });
 ```
@@ -340,6 +344,134 @@ See `contracts/failure-safety.md` (FS-1..FS-17) and the test in
 - **Don't** install global `unhandledrejection` listeners as a backstop.
   The package's `SafeTransport` already catches everything; a global
   listener silently masks consumer-code bugs unrelated to logging.
+
+## Beacon transport (first-party HTTPS peer transport)
+
+The package ships a first-party body-only HTTPS beacon transport at
+the subpath `@your-org/frontend-logging-sdk/transport-beacon`. It
+satisfies T-S1..T-S5 above by construction and is the recommended
+ingestion path for most consumers. The default entry is
+unchanged — the new transport is reachable only via the explicit
+subpath import.
+
+```ts
+import { configureLogging } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+
+const onInternalError = (err: Error): void => myReporter.captureException(err);
+
+configureLogging({
+  application: { name: 'checkout-web' },
+  environment: 'production',
+  transports: [
+    createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      onInternalError, // ← inner hook for async beacon drops
+    }),
+  ],
+  onInternalError,     // ← outer hook for SafeTransport-mediated failures
+});
+```
+
+### What the factory does for you
+
+- **HTTPS-only at construction.** Any non-HTTPS endpoint string
+  throws synchronously at `createBeaconTransport(...)` time, before
+  any logger is created or any listener attached. The error names
+  the offending endpoint and the violated scheme constraint.
+- **Body-only delivery.** Every event is JSON-stringified into the
+  request body. URL, query, fragment, and headers carry no event
+  content. Locked by T-S1..T-S5 above.
+- **Primitive cascade.** `navigator.sendBeacon(endpoint, blob)`
+  first; on falsy return or absence, exactly one
+  `fetch(endpoint, { method: 'POST', body, keepalive: true,
+  credentials: 'same-origin' })` fallback. No retry beyond that.
+  Cross-origin requests get NO cookies by default.
+- **Lazy lifecycle.** A single `pagehide` listener attaches on the
+  first `send()` past the per-event size check, gated against
+  double-install. `shutdown()` removes it. Construction is
+  side-effect-free — 1,000 transports allocate 1,000 closures and
+  attach zero listeners.
+- **Multi-instance coexistence.** Two transports against two
+  endpoints in the same runtime install independent listeners and
+  have independent rate-limit state.
+
+### Local development against `localhost`
+
+`http://localhost`, `http://127.0.0.1`, and `http://[::1]` are
+permitted **only** when you opt in explicitly at the call site:
+
+```ts
+createBeaconTransport({
+  endpoint: 'http://localhost:4318/ingest',
+  allowInsecureLoopback: true,
+});
+```
+
+The flag is a literal boolean passed at construction. The package
+**never** reads it from `process.env`, `import.meta.env`,
+`window.location`, or any other ambient state — making the opt-in
+visible to code review. Any other `http://` host (including
+`http://10.0.0.1`, `http://my-dev-server`, or
+`http://localhost.example.com`) still throws.
+
+### Drop-notice routing
+
+Every drop the transport recognizes fires `onInternalError` exactly
+once per failure class per transport per session (the FS-12 rate-
+limit pattern). Wire the hook into **both** `configureLogging` and
+`createBeaconTransport`:
+
+- The inner hook (`createBeaconTransport`'s `onInternalError`) is
+  the channel for **async** drops — fetch keepalive rejection,
+  batch timer flush failure, pagehide-fired flush failure. These
+  execute outside the synchronous `send()` boundary that
+  `SafeTransport` wraps.
+- The outer hook (`configureLogging`'s `onInternalError`) catches
+  the residual cases that `SafeTransport` translates from
+  synchronous transport throws (rare, since the beacon transport
+  never throws).
+
+Wiring the same callback to both means the consumer sees one
+notice per failure class. Each notice carries a discriminating
+`.code` and `.transportName`:
+
+| `err.code`                  | When                                                                                  |
+|-----------------------------|---------------------------------------------------------------------------------------|
+| `oversized_event`           | A single event's serialized size exceeds ~64 KiB. In batching mode the event is ejected from the batch; the remaining batch still flushes. |
+| `transport_send_failed`     | (Default mode) sendBeacon refused AND the fetch fallback rejected/non-2xx.            |
+| `beacon_batch_drop`         | (Batching mode) A batch flush failed (sendBeacon refused, fetch rejected, OR the envelope exceeds ~64 KiB). |
+| `beacon_unavailable`        | Neither `navigator.sendBeacon` nor `fetch` is available. Vanishingly rare in 2026 browsers. |
+| `transport_shutdown_failed` | The shutdown-flush threw unexpectedly (defense-in-depth — should never fire).         |
+
+Notice payloads are **structural only** — `droppedCount`,
+`transport.name`, reason summary. They MUST NOT include the
+dropped events' `message`, `attrs`, `error`, or `context` (that
+content might be the same payload whose size or shape was the
+problem in the first place).
+
+### Migration from the deprecated hand-rolled example
+
+Earlier versions of this package shipped a hand-rolled reference
+at `examples/shared/beacon-transport.ts`. That file has been
+removed and the first-party transport replaces it. The migration
+is a single import line:
+
+```ts
+// Before:
+import { makeBeaconTransport } from '../shared/beacon-transport.js';
+const transport = makeBeaconTransport({ endpoint: '...' });
+
+// After:
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+const transport = createBeaconTransport({ endpoint: '...' });
+```
+
+The first-party transport adds, beyond the hand-rolled version:
+construction-time scheme validation with documented errors, lazy
+gated listener install, multi-instance safety, oversized-event
+detection with `onInternalError` routing, and optional opt-in
+batching (see the next section).
 
 ## Beacon transport batching (opt-in)
 
@@ -551,7 +683,7 @@ if ((import.meta as { env?: { DEV?: boolean } }).env?.DEV) {
     application: { name: 'product-recs-standalone' },
     environment: 'development',
     level: 'debug',
-    transports: [ConsoleTransport(), makeBeaconTransport({ endpoint: '...' })],
+    transports: [ConsoleTransport(), createBeaconTransport({ endpoint: '...', allowInsecureLoopback: true })],
   });
 }
 ```
@@ -700,10 +832,12 @@ cjs}` does not import any of them.
   `@datadog/*` / `dd-rum`, `@sentry/*`, or other observability-
   vendor packages — locked by the dependency-pins audit (T070).
 - The package's only delivery primitive is the `Transport`
-  interface. Consumers ship their own transport (the canonical
-  body-only beacon at `examples/shared/beacon-transport.ts` is the
-  reference); the package never makes vendor-specific choices on
-  the consumer's behalf.
+  interface. Consumers either use the first-party
+  `createBeaconTransport` from
+  `@your-org/frontend-logging-sdk/transport-beacon` or implement
+  their own transport against the documented contract; the
+  package never makes vendor-specific choices on the consumer's
+  behalf.
 
 ### Future vendor adapters are peers, not defaults
 
