@@ -253,7 +253,8 @@ src/
 │   ├── delivery.ts                   # sendBeacon → fetch fallback primitive
 │   ├── batcher.ts                    # opt-in batching state machine
 │   ├── endpoint-validation.ts        # HTTPS + allowInsecureLoopback check
-│   └── lifecycle.ts                  # pagehide listener install/cleanup
+│   ├── lifecycle.ts                  # pagehide listener install/cleanup
+│   └── errors.ts                     # subpath-owned BeaconError + BeaconErrorCode
 └── testing/                          # unchanged
     ├── assert-transport-contract.ts
     └── secret-fixtures.ts
@@ -564,6 +565,7 @@ specs/002-beacon-transport/
 │   ├── delivery.md
 │   ├── batching.md
 │   └── failure-modes.md
+├── checklists/          # Per-phase review checklists and the final-review record (T037)
 └── tasks.md             # Phase 2 output (/speckit-tasks — NOT created by this command)
 ```
 
@@ -581,7 +583,8 @@ src/
     ├── delivery.ts                   # sendBeacon + fetch keepalive primitives
     ├── batcher.ts                    # opt-in batching state machine
     ├── endpoint-validation.ts        # HTTPS + loopback allowlist check
-    └── lifecycle.ts                  # pagehide listener attach/detach
+    ├── lifecycle.ts                  # pagehide listener attach/detach
+    └── errors.ts                     # subpath-owned BeaconError + BeaconErrorCode
 
 tests/
 ├── contract/

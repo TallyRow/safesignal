@@ -386,10 +386,12 @@ documented error code, all subsequent batches deliver normally.
   (Principle VI — Log Integrity & Monitoring Suitability)
 - **FR-008**: Constructing the transport MUST be lightweight and
   side-effect-free: zero global listeners attached, zero network
-  requests, zero ambient browser state reads. Listener attachment, if
-  any, MUST happen on first `send()` and MUST be gated against
-  double-install. Multiple instances MUST coexist without sharing
-  buffers, listeners, or sequence state.
+  requests, zero ambient browser state reads. Listener attachment
+  MUST be deferred to the first `send()` call that proceeds past the
+  payload size check, MUST attach exactly one `pagehide` handler per
+  transport instance, and MUST be gated against double-install.
+  Multiple instances MUST coexist without sharing buffers, listeners,
+  or sequence state.
   (Principle VII — Lightweight Logger Instances & Federated Runtime
   Discipline; inherits FR-029 from feature 001 in spirit, applied to
   transport rather than Logger)
@@ -589,9 +591,11 @@ documented error code, all subsequent batches deliver normally.
 - **SC-007**: The default-entry built bundle (`dist/index.{mjs,cjs}`)
   is **bit-identical or smaller** to the pre-feature snapshot — no
   beacon-transport code appears in it.
-- **SC-008**: The new transport's built bundle is **under 5 KB
-  gzipped** (subpath/sibling-package equivalent), since it carries
-  only the delivery logic and not any pipeline machinery.
+- **SC-008**: The new transport's built bundle is **under 5 KiB
+  gzipped (5120 bytes)**, since it carries only the delivery logic
+  and not any pipeline machinery. Asserted via
+  `gzipSync(readFileSync('dist/transport-beacon.mjs')).length <= 5120`
+  in `tests/security/transport-beacon-bundle-shape.security.test.ts`.
 - **SC-009**: When batching is enabled and a drop is forced, exactly
   **one** `onInternalError` notice fires per dropped batch (rate-limit
   preserved per FS-12).
