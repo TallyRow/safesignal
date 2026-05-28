@@ -271,7 +271,7 @@ migration that completes the feature.
   Acceptance: Re-runs `tests/performance/transport-beacon-construction.performance.test.ts` against the final implementation. Confirms 1,000-instance construction still passes the zero-listener / zero-timer / zero-ambient-read / O(N)-memory invariants. Locks SC-006, FR-027.
   Parallel: No
 
-- [ ] T036 Final bundle-shape regression
+- [X] T036 Final bundle-shape regression
   Acceptance: Re-runs `tests/security/transport-beacon-bundle-shape.security.test.ts`. Confirms (a) default entry `dist/index.{mjs,cjs,d.ts}` is bit-identical or smaller than the pre-feature snapshot (SC-007) — checked via the existing feature-001 size snapshot file or a freshly captured pre-feature snapshot; (b) `dist/transport-beacon.mjs` gzipped ≤ 5120 bytes (SC-008); (c) no vendor SDK references; (d) no source-boundary violations. Includes a check that the `examples/shared/beacon-transport.ts` removal has not regressed any other test.
   Parallel: No
 

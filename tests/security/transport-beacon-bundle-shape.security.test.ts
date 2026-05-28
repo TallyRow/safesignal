@@ -275,3 +275,47 @@ describe('(d) dist/transport-beacon.mjs gzipped size budget', () => {
     ).toBeLessThanOrEqual(SIZE_LIMIT_BYTES);
   });
 });
+
+// ---------------------------------------------------------------------------
+// (e) Default-entry size lock (SC-007 — bit-identical-or-smaller)
+// ---------------------------------------------------------------------------
+
+/**
+ * Snapshot ceiling for the default entry's gzipped size. Captured
+ * AFTER feature 002's beacon-transport subpath landed and verified
+ * to be unchanged from the pre-feature snapshot — the new subpath's
+ * code is tree-shaken out of the default entry per (c) above. This
+ * test enforces SC-007: any future change that causes
+ * createBeaconTransport / BeaconError / batcher code to leak into
+ * the default entry's bundle (e.g., via an accidental re-export
+ * from src/index.ts) increases this number and fails the test.
+ *
+ * If the default entry shrinks (e.g., from a future cleanup), bump
+ * these constants down — the assertion uses ≤, so a smaller bundle
+ * passes the upper bound but should be tightened to lock in the
+ * win.
+ */
+const DEFAULT_ENTRY_MJS_GZ_MAX = 8200; // observed: 8162 B
+const DEFAULT_ENTRY_CJS_GZ_MAX = 8240; // observed: 8200 B
+
+describe('(e) dist/index.{mjs,cjs} default-entry size lock (SC-007)', () => {
+  it(`dist/index.mjs is ≤ ${DEFAULT_ENTRY_MJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {
+    const raw = readFileSync(INDEX_MJS);
+    const gz = gzipSync(raw).length;
+    expect(
+      gz,
+      `dist/index.mjs gzipped is ${gz} bytes; ceiling is ${DEFAULT_ENTRY_MJS_GZ_MAX}. ` +
+        `An increase typically means createBeaconTransport / batcher / BeaconError code ` +
+        `leaked into the default entry — check src/index.ts re-exports.`,
+    ).toBeLessThanOrEqual(DEFAULT_ENTRY_MJS_GZ_MAX);
+  });
+
+  it(`dist/index.cjs is ≤ ${DEFAULT_ENTRY_CJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {
+    const raw = readFileSync(INDEX_CJS);
+    const gz = gzipSync(raw).length;
+    expect(
+      gz,
+      `dist/index.cjs gzipped is ${gz} bytes; ceiling is ${DEFAULT_ENTRY_CJS_GZ_MAX}.`,
+    ).toBeLessThanOrEqual(DEFAULT_ENTRY_CJS_GZ_MAX);
+  });
+});
