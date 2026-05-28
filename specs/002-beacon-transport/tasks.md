@@ -110,7 +110,7 @@ the URL.
   Acceptance: Covers D-2..D-7, F-2, F-3, F-4, F-7. Uses `tests/helpers/beacon-network.ts` doubles. Cases: payload is exactly `JSON.stringify(event)` (D-2); size check precedes primitive call (D-3, F-2); `sendBeacon` called with `Blob('application/json')` (D-4); fetch fallback call shape matches `{ method: 'POST', body, keepalive: true, headers: { 'content-type': 'application/json' }, credentials: 'same-origin' }` (D-5); sendBeacon true → no fetch (D-6); sendBeacon false → fetch called once (D-6); sendBeacon undefined → fetch called once (D-6); both undefined → drop with `beacon_unavailable` notice (D-7, F-3); fetch rejects → drop with `transport_send_failed` notice carrying `.cause` (F-4, F-7); fetch non-2xx → drop with `transport_send_failed` (D-5 / F-4).
   Parallel: Yes
 
-- [ ] T012 [P] [US1] Lifecycle unit tests in `tests/unit/transport-beacon/lifecycle.test.ts`
+- [X] T012 [P] [US1] Lifecycle unit tests in `tests/unit/transport-beacon/lifecycle.test.ts`
   Acceptance: Covers D-10, D-12. Cases: first `send()` installs exactly one `'pagehide'` listener (D-10); second `send()` installs zero additional listeners; `shutdown()` removes the listener; `shutdown()` called twice is a no-op (idempotent — D-12); `send()` after `shutdown()` is a no-op (no encoding, no primitive call, no notice — D-12); `installAddEventListenerSpy` confirms no `visibilitychange` or `beforeunload` listener is ever installed.
   Parallel: Yes
 
