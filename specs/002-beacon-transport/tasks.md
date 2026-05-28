@@ -222,7 +222,7 @@ subsequent batches deliver normally.
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Implement batcher state machine in `src/transport-beacon/batcher.ts`
+- [X] T027 [US3] Implement batcher state machine in `src/transport-beacon/batcher.ts`
   Acceptance: Exports `createBatcher(opts: { maxBatchSize: number; maxBatchAgeMs?: number; flush: (events: LogEvent[]) => void })` returning `{ push, flush, shutdown }`. State: `{ buffer: LogEvent[]; maxAgeTimer: ReturnType<typeof setTimeout> | null }`. `push(event)`: append to buffer; if `buffer.length === 1 && maxBatchAgeMs != null` arm a one-shot timer that calls `flush` once; if `buffer.length >= maxBatchSize`, call `flush(buffer)` after cancelling the timer and resetting state. `flush()`: if buffer is non-empty, copy out + clear buffer + cancel timer + call the provided flush callback. `shutdown()`: cancel timer; null the callback reference so timer callbacks queued before shutdown are no-ops. The module is import-pure; no listeners attached at module scope.
   Parallel: No (depends on T004–T007)
 

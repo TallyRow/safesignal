@@ -36,7 +36,7 @@ function event(message: string): AnyLogEvent {
   };
 }
 
-describe.skip('createBatcher state machine (unlocks at T027)', () => {
+describe('createBatcher state machine', () => {
   let timerSpy: ReturnType<typeof installSetTimeoutSpy> | null = null;
 
   beforeEach(() => {
