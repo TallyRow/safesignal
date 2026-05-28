@@ -41,16 +41,21 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Order matters here:
+  //   1. Uninstall the listenerSpy FIRST so the next test's spy
+  //      isn't polluted by listener-removal records emitted by the
+  //      runtime-swap shutdown call below.
+  //   2. Reset the runtime via configureLogging() while the beacon
+  //      and fetch doubles are STILL installed — the previous
+  //      transport's shutdown drains its batch through the doubles
+  //      (which return true / resolve 204), so no real network call
+  //      is attempted against logs.example.com.
+  //   3. THEN uninstall the network doubles.
   harness?.listenerSpy.uninstall();
+  configureLogging({ transports: [NoopTransport] });
   harness?.fetch.uninstall();
   harness?.beacon.uninstall();
   harness = null;
-  // Reset the runtime so the previous test's beacon transport
-  // (still installed at this point) gets its shutdown / pagehide
-  // listener removal AFTER this test's spies are uninstalled. The
-  // next test's `beforeEach` then starts with no beacon transport
-  // configured, so its spy isn't polluted by a runtime swap.
-  configureLogging({ transports: [NoopTransport] });
 });
 
 function recordedBodyTexts(): Promise<(string | null)[]> {

@@ -141,11 +141,28 @@ describe('TB-7 — assertTransportContract battery', () => {
     await assertTransportContract(transport);
   });
   it('batching-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery', async () => {
-    const transport = TB.createBeaconTransport({
-      endpoint: 'https://logs.example.com/ingest',
-      batching: { maxBatchSize: 10 },
+    // Install OUTER doubles for the duration of the test. The
+    // assertTransportContract helper installs/restores its own
+    // per-assertion doubles, but its final `assertShutdownIdempotent`
+    // call lives OUTSIDE any `withInterceptors` block. Without an
+    // outer net, the batched transport's `shutdown → batcher.flush()
+    // → dispatchBatch` drains any events buffered during earlier
+    // assertions via the real `fetch`, which hits the non-existent
+    // logs.example.com and surfaces as an unhandled rejection.
+    const outerBeacon = installSendBeaconDouble({ returnValue: true });
+    const outerFetch = installFetchDouble({
+      behavior: { kind: 'resolve', status: 204 },
     });
-    await assertTransportContract(transport);
+    try {
+      const transport = TB.createBeaconTransport({
+        endpoint: 'https://logs.example.com/ingest',
+        batching: { maxBatchSize: 10 },
+      });
+      await assertTransportContract(transport);
+    } finally {
+      outerFetch.uninstall();
+      outerBeacon.uninstall();
+    }
   });
 });
 

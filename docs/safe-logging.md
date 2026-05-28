@@ -341,6 +341,151 @@ See `contracts/failure-safety.md` (FS-1..FS-17) and the test in
   The package's `SafeTransport` already catches everything; a global
   listener silently masks consumer-code bugs unrelated to logging.
 
+## Beacon transport batching (opt-in)
+
+The first-party beacon transport at
+`@your-org/frontend-logging-sdk/transport-beacon` supports optional
+in-memory batching to reduce network calls on chatty pages. Batching
+is **off by default**; pass a `batching` field to opt in:
+
+```ts
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+
+createBeaconTransport({
+  endpoint: 'https://logs.example.com/ingest',
+  batching: {
+    maxBatchSize: 50,        // flush when 50 events accumulate
+    maxBatchAgeMs: 10_000,   // ...or after 10 seconds, whichever first
+  },
+  onInternalError: (err) => myReporter.captureException(err),
+});
+```
+
+### Envelope shape
+
+A batched flush carries a single JSON body:
+
+```json
+{ "events": [/* up to maxBatchSize LogEvents in emission order */] }
+```
+
+The envelope is **exactly** `{ "events": [...] }` — no transport-level
+metadata, no `flushedAt`, no `seq`, no `transportName`. Every signal
+the ingestion endpoint needs is already inside each `LogEvent`'s
+`level` / `timestamp` / `context` fields.
+
+### When to enable
+
+Batching trades a small additional latency (at most `maxBatchAgeMs`
+between emit and ship) against fewer network calls. It is **only
+worth enabling** on pages that produce dozens to hundreds of
+warn/error events. For typical apps with a handful of events per
+page, the default (one network call per event) is simpler and has
+the same delivery guarantees.
+
+When you enable batching, tune `maxBatchSize` against your average
+event size. The browser's `sendBeacon` per-origin queue caps a
+single request at **~64 KiB (5120 bytes gzipped)**. The transport
+checks the serialized envelope size before every flush attempt:
+
+- **Safe**: `maxBatchSize × avg-event-size < 64 KiB`. A batch of 50
+  events at 1 KiB each = 50 KiB → flushes cleanly.
+- **Risky**: a batch of 500 events at 200 bytes each = 100 KiB →
+  the envelope exceeds the budget and the entire batch is dropped
+  with a `beacon_batch_drop` notice. The transport never falls back
+  to URL-based delivery (forbidden by T-S1..T-S5) and never falls
+  back to non-keepalive `fetch` (it can't survive page unload).
+
+Right-size `maxBatchSize` for your average payload — if you can't
+predict it precisely, lower the batch size and accept more network
+calls.
+
+### Drop-notice routing
+
+Every dropped batch surfaces through `BeaconTransportOptions.onInternalError`:
+
+```ts
+configureLogging({
+  // ...
+  transports: [
+    createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      batching: { maxBatchSize: 50 },
+      onInternalError: (err) => myReporter.captureException(err), // ← inner hook
+    }),
+  ],
+  onInternalError: (err) => myReporter.captureException(err),    // ← outer hook
+});
+```
+
+**Wire the hook into both places.** The inner hook is the only
+channel for **async** drops (fetch keepalive rejection, batch-timer
+flush failure, pagehide-fired flush failure). The outer hook
+catches `SafeTransport`-mediated failures and applies to every
+transport in the runtime. Same callback in both — the consumer
+sees one notice per failure class per session, with a discriminating
+`.code` and `.transportName`.
+
+`BeaconErrorCode` values the beacon transport may emit:
+
+| Code                       | When (batching mode)                                                    |
+|----------------------------|--------------------------------------------------------------------------|
+| `oversized_event`          | A single event's serialized size exceeds ~64 KiB. The event is **ejected from the batch** — the remaining batch still flushes normally. |
+| `beacon_batch_drop`        | A batch flush failed (sendBeacon refused **and** fetch fallback rejected/non-2xx, **or** the serialized envelope exceeded ~64 KiB). The whole batch is dropped. |
+| `beacon_unavailable`       | Neither `navigator.sendBeacon` nor `fetch` is available in the runtime. Vanishingly rare in modern browsers. |
+| `transport_send_failed`    | (Default-mode only — won't fire in batching mode.)                       |
+| `transport_shutdown_failed`| The shutdown-flush attempt threw unexpectedly (defense-in-depth).        |
+
+Each code fires **at most once per transport per session** (the FS-12
+rate-limit pattern from feature 001). If your endpoint is persistently
+broken, you see the first drop and nothing more — instrument at the
+application level if you need per-occurrence metrics. The notice
+payload is **structural only** (event counts, transport name, reason
+summary) — **no event content** (no `message`, no `attrs`, no
+`error`, no `context`). Including event content in the notice would
+risk leaking the same payload whose size or shape was the problem.
+
+### Lifecycle interactions
+
+- **`pagehide` flush**: when the browser is about to unload the
+  page, the transport attempts one final synchronous flush of any
+  pending batch. If the flush fails, exactly one
+  `beacon_batch_drop` notice fires before the page unloads — your
+  `onInternalError` callback observes it, but whether your error
+  reporter manages to deliver the notice before unload is the
+  reporter's problem (no different from any pagehide-time work).
+- **`shutdown()` flush**: calling `transport.shutdown()` (e.g.,
+  during a `configureLogging()` swap, or in a test cleanup) drains
+  the pending batch with one best-effort flush, then removes the
+  `pagehide` listener. Idempotent — a second `shutdown()` is a
+  no-op.
+- **Reconfigure during in-flight batch**: when `configureLogging()`
+  swaps in a different transport while the previous beacon transport
+  holds a pending batch, the previous transport's `shutdown()` flow
+  drives the batch to completion **or** to exactly one
+  `beacon_batch_drop` notice — never both, never neither, never
+  partial. This is locked by SC-010 and verified end-to-end in
+  `tests/integration/transport-beacon-batching.integration.test.ts`.
+
+### Anti-patterns
+
+- **Don't** treat batching as a replacement for sampling. Batching
+  reduces network calls; it does not reduce the **events** the
+  consumer emits. If your app produces too many events to inspect
+  individually, the right fix is server-side sampling on a per-app
+  basis, not silently dropping them at the transport.
+- **Don't** retry inside your `onInternalError` handler. The
+  transport made one best-effort attempt; the events are gone.
+  Re-pushing them risks event duplication if the failure was on the
+  ingestion side rather than the network side.
+- **Don't** use `flush()` from within an event-handling hot path.
+  `flush()` is the right primitive for app-shutdown / test-cleanup;
+  calling it on every emission defeats the point of batching.
+- **Don't** raise `maxBatchSize` above your observed per-event byte
+  count's budget headroom. The size check is firm at ~64 KiB; an
+  over-aggressive `maxBatchSize` drops batches deterministically
+  with a `beacon_batch_drop` notice.
+
 ## Configuration ownership in federated deployments
 
 When a single page hosts a host application **plus** one or more

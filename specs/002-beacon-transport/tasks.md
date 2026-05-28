@@ -230,7 +230,7 @@ subsequent batches deliver normally.
   Acceptance: When `options.batching` is present and validated, instance state acquires a `batcher` from T027 whose `flush` callback runs the same delivery path as default-mode `send()` but with the envelope `{ events: LogEvent[] }` JSON-encoded and size-checked. Oversized envelope short-circuits to `beacon_batch_drop` notice (B-6). Oversized single event is ejected pre-push with `oversized_event` notice (B-7). `flush()` API method delegates to the batcher. `shutdown()` drains the batcher's buffer with one best-effort flush, then proceeds with listener removal. T024..T026 pass. T010..T015 still pass (default-mode regression).
   Parallel: No (depends on T027)
 
-- [ ] T029 [US3] Update `quickstart.md` and `docs/safe-logging.md` with batching guidance
+- [X] T029 [US3] Update `quickstart.md` and `docs/safe-logging.md` with batching guidance
   Acceptance: `quickstart.md`'s "Opt-in batching" section is exercised by an integration test (similar to T019) that confirms the code sample compiles and runs. `docs/safe-logging.md` gains a "Beacon transport batching" subsection covering: envelope shape, when to enable, the `maxBatchSize × per-event-size < 64 KiB` rule, drop-notice routing, the recommendation to wire `onInternalError` to both places. No insecure-pattern normalization (e.g., no URL-based fallback discussion outside of explicit "rejected — forbidden by T-S1..T-S5" framing).
   Parallel: No
 
