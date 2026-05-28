@@ -65,6 +65,58 @@ log.warn('coupon rejected', { code: 'SUMMER25', reason: 'expired' });
 log.error('payment failed', { provider: 'acme-pay' }, new Error('declined'));
 ```
 
+### Ship logs over HTTPS — `./transport-beacon` subpath
+
+For body-only HTTPS delivery, import the first-party
+`createBeaconTransport` from the `./transport-beacon` subpath. It
+satisfies the transport security contract (T-S1..T-S5) by
+construction — see
+[`docs/safe-logging.md`](docs/safe-logging.md) for the full
+write-up.
+
+```ts
+import { configureLogging, createLogger } from '@your-org/frontend-logging-sdk';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
+
+const onInternalError = (err: Error): void => myReporter.captureException(err);
+
+configureLogging({
+  application: { name: 'payments', version: '2.4.1' },
+  environment: 'production',
+  transports: [
+    createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      onInternalError, // ← inner hook for async beacon drops
+    }),
+  ],
+  onInternalError,     // ← outer hook for SafeTransport failures
+});
+
+const logger = createLogger();
+logger.warn('payment retry exceeded threshold', { attemptCount: 4 });
+logger.error('payment processor 5xx', { orderId: 'ord_9f3' }, new Error('upstream timeout'));
+```
+
+The transport:
+
+- Refuses non-HTTPS endpoints at construction time (loopback dev
+  endpoints opt in via `allowInsecureLoopback: true`).
+- Prefers `navigator.sendBeacon`; falls back once to `fetch` with
+  `keepalive: true` and `credentials: 'same-origin'`.
+- Installs a single `pagehide` listener lazily on first `send()`;
+  removes it on `shutdown()`.
+- Supports optional opt-in batching for high-volume pages — see
+  the [Beacon transport batching](docs/safe-logging.md#beacon-transport-batching-opt-in)
+  section of `docs/safe-logging.md` for the envelope shape and
+  `maxBatchSize × per-event-size < 64 KiB` sizing rule.
+- Surfaces every drop through `onInternalError` with a documented
+  `BeaconErrorCode` — `oversized_event`, `transport_send_failed`,
+  `beacon_batch_drop`, `beacon_unavailable`,
+  `transport_shutdown_failed`. Wire the hook to **both** layers
+  above for full coverage.
+
+### Level configuration
+
 In `production`, `debug` and `info` are dropped by default. Raise the
 threshold per environment:
 
@@ -156,10 +208,17 @@ string.
 
 ### Canonical sample
 
-`examples/shared/beacon-transport.ts` is the body-only beacon reference
-both example projects use. It tries `sendBeacon` first, falls back to
-`fetch` with `keepalive: true`, and rejects non-HTTPS cross-origin
-endpoints at construction time.
+The first-party `createBeaconTransport` from
+`@your-org/frontend-logging-sdk/transport-beacon` (used in the
+[Quickstart](#ship-logs-over-https--transport-beacon-subpath)
+section above) is the body-only beacon reference both example
+projects use. It tries `sendBeacon` first, falls back to `fetch`
+with `keepalive: true`, and refuses non-HTTPS endpoints at
+construction time.
+
+Consumers who need a different delivery primitive implement the
+`Transport` interface themselves and follow T-S1..T-S5 in their
+own code.
 
 ### Verify your transport with `assertTransportContract`
 
@@ -170,11 +229,11 @@ not in production code:
 ```ts
 // my-transport.test.ts
 import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
-import { makeBeaconTransport } from '../shared/beacon-transport.js';
+import { createBeaconTransport } from '@your-org/frontend-logging-sdk/transport-beacon';
 
 test('my transport satisfies the security contract', async () => {
   await assertTransportContract(
-    makeBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
+    createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' }),
   );
 });
 ```
@@ -202,8 +261,9 @@ package copies", and "Vendor neutrality".
 ## Examples
 
 - [`examples/host-app/`](examples/host-app/) — single-app consumer;
-  uses [`examples/shared/beacon-transport.ts`](examples/shared/beacon-transport.ts)
-  for body-only HTTPS delivery.
+  uses the first-party `createBeaconTransport` from
+  `@your-org/frontend-logging-sdk/transport-beacon` for body-only
+  HTTPS delivery.
 - [`examples/federated-module/`](examples/federated-module/) —
   federated module consumer; demonstrates `createLogger({ module })`
   against a host-configured runtime, with security guidance for

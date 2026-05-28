@@ -259,7 +259,7 @@ migration that completes the feature.
   Acceptance: New section "Beacon transport (first-party HTTPS peer transport)" covers: import path; HTTPS-only construction with the loopback opt-in pattern (explicit, never ambient); body-only delivery guarantee; the documented drop scenarios with their `BeaconErrorCode` values; the recommendation to wire `onInternalError` into both `configureLogging` and `createBeaconTransport`; multi-instance coexistence; the migration note from `examples/shared/beacon-transport.ts`. No insecure-pattern normalization. Locks SC-011.
   Parallel: Yes
 
-- [ ] T033 [P] Update top-level README.md quickstart
+- [X] T033 [P] Update top-level README.md quickstart
   Acceptance: The "Quickstart" section in `README.md` is updated to show the new beacon transport as the recommended HTTPS path (alongside `ConsoleTransport` and `NoopTransport`). The example uses the same shape as `quickstart.md`'s five-minute path. Existing v1 quickstart content remains; the beacon section is additive.
   Parallel: Yes
 
