@@ -267,7 +267,7 @@ migration that completes the feature.
   Acceptance: Re-runs `tests/security/transport-beacon-secret-sweep.security.test.ts` against the final implementation. Expands the fixture set to include batching scenarios (configure batching: 10; emit 100 events with fixture values; assert zero fixture leak across recorded envelopes too). SC-004 fully verified for both default and batching modes.
   Parallel: No
 
-- [ ] T035 Final lightweight-construction regression
+- [X] T035 Final lightweight-construction regression
   Acceptance: Re-runs `tests/performance/transport-beacon-construction.performance.test.ts` against the final implementation. Confirms 1,000-instance construction still passes the zero-listener / zero-timer / zero-ambient-read / O(N)-memory invariants. Locks SC-006, FR-027.
   Parallel: No
 
