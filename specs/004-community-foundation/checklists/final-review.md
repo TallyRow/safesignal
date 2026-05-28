@@ -171,9 +171,21 @@ If either address is not yet deliverable, **HOLD the merge** until
 DNS/MX is in place. Mark this checklist item as resolved when
 verification succeeds:
 
-- [ ] Email deliverability verified (`security@tallyrow.com` +
-      `conduct@tallyrow.com` both reach the maintainer-owned
-      inbox; no bounces)
+- [X] **Email deliverability verified** (2026-05-28).
+      `security@tallyrow.com` and `conduct@tallyrow.com` both
+      reach the maintainer-owned inbox at `johngoure@gmail.com`
+      via Namecheap Email Forwarding (MX:
+      `eforward*.registrar-servers.com`). Initial test mail
+      landed in Gmail's spam folder due to Namecheap forwarding's
+      thin sender-authentication chain on a new domain — resolved
+      by adding two Gmail filters:
+      - `To: security@tallyrow.com` → Never send to spam,
+        Always mark as important, Label: `tallyrow/security`
+      - `To: conduct@tallyrow.com` → Never send to spam,
+        Always mark as important, Label: `tallyrow/conduct`
+      Both filters confirmed working. Future security and CoC
+      reports route to dedicated labels in the maintainer-owned
+      inbox without spam-folder interception.
 
 ### Non-blocking follow-ups (deferred to subsequent features)
 
