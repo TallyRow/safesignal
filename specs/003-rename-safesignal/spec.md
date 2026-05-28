@@ -37,6 +37,13 @@ with no conflicting legacy project name remaining in public-facing
 surfaces unless explicitly retained as historical migration
 context."
 
+## Clarifications
+
+### Session 2026-05-28
+
+- Q: GitLab project slug — rename now vs. defer? → A: Rename the GitLab project slug to `safesignal` (or `safesignal-sdk`) as part of this feature; update `package.json` `repository` to the new URL. GitLab auto-redirects from the old slug, so external links don't immediately break.
+- Q: NPM package name shape under the chosen publisher scope? → A: `@tallyrow/safesignal`. TallyRow is the publishing organization (npm scope); SafeSignal is the product (package name). Install reads `npm install @tallyrow/safesignal`; imports read `import { ... } from '@tallyrow/safesignal'` / `'@tallyrow/safesignal/transport-beacon'`. Leaves room for sibling packages under `@tallyrow/safesignal-*` (e.g., a future `@tallyrow/safesignal-transport-otel`) without renaming the SDK.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — New consumer discovers the package as SafeSignal (Priority: P1)
@@ -208,7 +215,7 @@ or summary explicitly names SafeSignal.
 - **Subpath identifiers.** Existing subpath exports (`./testing`,
   `./transport-beacon`) keep their relative-path identifiers; only
   the leading package name changes. A consumer who imports
-  `@safesignal/<x>/transport-beacon` reads the same subpath that
+  `@tallyrow/safesignal/transport-beacon` reads the same subpath that
   used to live under the legacy scope.
 - **In-code identifiers.** Internal type names, function names, and
   source-file paths under `src/` do NOT include the legacy project
@@ -224,17 +231,21 @@ or summary explicitly names SafeSignal.
   rename the local working directory is a maintainer decision
   outside the scope of this spec; it does not affect consumers.
 - **Git remote URL / GitLab project slug.** The published repository
-  URL is part of consumer-visible surface (it appears in `package.json`
-  `repository` field, in CHANGELOG entries, and in any "view source"
-  link). [NEEDS CLARIFICATION: Should the GitLab project slug be
-  renamed to `safesignal` as part of this feature, or kept at its
-  current slug with a project-side description update only? See
-  open question #1 below.]
-- **NPM package name shape.** The exact package identifier is part
-  of the consumer's install command. Multiple reasonable shapes
-  exist with different ergonomic and ecosystem implications. [NEEDS
-  CLARIFICATION: scoped (`@safesignal/sdk` or `@safesignal/core`) vs.
-  unscoped (`safesignal`) — see open question #2 below.]
+  URL is part of the consumer-visible surface (it appears in
+  `package.json` `repository` field, in CHANGELOG entries, and in
+  any "view source" link). The GitLab project slug is renamed to
+  `safesignal` (or `safesignal-sdk`) as part of this feature; GitLab
+  issues HTTP redirects from the old slug so external links don't
+  immediately break. `package.json` `repository` updates to the
+  new URL.
+- **NPM package name shape.** The canonical identifier is
+  `@tallyrow/safesignal` — TallyRow as the publishing scope,
+  SafeSignal as the product name. Install: `npm install
+  @tallyrow/safesignal`. Imports: `import { ... } from
+  '@tallyrow/safesignal'` (default entry) or `from
+  '@tallyrow/safesignal/transport-beacon'` (subpath). The
+  `@tallyrow/` scope is reserved on npm to block impersonation
+  packages.
 
 ## Consumer Impact & Compatibility *(mandatory for package work)*
 
@@ -246,9 +257,11 @@ or summary explicitly names SafeSignal.
     every type re-export remain identical.
   - **One change** to the IMPORT PATH STRING consumers type at their
     call site: the package name on the left of the slash changes
-    from the legacy scope (`@your-org/frontend-logging-sdk`) to the
-    SafeSignal-flavored identifier. Subpath suffixes (`./testing`,
-    `./transport-beacon`) are unchanged.
+    from the legacy scope (`@your-org/frontend-logging-sdk`) to
+    `@tallyrow/safesignal`. Subpath suffixes (`./testing`,
+    `./transport-beacon`) are unchanged — they remain identifiable
+    as `@tallyrow/safesignal/testing` and
+    `@tallyrow/safesignal/transport-beacon`.
 
 - **Compatibility Impact**: **Breaking at the install-and-import
   layer; non-breaking at the API-semantics layer.** A consumer must
@@ -309,10 +322,10 @@ or summary explicitly names SafeSignal.
 
 #### Public package metadata
 
-- **FR-001**: `package.json` `name` MUST be the SafeSignal-flavored
-  package identifier. [NEEDS CLARIFICATION: exact shape pending —
-  see open question #2 below; recommended answer is the scoped form
-  `@safesignal/sdk`.]
+- **FR-001**: `package.json` `name` MUST be `@tallyrow/safesignal`
+  — the `@tallyrow/` npm scope is the publisher (TallyRow), the
+  `safesignal` package-name segment is the product (SafeSignal). No
+  other identifier shape is permitted for the v1 published artifact.
 - **FR-002**: `package.json` `description` MUST identify the project
   as SafeSignal and describe it as a secure structured logging
   facade and safety boundary for browser applications and federated
@@ -320,8 +333,10 @@ or summary explicitly names SafeSignal.
 - **FR-003**: `package.json` `keywords` MUST include "safesignal" as
   a discoverable term, alongside the existing topical keywords
   (logging, structured, browser, federated, etc.).
-- **FR-004**: `package.json` `repository` MUST point at the
-  authoritative repository URL post-rename (see open question #1).
+- **FR-004**: `package.json` `repository` MUST point at the renamed
+  GitLab project URL (slug `safesignal` or `safesignal-sdk`). The
+  old slug remains reachable via GitLab's automatic redirect, but
+  no new artifact references it.
 - **FR-005**: `package.json` `homepage` (if present) MUST point at a
   URL that identifies the project as SafeSignal.
 
@@ -442,10 +457,18 @@ or summary explicitly names SafeSignal.
 
 ### Key Entities
 
-- **SafeSignal**: The public, consumer-facing project and package
+- **SafeSignal**: The public, consumer-facing project and product
   identity. Replaces the legacy working/repository identity
   (`frontend-logging-sdk`) and the `@your-org/` placeholder scope
-  in all forward-going consumer surfaces.
+  in all forward-going consumer surfaces. Published on npm as
+  `@tallyrow/safesignal` (TallyRow is the publishing organization;
+  SafeSignal is the product).
+
+- **TallyRow**: The publishing organization that owns the
+  `@tallyrow/` npm scope and the project's GitLab namespace. The
+  scope is what locks the package against impersonation; the
+  product identity (SafeSignal) lives in the package-name segment
+  and in the documentation tree.
 
 - **Legacy project name**: The pre-rename identity used in
   `package.json` (`@your-org/frontend-logging-sdk`) and in the
@@ -514,55 +537,14 @@ or summary explicitly names SafeSignal.
 
 ## Open Questions / Clarifications Needed
 
-### Question 1 — Repository slug rename
-
-The current GitLab repository slug is `frontend-logging-sdk`. The
-`package.json` `repository` field, the CHANGELOG's "view source"
-links, and any deep-linked URLs in documentation point at this
-slug. Two reasonable options exist:
-
-- **Option A (recommended)**: Rename the GitLab project slug from
-  `frontend-logging-sdk` to `safesignal` (or `safesignal-sdk`) and
-  update every documentation cross-reference. GitLab will issue
-  HTTP redirects from the old slug to the new one, so external
-  links don't immediately break.
-- **Option B**: Keep the GitLab project slug at
-  `frontend-logging-sdk` for now, update only the project's
-  GitLab-side description and documentation cross-references to
-  name SafeSignal. The slug catches up in a later feature when the
-  repository is moved or rehomed.
-
-A confirmation of A vs B affects FR-004 (the `repository` field's
-target URL) and the CHANGELOG entry's source-link text.
-
-### Question 2 — NPM package name shape
-
-The current `package.json` `name` is `@your-org/frontend-logging-sdk`
-(a placeholder scope). The SafeSignal-flavored replacement has
-several reasonable shapes:
-
-- **Option A (recommended)**: `@safesignal/sdk` — scoped, succinct,
-  signals "this is the SafeSignal SDK package".
-- **Option B**: `@safesignal/core` — scoped, signals "this is the
-  core of SafeSignal" (leaves room for future sibling packages like
-  `@safesignal/transport-otel`).
-- **Option C**: `safesignal` — unscoped, terser install command
-  (`npm install safesignal`). Requires that the `safesignal` npm
-  identifier be available and reserved.
-- **Option D**: `@safesignal/logging-sdk` — scoped + descriptive,
-  but verbose.
-
-A confirmation affects FR-001 (the `name` field), every import
-statement in documentation and examples, and the migration-note
-find-and-replace pattern. The recommendation is Option A
-(`@safesignal/sdk`).
+*(Both open questions were resolved by the 2026-05-28
+Clarifications session above. No remaining open items.)*
 
 ## Assumptions
 
-- The `SafeSignal` name is available on the npm registry under the
-  chosen scope (the project's maintainers have either reserved or
-  confirmed availability of the chosen identifier from Open
-  Question #2).
+- The `@tallyrow/` npm scope is owned (or will be reserved before
+  v1 publish) by TallyRow, and `@tallyrow/safesignal` is available
+  for the SDK to claim under that scope.
 - The current working directory `~/Repos/frontend-logging-sdk` is a
   personal filesystem convention and renaming it (or not) is the
   maintainer's local choice; this spec does not require a

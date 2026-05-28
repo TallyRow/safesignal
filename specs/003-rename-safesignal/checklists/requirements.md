@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [X] No [NEEDS CLARIFICATION] markers remain
 - [X] Requirements are testable and unambiguous
 - [X] Success criteria are measurable
 - [X] Success criteria are technology-agnostic (no implementation details)
@@ -31,12 +31,15 @@
 
 ## Notes
 
-- Two [NEEDS CLARIFICATION] markers are present by design (FR-001
-  for the NPM package name shape, and the edge-case bullet for the
-  GitLab repository slug rename). Each carries a recommended answer
-  inline. The unticked "No [NEEDS CLARIFICATION] markers remain"
-  item will tick automatically once `/speckit-clarify` resolves the
-  two open questions.
+- Two [NEEDS CLARIFICATION] markers were present at spec creation
+  (FR-001 for the NPM package name shape, and the edge-case bullet
+  for the GitLab repository slug rename). Both were resolved by the
+  `/speckit-clarify` pass on 2026-05-28 and recorded in spec.md's
+  `## Clarifications` section. The chosen answers: rename the
+  GitLab slug to `safesignal` (or `safesignal-sdk`) as part of this
+  feature; publish on npm as `@tallyrow/safesignal` (TallyRow is the
+  publishing organization; SafeSignal is the product). Zero markers
+  remain.
 - Two small departures from "no implementation details" are
   intentional: the spec names `package.json` and the
   `~/Repos/frontend-logging-sdk` working directory because the
