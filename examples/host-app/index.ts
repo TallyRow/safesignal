@@ -105,7 +105,36 @@ const requestLog = log.child({
 });
 requestLog.info('fetching cart');
 
-// 6. In `production`, the default level is `warn` — `debug` and `info`
+// 6. Federated module pattern — the host owns the runtime configured
+//    above. Each federated module creates its OWN logger by passing
+//    `module: { name, version }` to `createLogger`; that identity is
+//    attached to every event the module emits via
+//    `event.context.module`. The host's transports / redactor /
+//    sanitizer are reused — modules do NOT install transports or call
+//    `configureLogging()`. See `examples/federated-module/` for the
+//    full federated-module-author guidance.
+const productRecommendationsLog = createLogger({
+  module: { name: 'product-recommendations', version: '0.4.2' },
+});
+productRecommendationsLog.warn('recommendations fetch slow', {
+  durationMs: 1820,
+  cacheStatus: 'miss',
+});
+
+const checkoutCartLog = createLogger({
+  module: { name: 'checkout-cart', version: '1.2.0' },
+});
+checkoutCartLog.error(
+  'cart sync failed',
+  { items: 3 },
+  new Error('upstream 503'),
+);
+// Both modules emit through the SAME configured runtime. Their
+// distinct module identities surface in the wire body's
+// `context.module.name` — host operators can route on that field
+// downstream (e.g., dashboards per module).
+
+// 7. In `production`, the default level is `warn` — `debug` and `info`
 //    are dropped unless the consumer raises the threshold. Override
 //    per-environment when you need verbose dev output:
 //
@@ -115,7 +144,7 @@ requestLog.info('fetching cart');
 //        transports: [ConsoleTransport()],
 //      });
 //
-// 7. Local development against a localhost ingestion endpoint: the
+// 8. Local development against a localhost ingestion endpoint: the
 //    beacon transport refuses non-HTTPS endpoints at construction by
 //    default. Opt into loopback delivery explicitly — and ONLY for
 //    `localhost`, `127.0.0.1`, or `[::1]`:
@@ -130,7 +159,7 @@ requestLog.info('fetching cart');
 //    it never reads ambient state — your code makes the opt-in visible
 //    at the call site.
 //
-// 8. Verify any custom transport against the security contract using
+// 9. Verify any custom transport against the security contract using
 //    the `./testing` subpath helper. The first-party beacon transport
 //    already passes this contract; consumers wrapping or extending it
 //    should re-verify:

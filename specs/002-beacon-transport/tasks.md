@@ -181,7 +181,7 @@ attached after the first emission.
   Acceptance: The module imports `createLogger` from `@your-org/frontend-logging-sdk` only — it does NOT import `createBeaconTransport` and does NOT call `configureLogging`. The module's emissions flow through the host's runtime. The example's README explains the host-owns-transport contract referencing FR-030..FR-032 from feature 001.
   Parallel: No
 
-- [ ] T023 [US2] Update host-app example to drive a federated-module-style scenario
+- [X] T023 [US2] Update host-app example to drive a federated-module-style scenario
   Acceptance: The host-app example now configures the runtime once at boot and demonstrates importing two synthetic "modules" each calling `createLogger({ module })`. The example's output (in `console.log` or recorded to a fixture) shows distinct `context.module.name` per logger.
   Parallel: No
 
