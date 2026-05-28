@@ -170,7 +170,8 @@ references + import paths update; flow stays.
 
 | Surface                | Before                                                   | After                                                                                                          |
 | ---------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Identity reference     | (audit found 0 literal legacy-name matches)              | Add a project-identity line near the title or preamble naming SafeSignal. Likely: "SafeSignal — Constitution". |
+| H1 title (line 29)     | `# Frontend Logging SDK Constitution`                    | A SafeSignal-flavored title (e.g., `# SafeSignal Constitution`). This is the project-identity reference T017 rewrites. |
+| Body prose             | Generic terms ("frontend logging SDK", "logging SDK", "browser package", "reusable browser package") used in Rationale paragraphs | **Unchanged** — generic descriptive language is preserved per spec edge case (lines 208–214). Kebab `frontend-logging-sdk` pattern returns 0 matches. |
 | Principles (1..7)      | 7 principles, version `1.2.0`                            | **Unchanged** — FR-017                                                                                         |
 | `Version`              | `1.2.0`                                                  | `1.2.0` (FR-017 — version not bumped)                                                                          |
 | `Last Amended`         | (existing date)                                          | MAY bump to the rename's landing date (per Assumptions)                                                        |

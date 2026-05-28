@@ -63,9 +63,19 @@ appearing inside an in-scope file:
 - `frontend-logging-sdk`
 - `@your-org`
 
-Note: The audit is case-sensitive. `Frontend-Logging-SDK` or similar
-proper-noun framings of the legacy concept are NOT denied because
-they are unambiguous prose, not the literal package identifier.
+Note: The audit is case-sensitive. Title-case or proper-noun
+framings of the generic concept (e.g., `Frontend Logging SDK`,
+`Frontend-Logging-SDK`, `logging SDK`) are NOT denied because they
+are unambiguous descriptive prose, not the literal package
+identifier. The spec's edge case (spec.md lines 208–214) explicitly
+preserves generic descriptive language ("browser-first structured
+logging package", "frontend logging SDK") because SafeSignal IS a
+browser-first structured logging package; the description is still
+factually accurate. The constitution's H1 title (which IS an
+identity reference rather than body prose) is rewritten by tasks.md
+T017 independently of this audit. The audit deliberately scopes
+itself to the literal package identifier so that descriptive
+language doesn't generate audit noise.
 
 ## Allowed exceptions
 

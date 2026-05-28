@@ -62,7 +62,7 @@ the new URL exists.
 emits the instruction; the user executes the rename in the GitLab
 web UI and reports back the new repository URL.
 
-- [ ] T003 Rename the GitLab project slug to `safesignal` (or `safesignal-sdk`) via the GitLab project UI: Settings → General → Advanced → "Change path". Capture the resulting full repository URL (HTTPS form) and record it into `specs/003-rename-safesignal/baselines.md` under a "## Repository URL" section
+- [ ] T003 Rename the GitLab project slug to `safesignal` (or `safesignal-sdk`) via the GitLab project UI: Settings → General → Advanced → "Change path". The **agent pauses** after emitting this instruction; the **user** performs the rename in the GitLab web UI and pastes back the new full repository URL (HTTPS form). Record the URL into `specs/003-rename-safesignal/baselines.md` under a "## Repository URL" section. T007 stays blocked until this task completes
 
 **Checkpoint**: New repository URL captured. T007 can proceed.
 
@@ -145,7 +145,7 @@ statement uses `@tallyrow/safesignal[/subpath]`;
 
 - [ ] T018 [P] [US3] Update `examples/host-app/package.json` `description` to identify SafeSignal and the example's role (single-app consumer). Example: `"Single-app consumer example for SafeSignal (@tallyrow/safesignal)."` (maps R-008 / FR-011)
 - [ ] T019 [P] [US3] Update `examples/host-app/index.ts` header doc comment to name SafeSignal in the first paragraph; update every `import` statement to use `@tallyrow/safesignal` (default) or `@tallyrow/safesignal/transport-beacon` (subpath) (maps R-009 / FR-013)
-- [ ] T020 [P] [US3] If `examples/host-app/README.md` exists and references the legacy name, update identity references to SafeSignal; if absent or contains no legacy refs, skip (FR-015)
+- [ ] T020 [P] [US3] First run `ls examples/host-app/README.md` to confirm presence. If the file exists and references the legacy name, update identity references to SafeSignal. If the file is absent or contains no legacy refs, mark the task a confirmed no-op and proceed (FR-015)
 - [ ] T021 [P] [US3] Update `examples/federated-module/package.json` `description` to identify SafeSignal and the example's role (federated module consumer). Example: `"Federated module consumer example for SafeSignal (@tallyrow/safesignal)."` (maps R-008 / FR-012)
 - [ ] T022 [P] [US3] Update `examples/federated-module/index.ts` header doc comment to name SafeSignal in the first paragraph; update every `import` statement (including the standalone-iteration block at the bottom of the file) to use `@tallyrow/safesignal[/subpath]` (maps R-009 / FR-014)
 - [ ] T023 [P] [US3] Update `examples/federated-module/README.md` identity references to SafeSignal (maps R-010 / FR-015)
@@ -277,3 +277,10 @@ commit at the end of each task without asking; the
   `specs/002-*` outside of each one's `quickstart.md` (out of scope
   per FR-018); editing the dormant OTel adapter namespace
   constants (`FLSDK_EVENT_KEY`, `LOGGER_NAME`) — future-work.
+- FR-018's optional "originally authored under the project's former
+  name" callout at the top of each historical `spec.md` is
+  **intentionally not implemented** in this feature. The spec says
+  the callout MAY be added but is not required; the archival specs
+  remain unedited as point-in-time records, and the README +
+  CHANGELOG migration notes carry the legacy-to-SafeSignal mapping
+  for any consumer arriving via a stale link.

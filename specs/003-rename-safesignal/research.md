@@ -49,13 +49,17 @@ verify and either update (if present + references found) or skip.
 
 | File                              | Refs | FR mapping       | Notes                                                                       |
 | --------------------------------- | ---- | ---------------- | --------------------------------------------------------------------------- |
-| `.specify/memory/constitution.md` | 0    | FR-016, FR-017   | grep returned **no** literal `frontend-logging-sdk` or `@your-org` matches. Constitution uses generic terms ("the package", "reusable browser package"). Only an identity line (title-level or preamble) likely needs adding to name the project as SafeSignal. Version stays `1.2.0` (FR-017). `Last Amended` MAY bump. |
+| `.specify/memory/constitution.md` | 1 (title) + N (body prose) | FR-016, FR-017 | The kebab grep for `frontend-logging-sdk` returned **no** matches. However, the title-case identity reference `# Frontend Logging SDK Constitution` exists at `constitution.md:29` (H1), and body prose uses generic phrases such as "frontend logging SDK" / "logging SDK" (e.g., `constitution.md:63` in Principle II's Rationale). The title is the project-identity reference T017 rewrites; the body prose is preserved per the spec edge case (lines 208–214). Version stays `1.2.0` (FR-017). `Last Amended` MAY bump. |
 
-**Decision**: The constitution's body language ("browser-first
-structured logging package", "reusable browser package") stays — it
-is factually accurate (SafeSignal IS a browser-first structured
-logging package). The rename touches identity, not the generic
-descriptive vocabulary.
+**Decision**: The constitution's H1 title at `constitution.md:29`
+moves to a SafeSignal-flavored title (handled by T017). The
+constitution's body language ("browser-first structured logging
+package", "reusable browser package", "logging SDK") stays as
+generic descriptive prose — it is factually accurate (SafeSignal
+IS a browser-first structured logging package). The rename touches
+the title-level identity reference, not the generic descriptive
+vocabulary. The audit's case-sensitive kebab pattern intentionally
+does NOT flag the title-case prose; T017 is the enforcement.
 
 ### Group C: Spec Kit templates — **IN SCOPE if templates use legacy name**
 
