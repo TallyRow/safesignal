@@ -263,7 +263,7 @@ migration that completes the feature.
   Acceptance: The "Quickstart" section in `README.md` is updated to show the new beacon transport as the recommended HTTPS path (alongside `ConsoleTransport` and `NoopTransport`). The example uses the same shape as `quickstart.md`'s five-minute path. Existing v1 quickstart content remains; the beacon section is additive.
   Parallel: Yes
 
-- [ ] T034 Final secret-sweep regression
+- [X] T034 Final secret-sweep regression
   Acceptance: Re-runs `tests/security/transport-beacon-secret-sweep.security.test.ts` against the final implementation. Expands the fixture set to include batching scenarios (configure batching: 10; emit 100 events with fixture values; assert zero fixture leak across recorded envelopes too). SC-004 fully verified for both default and batching modes.
   Parallel: No
 
