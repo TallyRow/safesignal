@@ -102,7 +102,7 @@ the URL.
 > Write these tests FIRST, ensure they FAIL against T003's stub before
 > implementing T016/T017.
 
-- [ ] T010 [P] [US1] Endpoint validation matrix in `tests/unit/transport-beacon/endpoint-validation.test.ts`
+- [X] T010 [P] [US1] Endpoint validation matrix in `tests/unit/transport-beacon/endpoint-validation.test.ts`
   Acceptance: Covers F-1's matrix and TB-5 + TB-6. Cases: `'https://logs.example.com/ingest'` (pass), `'http://logs.example.com'` (throws, names scheme constraint), `'ws://...'` / `'file:///...'` / `''` / non-string (throws), `'http://localhost'` with `allowInsecureLoopback: false` (throws), `'http://localhost'` with `allowInsecureLoopback: true` (pass), `'http://127.0.0.1:4318'` with flag (pass), `'http://[::1]'` with flag (pass), `'http://example.com'` with flag (throws — non-loopback), `'http://my-dev-server'` with flag (throws — non-loopback). All thrown errors name the field + violation + offending value.
   Parallel: Yes
 
