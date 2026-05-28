@@ -118,7 +118,7 @@ the URL.
   Acceptance: Mirrors feature 001's `tests/integration/secret-sweep.integration.test.ts`. Configures a runtime with one beacon transport (test-double sendBeacon recording bodies) and emits 100+ events whose attributes/message/error/context carry every value from `makeSecretFixture()` (from `@your-org/frontend-logging-sdk/testing`). Asserts: (a) every recorded body parses as a JSON `LogEvent`, (b) `JSON.stringify` of every recorded body matches none of the fixture values (i.e., redaction happened upstream and the wire never carries them), (c) every recorded URL is exactly the configured endpoint string (no fixture value reaches the URL). Locks SC-004.
   Parallel: Yes
 
-- [ ] T014 [P] [US1] Construction-sweep performance test in `tests/performance/transport-beacon-construction.performance.test.ts`
+- [X] T014 [P] [US1] Construction-sweep performance test in `tests/performance/transport-beacon-construction.performance.test.ts`
   Acceptance: Constructs 1,000 beacon transports in a tight loop with `installAddEventListenerSpy` + `installSetTimeoutSpy` + a `fetch` / `sendBeacon` call counter installed. Asserts: zero listener installations, zero timer creations, zero `fetch` calls, zero `sendBeacon` calls, zero reads of `window.location` / `document.cookie` / `localStorage` (asserted via property-access proxies installed before the loop). Asserts memory use is O(N) — total allocations measured via a per-test allocation probe stay within a documented per-instance budget × 1000. Locks SC-006, TB-4.
   Parallel: Yes
 
