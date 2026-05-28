@@ -140,7 +140,7 @@ the URL.
   Acceptance: `index.ts` imports `createBeaconTransport` from `@your-org/frontend-logging-sdk/transport-beacon`, removes any hand-rolled fallback, and demonstrates the quickstart five-minute path with `onInternalError` wired into both `configureLogging` and `createBeaconTransport`. `package.json` does not depend on any vendor SDK. The example builds standalone.
   Parallel: No (depends on T017)
 
-- [ ] T019 [US1] Validate quickstart against a scripted harness in `tests/integration/transport-beacon-quickstart.integration.test.ts`
+- [X] T019 [US1] Validate quickstart against a scripted harness in `tests/integration/transport-beacon-quickstart.integration.test.ts`
   Acceptance: A new vitest integration test (running under happy-dom) embeds the exact "Five-minute path (single application)" code block from `quickstart.md` and asserts it compiles + runs successfully. The test imports `createBeaconTransport` from the package's published subpath (resolved via the package's `exports` map, not a relative source path), configures the runtime, emits one `warn` and one `error` event, and asserts both reach the test-double `sendBeacon` with the documented body shape. The test also asserts the `quickstart.md` code block matches the test's embedded source line-for-line (a small fixture-comparison helper guards against drift). No "manual" validation path.
   Parallel: No (depends on T018)
 
