@@ -69,7 +69,7 @@ bundle-shape guard that every subsequent phase relies on.
   Acceptance: Exports `tryBeacon(endpoint: string, payload: string): boolean` (wraps `navigator.sendBeacon` with a `Blob('application/json')`; returns false on unavailable or false-return; never throws) and `tryFetchKeepalive(endpoint: string, payload: string): Promise<boolean>` (POST + keepalive + `credentials: 'same-origin'`; resolves true on 2xx, false on non-2xx or unavailable; rejection bubbles to caller). Exports `getPayloadByteLength(payload: string): number` using `new TextEncoder().encode(payload).length`. Exports `BEACON_SIZE_LIMIT_BYTES = 65536` constant. Zero imports from `src/internal/**`.
   Parallel: Yes
 
-- [ ] T007 [P] Implement lazy lifecycle helper in `src/transport-beacon/lifecycle.ts`
+- [X] T007 [P] Implement lazy lifecycle helper in `src/transport-beacon/lifecycle.ts`
   Acceptance: Exports `installPagehideHandler(handler: () => void): () => void` that adds a `'pagehide'` listener (gated by `typeof globalThis.addEventListener === 'function'`) and returns an `uninstall()` function. Calling `install...` twice is a no-op on the second call (uses a closure-private `installed` flag in the returned API: in practice the caller maintains the flag — this module only provides the primitives). Module is side-effect-free at import.
   Parallel: Yes
 
