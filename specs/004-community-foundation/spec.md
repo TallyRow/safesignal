@@ -79,7 +79,7 @@ section (e.g., `## Migration history`). The npm registry view
 4. **Given** an existing consumer arriving via the legacy package
    name, **When** they scroll past the new value-proposition front
    matter, **Then** they find a clearly-labeled `## Migration
-   history` (or analogously named) section containing the same
+   history` section containing the same
    legacy-to-SafeSignal mapping currently shipped in feature 003's
    migration block — no information is lost.
 
@@ -379,9 +379,11 @@ grows past 1?
   duplicating content already in `README.md`'s quickstart.
 - **FR-009a**: `CONTRIBUTING.md` MUST document the DCO (Developer
   Certificate of Origin) sign-off requirement. The document MUST:
-  (a) reproduce or link to the canonical DCO 1.1 text
-  (https://developercertificate.org/), (b) instruct contributors
-  to sign every commit with `git commit -s` (which appends a
+  (a) reproduce the canonical DCO 1.1 text inline (sourced from
+  `https://developercertificate.org/`; the text is short enough —
+  under 30 lines — that inline reproduction is required for
+  offline-readable CONTRIBUTING), (b) instruct contributors to
+  sign every commit with `git commit -s` (which appends a
   `Signed-off-by: Name <email>` footer), (c) state that MRs whose
   commits lack the sign-off footer will not be merged. The
   expected footer format is the standard git form:
@@ -451,11 +453,13 @@ grows past 1?
   details publicly.
 - **FR-026**: A `.gitlab/merge_request_templates/Default.md` file
   MUST exist with sections: Summary, What changed, Verification,
-  Test plan, Constitution touchpoints, **DCO sign-off checklist**
-  (a checkbox the author confirms by ticking, reminding reviewers
-  to verify every commit in the MR carries a `Signed-off-by:`
-  footer). Sections MAY be optional per MR type but MUST be
-  enumerated in the template.
+  Test plan, Constitution touchpoints, **DCO sign-off checklist**.
+  The DCO checklist MUST contain the canonical wording from
+  `data-model.md`'s MR template inventory (verbatim): `- [ ] Every
+  commit in this MR carries a Signed-off-by: footer (verify with
+  \`git log <base>..HEAD --format=%B | grep -c 'Signed-off-by:'\`)`.
+  Sections MAY be optional per MR type but MUST be enumerated in
+  the template.
 
 #### README rewrite
 
@@ -468,9 +472,13 @@ grows past 1?
   command, (e) minimal quickstart code block.
 - **FR-028**: The migration note from feature 003 MUST be
   relocated from its current position directly under the H1 to a
-  clearly-labeled `## Migration history` (or analogously-named)
-  section deeper in the README. Content of the migration note
-  itself is preserved verbatim (per `contracts/migration-note.md`
+  `## Migration history` section deeper in the README. The H2
+  heading text MUST read exactly `Migration history` (no
+  analogous-name variants — the verification contracts in
+  `contracts/readme-front-matter.md` and
+  `contracts/migration-note-preservation.md` grep for the exact
+  heading, so consistency is mandatory). Content of the migration
+  note body is preserved verbatim (per `contracts/migration-note.md`
   from feature 003).
 - **FR-029**: A front-matter pointer MUST link from the README's
   early content (after the quickstart but before deeper
@@ -480,14 +488,21 @@ grows past 1?
 - **FR-030**: The README MUST link to `CONTRIBUTING.md`,
   `SECURITY.md`, `CODE_OF_CONDUCT.md`, `GOVERNANCE.md`, and
   `LICENSE` from a dedicated "Project resources" section.
-- **FR-031**: The README MUST link to `docs/safe-logging.md` for
-  the full DO/DON'T sweep + bounded-behavior catalog (this link
-  already exists; preserve it).
-- **FR-032**: The README MUST link to the existing examples
-  (`examples/host-app/`, `examples/federated-module/`).
-- **FR-033**: The README MUST link to the constitution
-  (`.specify/memory/constitution.md`) and to the `specs/` directory
-  as a window into how features are designed.
+- **FR-031**: The README MUST preserve links to all of the
+  following supporting surfaces. Existing links in the current
+  README already satisfy this requirement; the rewrite preserves
+  them as-is (relocating them as needed, e.g., into `## Project
+  resources` per FR-030):
+    - `docs/safe-logging.md` (the full DO/DON'T sweep +
+      bounded-behavior catalog)
+    - `examples/host-app/` and `examples/federated-module/` (the
+      two consumer-walkthrough examples)
+    - `.specify/memory/constitution.md` and the `specs/` directory
+      (constitution + how features are designed)
+- **FR-032**: *(merged into FR-031 — examples links covered by the
+  consolidated requirement above)*
+- **FR-033**: *(merged into FR-031 — constitution + specs links
+  covered by the consolidated requirement above)*
 - **FR-034**: The README's `## What this package does NOT do (in
   v1)` section (currently present) MUST be preserved or
   equivalently expressed, since it sets honest expectations about

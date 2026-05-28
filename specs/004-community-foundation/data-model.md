@@ -214,7 +214,7 @@ front-matter best practices." Key non-front-matter modifications:
 | `## Transport security — body-only, HTTPS, no event data in URLs` | PRESERVED |
 | `## Federated / module-federation deployments` | PRESERVED |
 | `## Examples` | PRESERVED |
-| `## Where to learn more` | EXPANDED into a `## Project resources` section that adds CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, GOVERNANCE, LICENSE links (FR-030) |
+| `## Where to learn more` | REPLACED by a `## Project resources` section. The old H2 is removed; its content (links to constitution, specs, docs/safe-logging.md) is consolidated into Project resources alongside the new links (CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, GOVERNANCE, LICENSE). No information is lost; only the heading and grouping change. (FR-030 + FR-031) |
 | `## Roadmap` (NEW, optional) | Forward-looking section per research.md § "Forward-looking Roadmap content" — names trace-context, OTel, RUM, safesignal-server WITHOUT linking to non-existent URLs |
 | `## Migration history` (NEW location for relocated migration note) | Per FR-028; body verbatim from feature 003 |
 
