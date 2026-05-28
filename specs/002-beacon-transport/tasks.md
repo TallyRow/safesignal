@@ -106,7 +106,7 @@ the URL.
   Acceptance: Covers F-1's matrix and TB-5 + TB-6. Cases: `'https://logs.example.com/ingest'` (pass), `'http://logs.example.com'` (throws, names scheme constraint), `'ws://...'` / `'file:///...'` / `''` / non-string (throws), `'http://localhost'` with `allowInsecureLoopback: false` (throws), `'http://localhost'` with `allowInsecureLoopback: true` (pass), `'http://127.0.0.1:4318'` with flag (pass), `'http://[::1]'` with flag (pass), `'http://example.com'` with flag (throws — non-loopback), `'http://my-dev-server'` with flag (throws — non-loopback). All thrown errors name the field + violation + offending value.
   Parallel: Yes
 
-- [ ] T011 [P] [US1] Delivery primitives unit tests in `tests/unit/transport-beacon/delivery.test.ts`
+- [X] T011 [P] [US1] Delivery primitives unit tests in `tests/unit/transport-beacon/delivery.test.ts`
   Acceptance: Covers D-2..D-7, F-2, F-3, F-4, F-7. Uses `tests/helpers/beacon-network.ts` doubles. Cases: payload is exactly `JSON.stringify(event)` (D-2); size check precedes primitive call (D-3, F-2); `sendBeacon` called with `Blob('application/json')` (D-4); fetch fallback call shape matches `{ method: 'POST', body, keepalive: true, headers: { 'content-type': 'application/json' }, credentials: 'same-origin' }` (D-5); sendBeacon true → no fetch (D-6); sendBeacon false → fetch called once (D-6); sendBeacon undefined → fetch called once (D-6); both undefined → drop with `beacon_unavailable` notice (D-7, F-3); fetch rejects → drop with `transport_send_failed` notice carrying `.cause` (F-4, F-7); fetch non-2xx → drop with `transport_send_failed` (D-5 / F-4).
   Parallel: Yes
 

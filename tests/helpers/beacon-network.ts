@@ -29,10 +29,17 @@
 export interface SendBeaconCall {
   /** The endpoint string passed to `navigator.sendBeacon`. */
   readonly endpoint: string;
-  /** The body argument the transport passed (always a `Blob` per D-4, but we coerce to string for assertions). */
+  /**
+   * The body coerced to string for **string-body** calls (assertion
+   * convenience for legacy tests). For Blob bodies — the case the
+   * beacon transport always uses per D-4 — this is `null`; read the
+   * body via `await call.blob.text()` instead.
+   */
   readonly body: string | null;
   /** The `Blob.type` if the body was a Blob; otherwise `null`. */
   readonly bodyType: string | null;
+  /** The raw Blob reference for sendBeacon(endpoint, blob) calls. `null` for non-Blob bodies. Use `await call.blob.text()` to read content. */
+  readonly blob: Blob | null;
 }
 
 export interface InstallSendBeaconDoubleOptions {
@@ -94,21 +101,33 @@ export function installSendBeaconDouble(
  * Convenience: install a `sendBeacon` double that's missing entirely
  * (simulates the `beacon_unavailable` path). Returns a controller whose
  * `calls` will stay empty.
+ *
+ * Implementation note: happy-dom exposes `sendBeacon` on
+ * `Navigator.prototype`, so `delete navigator.sendBeacon` is a no-op
+ * (deletes nothing on the instance, prototype value still shadows
+ * through). We assign `undefined` to the instance property to shadow
+ * the prototype value, and restore the original (or delete the
+ * instance property if there was no own property to begin with) on
+ * `uninstall()`.
  */
 export function installSendBeaconUnavailable(): SendBeaconDoubleController {
   const calls: SendBeaconCall[] = [];
   const nav = ensureNavigator();
-  const hadOriginal = Object.prototype.hasOwnProperty.call(nav, 'sendBeacon');
-  const original = (nav as { sendBeacon?: unknown }).sendBeacon;
-  delete (nav as { sendBeacon?: unknown }).sendBeacon;
+  const hadOwn = Object.prototype.hasOwnProperty.call(nav, 'sendBeacon');
+  const originalOwn = hadOwn
+    ? (nav as { sendBeacon?: unknown }).sendBeacon
+    : undefined;
+  (nav as { sendBeacon?: unknown }).sendBeacon = undefined;
 
   return {
     get calls(): ReadonlyArray<SendBeaconCall> {
       return calls;
     },
     uninstall(): void {
-      if (hadOriginal) {
-        (nav as { sendBeacon: unknown }).sendBeacon = original;
+      if (hadOwn) {
+        (nav as { sendBeacon: unknown }).sendBeacon = originalOwn;
+      } else {
+        delete (nav as { sendBeacon?: unknown }).sendBeacon;
       }
     },
   };
@@ -344,53 +363,38 @@ function ensureNavigator(): Navigator {
 
 function recordBeaconCall(endpoint: string, data?: BodyInit | null): SendBeaconCall {
   if (data === undefined || data === null) {
-    return { endpoint, body: null, bodyType: null };
+    return { endpoint, body: null, bodyType: null, blob: null };
   }
   if (data instanceof Blob) {
-    // happy-dom's Blob exposes `.text()` async, but tests run synchronously
-    // through the spy. Read via the constructor parts we already know about
-    // by leveraging Blob's `type` and storing the inputs at construction.
-    // Since we can't await here, we synchronously stringify the Blob via
-    // a known-good pathway: FileReaderSync is unavailable, so we rely on
-    // the package code always passing a string-source Blob and on the
-    // double-recipient calling `toString()` on the result of `_$parts`
-    // when available (happy-dom internal). For broad compatibility we
-    // fall back to a best-effort coerce.
-    const blobAny = data as Blob & { _$parts?: unknown[]; _buffer?: ArrayBuffer };
-    if (Array.isArray(blobAny._$parts)) {
-      return {
-        endpoint,
-        body: blobAny._$parts.map((part) => String(part)).join(''),
-        bodyType: data.type,
-      };
-    }
-    if (blobAny._buffer instanceof ArrayBuffer) {
-      return {
-        endpoint,
-        body: new TextDecoder().decode(new Uint8Array(blobAny._buffer)),
-        bodyType: data.type,
-      };
-    }
-    // Last resort — happy-dom version drift. Tests that depend on body
-    // inspection will surface this as a string `[object Blob]`.
-    return { endpoint, body: String(data), bodyType: data.type };
+    // happy-dom's Blob stores bytes in a Symbol-keyed private field with
+    // no synchronous accessor. We expose the raw Blob so tests can
+    // `await call.blob.text()` when they need to inspect the body. The
+    // `bodyType` field is still synchronously available because `.type`
+    // is a plain property.
+    return { endpoint, body: null, bodyType: data.type, blob: data };
   }
   if (typeof data === 'string') {
-    return { endpoint, body: data, bodyType: null };
+    return { endpoint, body: data, bodyType: null, blob: null };
   }
   if (data instanceof ArrayBuffer) {
-    return { endpoint, body: new TextDecoder().decode(new Uint8Array(data)), bodyType: null };
+    return {
+      endpoint,
+      body: new TextDecoder().decode(new Uint8Array(data)),
+      bodyType: null,
+      blob: null,
+    };
   }
   if (ArrayBuffer.isView(data)) {
     return {
       endpoint,
       body: new TextDecoder().decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)),
       bodyType: null,
+      blob: null,
     };
   }
   // FormData / URLSearchParams etc. — the transport contract forbids these,
   // so tests using the double should never pass them.
-  return { endpoint, body: String(data), bodyType: null };
+  return { endpoint, body: String(data), bodyType: null, blob: null };
 }
 
 function readInitBody(init: RequestInit | undefined): string | null {
