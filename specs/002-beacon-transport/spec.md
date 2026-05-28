@@ -15,6 +15,14 @@ additional named entry in the package's exports map — it MUST NOT be
 wired into the default emit path, MUST NOT alter the public surface of
 the core, and MUST be opt-in via explicit consumer code."
 
+## Clarifications
+
+### Session 2026-05-27
+
+- Q: FR-009 — Distribution mechanism for the new transport entry: subpath export of this package vs. sibling npm package? → A: Subpath export at `./transport-beacon` of `@your-org/frontend-logging-sdk`. Single `package.json`, single CI, single version; the `exports` map structurally enforces the boundary the same way `./testing` does; no version-skew risk between core and transport.
+- Q: FR-016 — Localhost development relaxation pattern for `http://localhost` / `http://127.0.0.1`? → A: Explicit `allowInsecureLoopback?: boolean` constructor flag (default `false`). When `true`, `http://` is permitted **only** when the host is in the loopback allowlist (`localhost`, `127.0.0.1`, `[::1]`); every other non-HTTPS endpoint still throws at construction. Ambient-environment-driven relaxation (NODE_ENV, env vars, hostname sniffing) is explicitly rejected — the flag must be visible at the call site.
+- Q: FR-017 — Oversized event body handling when the serialized payload exceeds `sendBeacon`'s ~64 KB limit? → A: Drop the single oversized event, fire `onInternalError` exactly once per session with documented error code `oversized_event` carrying the event message and serialized byte count; never fall back to URL-based delivery; do not attempt the fetch-keepalive fallback for this case (it shares the same effective per-origin budget). Refuse-at-pipeline is explicitly out of scope — this stays at the transport boundary.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Host application configures HTTPS delivery without writing transport plumbing (Priority: P1)
@@ -174,14 +182,21 @@ documented error code, all subsequent batches deliver normally.
   attempt a runtime probe to "test" the endpoint.
 - **Localhost development relaxation**: applications iterating locally
   may need `http://localhost` / `http://127.0.0.1` endpoints. The
-  relaxation pattern is open — see open question #2 below. The
-  recommendation is an explicit opt-in flag at construction time that
-  refuses any host other than the documented loopback names; never an
-  ambient-environment-driven relaxation.
+  relaxation is gated by an explicit
+  `allowInsecureLoopback: true` constructor flag (default `false`).
+  When set, `http://` is permitted **only** for hosts in the loopback
+  allowlist (`localhost`, `127.0.0.1`, `[::1]`); every other
+  non-HTTPS endpoint still throws at construction. The flag is never
+  driven by ambient state (`NODE_ENV`, env vars, hostname sniffing).
 - **Oversized event body**: when a single event's JSON serialization
   exceeds the browser's `sendBeacon` size limit (~64 KB), the transport
-  cannot fall back to URL-based delivery (forbidden by T-S1..T-S5).
-  Behavior is open — see open question #3.
+  drops that one event and fires `onInternalError` once per session
+  with error code `oversized_event` (payload: event `message` + byte
+  count; never the event's attrs/error/context). No URL fallback
+  (forbidden by T-S1..T-S5); no fetch-keepalive fallback (same
+  effective budget). With batching enabled, an oversized event inside
+  a pending batch is ejected from the batch with its own notice
+  before the remaining batch is flushed.
 - **`sendBeacon` returns false**: browser refused the payload (commonly
   size limit, post-pageload restriction, or quota). The transport
   falls back to `fetch(endpoint, { method: 'POST', body, keepalive:
@@ -222,10 +237,10 @@ documented error code, all subsequent batches deliver normally.
 ## Consumer Impact & Compatibility *(mandatory for package work)*
 
 - **Public API Surface**:
-  - **New named entry** in the package's `exports` map exposing a
-    transport factory plus its configuration option types. The exact
-    entry path is one of two clarification candidates (subpath
-    `./transport-beacon` vs. sibling package — see open question #1).
+  - **New named entry** in the package's `exports` map at
+    `./transport-beacon` exposing a transport factory plus its
+    configuration option types. Consumer import path:
+    `@your-org/frontend-logging-sdk/transport-beacon`.
   - **Zero changes** to the v1 default entry (`@your-org/frontend-
     logging-sdk`). `createLogger`, `configureLogging`, `getRootLogger`,
     `createRedactor`, `scrubUrl`, `ConsoleTransport`, `NoopTransport`,
@@ -291,8 +306,10 @@ documented error code, all subsequent batches deliver normally.
       no-batch mode; per-batch in batch mode).
     - Both primitives unavailable (per-event; one notice per session
       via the existing FS-12 budget).
-    - Oversized event body — behavior depends on resolution of open
-      question #3.
+    - Oversized event body (serialized payload exceeds ~64 KB) — one
+      `oversized_event` notice per session, no URL or keepalive
+      fallback. In batch mode the oversized event is ejected from the
+      batch with its own notice; remaining batch events still flush.
     - `pagehide` race with pending buffer.
     - `shutdown()` with pending buffer that the final flush cannot
       drain.
@@ -379,15 +396,17 @@ documented error code, all subsequent batches deliver normally.
 
 #### Distribution & exports surface
 
-- **FR-009**: The new transport entry [NEEDS CLARIFICATION: subpath
-  export at `./transport-beacon` of this package vs. sibling npm
-  package `@your-org/frontend-logging-sdk-transport-beacon` — see open
-  question #1; recommended answer is subpath, rationale: aligned
-  release cadence, exports-map enforcement of the boundary, no
-  version-skew between core and transport, single CI pipeline] MUST
+- **FR-009**: The new transport entry MUST be a **subpath export at
+  `./transport-beacon`** of `@your-org/frontend-logging-sdk` (consumer
+  import: `import { createBeaconTransport } from
+  '@your-org/frontend-logging-sdk/transport-beacon'`). The entry MUST
   expose exactly one transport factory (a parameterless or
   options-taking function that returns a `Transport`) plus the type
-  shape of its options.
+  shape of its options. The subpath MUST be declared in the package's
+  `exports` map alongside the default entry and `./testing`. A sibling
+  npm package is **not** in scope for this feature; if a future
+  independent release cadence becomes necessary, a sibling re-export
+  may be added without removing this subpath.
 - **FR-010**: The default-entry bundle (`dist/index.{mjs,cjs}`) MUST
   NOT include the beacon transport's code. The transport's bundle MUST
   NOT include the core pipeline's internal modules. One-way dependency:
@@ -424,26 +443,37 @@ documented error code, all subsequent batches deliver normally.
 - **FR-016**: The transport MUST refuse non-HTTPS endpoints at
   construction time by throwing an error that names the endpoint and
   the violated scheme constraint. Construction-time refusal predates
-  any logger creation and any listener attachment. [NEEDS
-  CLARIFICATION: development-mode relaxation pattern for
-  `http://localhost` / `http://127.0.0.1` — see open question #2;
-  recommended answer is an explicit opt-in `allowInsecureLoopback`
-  constructor flag that refuses any host other than the documented
-  loopback names AND requires the consumer to make the opt-in visible
-  at the call site; rejected: ambient-environment-driven relaxation
-  that activates based on `process.env.NODE_ENV` or similar, because
-  the core principle is that ambient state never alters package
-  behavior.]
+  any logger creation and any listener attachment. The **only**
+  permitted exception is an explicit opt-in
+  `allowInsecureLoopback?: boolean` constructor flag (default
+  `false`). When `true`, the construction-time scheme check permits
+  `http://` endpoints if and only if the host (per WHATWG URL parsing)
+  matches one of `localhost`, `127.0.0.1`, or `[::1]`; every other
+  non-HTTPS endpoint MUST still throw. The flag MUST NOT be readable
+  from any ambient source (`process.env.*`, `globalThis.*`, URL
+  parameters, `window.location`, build-tool define plugins are
+  acceptable only insofar as they produce a literal value the consumer
+  passes at the call site). Construction MUST throw if
+  `allowInsecureLoopback` is `true` but the host is not in the
+  loopback allowlist, with an error naming the endpoint, the flag,
+  and the allowlist.
 - **FR-017**: The transport MUST handle an event whose serialized body
-  exceeds the browser's `sendBeacon` size limit (~64 KB) [NEEDS
-  CLARIFICATION: drop-with-notice vs. force-fetch-fallback vs.
-  refuse-at-pipeline — see open question #3; recommended answer is:
-  drop the single oversized event, fire `onInternalError` once per
-  session with a documented "oversized_event" error code naming the
-  event message, and never fall back to URL-based delivery; rationale:
-  URL fallback is forbidden by T-S1..T-S5, force-fetch-fallback masks
-  the size problem from operators, and refusing-at-pipeline expands
-  this feature's scope into the core sanitizer's bounds].
+  exceeds the browser's `sendBeacon` size limit (~64 KB) by **dropping
+  the single oversized event** and firing `onInternalError` exactly
+  once per session with documented error code `oversized_event`. The
+  notice payload MUST include the event's `message` field and the
+  serialized byte count; it MUST NOT include the event's `attrs`,
+  `error`, or `context` content (to avoid leaking the same payload
+  whose size was the problem). The transport MUST NOT fall back to
+  URL-based delivery (forbidden by T-S1..T-S5) and MUST NOT attempt
+  the `fetch` + `keepalive: true` fallback for this case (the
+  keepalive budget shares the same ~64 KB-per-origin limit and would
+  mask the size signal). When batching is enabled, an oversized
+  single event inside a pending batch MUST be ejected from the batch
+  with its own `oversized_event` notice before the rest of the batch
+  is flushed; the batch flush itself proceeds with the remaining
+  events. Detection MUST happen at the transport layer; this feature
+  does NOT push size enforcement upstream into the core sanitizer.
 
 #### Lifecycle
 
@@ -511,15 +541,19 @@ documented error code, all subsequent batches deliver normally.
 - **BeaconTransportOptions**: the constructor options shape, including
   at minimum: `endpoint: string`, `batching?: { maxBatchSize: number;
   maxBatchAgeMs?: number }` (optional, off by default),
-  `allowInsecureLoopback?: boolean` (dev-mode relaxation, pending
-  clarification #2).
+  `allowInsecureLoopback?: boolean` (default `false`; when `true`
+  permits `http://` for hosts `localhost`, `127.0.0.1`, `[::1]` only).
 - **BatchEnvelope**: the documented body shape when batching is
   enabled. Carries an `events: LogEvent[]` field in pipeline-emission
   order. No additional transport-level metadata fields beyond what is
   necessary to distinguish a batched body from a single-event body.
 - **DropNotice**: a `PackageError` value passed to `onInternalError`
-  when the transport drops events. Carries a documented error code,
-  the dropped count, the transport's `name`, and a non-leaky message.
+  when the transport drops events. Carries a documented error code
+  (e.g., `oversized_event`, `send_failed`, `batch_drop`,
+  `transport_unavailable`), the dropped count, the transport's `name`,
+  and a non-leaky message. The `oversized_event` code additionally
+  carries the originating event's `message` field and the serialized
+  byte count, never its `attrs`/`error`/`context`.
 
 ## Success Criteria *(mandatory)*
 
