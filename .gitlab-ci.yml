@@ -121,16 +121,21 @@ dco-check:
 # ----------------------------------------------------------------
 
 verify-tag-signed:
-  stage: typecheck   # fail-fast: earliest stage
+  stage: typecheck   # fail-fast - earliest stage
   extends: .release_only
-  before_script: []  # skip default (no npm install needed)
+  before_script: []  # skip default - no npm install needed
   image: alpine:latest
   script:
+    # Each step exits non-zero on failure - GitLab CI auto-fails the job.
+    # git tag -v emits its own diagnostic on signature failure.
+    # git merge-base --is-ancestor exits 1 if the commit isn't an ancestor.
     - apk add --no-cache git gnupg
-    - git tag -v "$CI_COMMIT_TAG" || { echo "FAIL: tag $CI_COMMIT_TAG is not signed"; exit 1; }
+    - 'echo "Verifying tag $CI_COMMIT_TAG signature..."'
+    - git tag -v "$CI_COMMIT_TAG"
+    - 'echo "Verifying tagged commit is on $CI_DEFAULT_BRANCH..."'
     - git fetch --depth=100 origin "$CI_DEFAULT_BRANCH"
-    - git merge-base --is-ancestor "$CI_COMMIT_SHA" "origin/$CI_DEFAULT_BRANCH" || { echo "FAIL: tag $CI_COMMIT_TAG points at $CI_COMMIT_SHA which is NOT an ancestor of origin/$CI_DEFAULT_BRANCH"; exit 1; }
-    - echo "Tag $CI_COMMIT_TAG verified: signed + ancestor of $CI_DEFAULT_BRANCH"
+    - git merge-base --is-ancestor "$CI_COMMIT_SHA" "origin/$CI_DEFAULT_BRANCH"
+    - 'echo "Tag $CI_COMMIT_TAG verified - signed and on $CI_DEFAULT_BRANCH"'
 
 # Release-pipeline matrix jobs (typecheck/test/build × 2 Node versions)
 release-typecheck:
