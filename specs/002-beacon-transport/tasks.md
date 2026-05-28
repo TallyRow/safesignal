@@ -234,7 +234,7 @@ subsequent batches deliver normally.
   Acceptance: `quickstart.md`'s "Opt-in batching" section is exercised by an integration test (similar to T019) that confirms the code sample compiles and runs. `docs/safe-logging.md` gains a "Beacon transport batching" subsection covering: envelope shape, when to enable, the `maxBatchSize × per-event-size < 64 KiB` rule, drop-notice routing, the recommendation to wire `onInternalError` to both places. No insecure-pattern normalization (e.g., no URL-based fallback discussion outside of explicit "rejected — forbidden by T-S1..T-S5" framing).
   Parallel: No
 
-- [ ] T029a [US3] Review boundary: confirm US3 acceptance
+- [X] T029a [US3] Review boundary: confirm US3 acceptance
   Acceptance: SC-003 (batching `assertTransportContract` passes), SC-009 (one drop notice per forced batch drop), SC-010 (reconfigure during in-flight batch drives drain or one drop notice) verified. B-1..B-12, F-2 batch path, F-5, F-8 all pass. Order preservation across 1,000 events asserted. T024..T029 pass. No regression in T010..T021.
   Parallel: No
 
