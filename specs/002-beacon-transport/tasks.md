@@ -185,7 +185,7 @@ attached after the first emission.
   Acceptance: The host-app example now configures the runtime once at boot and demonstrates importing two synthetic "modules" each calling `createLogger({ module })`. The example's output (in `console.log` or recorded to a fixture) shows distinct `context.module.name` per logger.
   Parallel: No
 
-- [ ] T023a [US2] Review boundary: confirm US2 acceptance
+- [X] T023a [US2] Review boundary: confirm US2 acceptance
   Acceptance: SC-005 verified (1,000 events delivered with correct module attribution, no duplication, no loss). FR-024 verified (multi-instance coexistence with independent listeners). No second listener installed when only the host transport is configured. T020 and T021 pass. Federated-module example builds and runs.
   Parallel: No
 
