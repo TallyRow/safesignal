@@ -33,11 +33,15 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import * as TB from '@your-org/frontend-logging-sdk/transport-beacon';
 import * as Pkg from '@your-org/frontend-logging-sdk';
 import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
+import {
+  installFetchDouble,
+  installSendBeaconDouble,
+} from '../helpers/beacon-network.js';
 
 const PACKAGE_JSON_PATH = resolve(process.cwd(), 'package.json');
 
@@ -162,24 +166,54 @@ describe('TB-9 — multi-instance independence', () => {
 
 describe('TB-10 — synchronous factory and synchronous send', () => {
   it('factory does not return a Promise (synchronous construction)', () => {
-    // T003's stub throws synchronously — verify the throw is synchronous
-    // (not a rejected Promise). A Promise-returning factory would change
-    // the call-site signature.
-    let result: unknown;
-    let threw = false;
-    try {
-      result = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
-    } catch {
-      threw = true;
-    }
-    expect(threw).toBe(true);
-    expect(result).toBeUndefined();
-    // Bonus: confirm the factory's `.constructor.name` is the normal
-    // 'Function', not 'AsyncFunction'. (Type-only check would suffice but
-    // a runtime check guards against an accidental refactor.)
+    // The factory MUST be a normal function returning a Transport-shaped
+    // object synchronously — never a Promise. An async-returning factory
+    // would change the call-site signature in a breaking way.
+    const result = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+    });
+    expect(result).not.toBeInstanceOf(Promise);
+    expect(typeof result).toBe('object');
+    expect(result).not.toBeNull();
+    // Confirm the factory's `.constructor.name` is the normal 'Function',
+    // not 'AsyncFunction'. (Type-only check would suffice but a runtime
+    // check guards against an accidental refactor.)
     expect(TB.createBeaconTransport.constructor.name).toBe('Function');
   });
-  it.todo('returned send() method returns void synchronously (no Promise) (unlocks at T016)');
+  describe('returned send() method', () => {
+    let beaconCtrl: ReturnType<typeof installSendBeaconDouble> | null = null;
+    let fetchCtrl: ReturnType<typeof installFetchDouble> | null = null;
+
+    beforeEach(() => {
+      // Hermetic: prevent the real-network fetch fallback that would
+      // otherwise hit https://logs.example.com from a test environment.
+      beaconCtrl = installSendBeaconDouble({ returnValue: true });
+      fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    });
+    afterEach(() => {
+      beaconCtrl?.uninstall();
+      fetchCtrl?.uninstall();
+      beaconCtrl = null;
+      fetchCtrl = null;
+    });
+
+    it('returns void synchronously (no Promise)', () => {
+      const transport = TB.createBeaconTransport({
+        endpoint: 'https://logs.example.com/ingest',
+      });
+      const sendResult = transport.send({
+        timestamp: '2026-05-27T00:00:00.000Z',
+        level: 'warn',
+        message: 'sync send check',
+        attributes: {},
+        context: {},
+      });
+      expect(sendResult).toBeUndefined();
+      // shutdown() in default mode is a Promise-returning idempotent.
+      // send() must not be — locked by D-1.
+      expect(transport.send.constructor.name).toBe('Function');
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
