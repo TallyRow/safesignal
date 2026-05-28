@@ -2,6 +2,7 @@
   "name": "@tallyrow/safesignal",
   "version": "1.0.0",
   "description": "SafeSignal — secure structured logging facade and safety boundary for browser applications and federated frontend modules. Browser-first, vendor-neutral, secure-by-default sanitization, redaction, and pluggable transports.",
+  "license": "MIT",
   "keywords": [
     "safesignal",
     "logging",

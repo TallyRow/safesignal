@@ -1,7 +1,3 @@
 {
-<<<<<<< HEAD
-  "feature_directory": "specs/002-beacon-transport"
-=======
-  "feature_directory": "specs/003-rename-safesignal"
->>>>>>> 82219d3 ([Spec Kit] 003-rename-safesignal — initial spec scaffolded)
+  "feature_directory": "specs/004-community-foundation"
 }
