@@ -38,7 +38,7 @@ drop — single-event or batch — surfaces exactly once through
 
 The transport is opt-in via explicit named import; the default entry
 (`@your-org/frontend-logging-sdk`) stays bit-identical. The transport's
-bundle stays under 5 KB gzipped and does not include any
+bundle stays under 5 KiB gzipped (5120 bytes) and does not include any
 pipeline-internal module from the core.
 
 ## Technical Context
@@ -109,9 +109,9 @@ package. No new repository, no new package.
 - **Hot-path overhead**: `send()` does one JSON.stringify + one
   primitive dispatch in default mode; with batching, an O(1) push
   onto the in-memory buffer plus a flush check.
-- **Bundle**: the new subpath's built artifact is under 5 KB gzipped
-  (SC-008). The default entry's built bundle is bit-identical or
-  smaller versus the pre-feature snapshot (SC-007).
+- **Bundle**: the new subpath's built artifact is under 5 KiB gzipped
+  (5120 bytes — SC-008). The default entry's built bundle is bit-
+  identical or smaller versus the pre-feature snapshot (SC-007).
 
 **Constraints**:
 - HTTPS-only at construction (`allowInsecureLoopback` exception
