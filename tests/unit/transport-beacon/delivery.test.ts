@@ -197,17 +197,170 @@ describe('tryFetchKeepalive — async primitive', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Composition-level behaviours (unlock at T016)
+// Composition-level behaviours (createBeaconTransport policy)
 // ---------------------------------------------------------------------------
 
-describe('createBeaconTransport composition (unlocks at T016)', () => {
-  it.todo('payload is exactly JSON.stringify(event) (D-2 composition)');
-  it.todo('size check precedes primitive call; oversized → drop + oversized_event notice (D-3, F-2)');
-  it.todo('sendBeacon true → no fetch call (D-6)');
-  it.todo('sendBeacon false → fetch called exactly once (D-6)');
-  it.todo('sendBeacon undefined → fetch called exactly once (D-6)');
-  it.todo('both primitives undefined → drop + beacon_unavailable notice (D-7, F-3)');
-  it.todo('fetch rejection → drop + transport_send_failed notice carrying .cause (F-4, F-7)');
-  it.todo('fetch non-2xx → drop + transport_send_failed notice (D-5, F-4)');
-  it.todo('oversized_event notice fires once per session (rate-limited per F-8)');
+import { createBeaconTransport } from '../../../src/transport-beacon/index.js';
+import {
+  installSendBeaconUnavailable,
+} from '../../helpers/beacon-network.js';
+
+type AnyLogEvent = {
+  timestamp: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  attributes: Record<string, unknown>;
+  context: Record<string, unknown>;
+};
+
+function event(message: string, attributes: Record<string, unknown> = {}): AnyLogEvent {
+  return {
+    timestamp: '2026-05-27T00:00:00.000Z',
+    level: 'warn',
+    message,
+    attributes,
+    context: {},
+  };
+}
+
+function settleMicrotasks(): Promise<void> {
+  return new Promise<void>((r) => setTimeout(r, 0));
+}
+
+describe('createBeaconTransport composition', () => {
+  let beaconCtrl: ReturnType<typeof installSendBeaconDouble> | null = null;
+  let fetchCtrl: ReturnType<typeof installFetchDouble> | null = null;
+
+  afterEach(() => {
+    beaconCtrl?.uninstall();
+    fetchCtrl?.uninstall();
+    beaconCtrl = null;
+    fetchCtrl = null;
+  });
+
+  it('payload is exactly JSON.stringify(event) (D-2)', async () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: true });
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
+    const e = event('payment retry', { attemptCount: 4 });
+    t.send(e as never);
+    expect(beaconCtrl.calls.length).toBe(1);
+    const body = await beaconCtrl.calls[0]?.blob?.text();
+    expect(body).toBe(JSON.stringify(e));
+  });
+
+  it('size check precedes primitive call; oversized → drop + oversized_event notice (D-3, F-2)', () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: true });
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    const notices: Error[] = [];
+    const t = createBeaconTransport({
+      endpoint: 'https://example.com/ingest',
+      onInternalError: (err) => notices.push(err),
+    });
+    // 70_000 ASCII bytes > 65_536 limit. The JSON envelope adds a few
+    // bytes of structure, so 70_000 is safely over the threshold.
+    const big = 'x'.repeat(70_000);
+    const e = event('oversized', { v: big });
+    t.send(e as never);
+    expect(beaconCtrl.calls.length).toBe(0); // no primitive call
+    expect(fetchCtrl.calls.length).toBe(0);
+    expect(notices.length).toBe(1);
+    expect((notices[0] as Error & { code?: string }).code).toBe('oversized_event');
+  });
+
+  it('sendBeacon true → no fetch call (D-6)', () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: true });
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
+    t.send(event('x') as never);
+    expect(beaconCtrl.calls.length).toBe(1);
+    expect(fetchCtrl.calls.length).toBe(0);
+  });
+
+  it('sendBeacon false → fetch called exactly once (D-6)', async () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: false });
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
+    t.send(event('x') as never);
+    expect(beaconCtrl.calls.length).toBe(1);
+    await settleMicrotasks();
+    expect(fetchCtrl.calls.length).toBe(1);
+  });
+
+  it('sendBeacon undefined → fetch called exactly once (D-6)', async () => {
+    const unavailable = installSendBeaconUnavailable();
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    try {
+      const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
+      t.send(event('x') as never);
+      await settleMicrotasks();
+      expect(fetchCtrl.calls.length).toBe(1);
+    } finally {
+      unavailable.uninstall();
+    }
+  });
+
+  it('both primitives undefined → drop + beacon_unavailable notice (D-7, F-3)', () => {
+    const unavailable = installSendBeaconUnavailable();
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'unavailable' } });
+    try {
+      const notices: Error[] = [];
+      const t = createBeaconTransport({
+        endpoint: 'https://example.com/ingest',
+        onInternalError: (err) => notices.push(err),
+      });
+      t.send(event('x') as never);
+      expect(notices.length).toBe(1);
+      expect((notices[0] as Error & { code?: string }).code).toBe('beacon_unavailable');
+    } finally {
+      unavailable.uninstall();
+    }
+  });
+
+  it('fetch rejection → drop + transport_send_failed notice carrying .cause (F-4, F-7)', async () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: false });
+    const cause = new TypeError('Failed to fetch (synthetic)');
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'reject', reason: cause } });
+    const notices: Error[] = [];
+    const t = createBeaconTransport({
+      endpoint: 'https://example.com/ingest',
+      onInternalError: (err) => notices.push(err),
+    });
+    t.send(event('x') as never);
+    await settleMicrotasks();
+    expect(notices.length).toBe(1);
+    const err = notices[0] as Error & { code?: string; cause?: unknown };
+    expect(err.code).toBe('transport_send_failed');
+    expect(err.cause).toBe(cause);
+  });
+
+  it('fetch non-2xx → drop + transport_send_failed notice (D-5, F-4)', async () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: false });
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 500 } });
+    const notices: Error[] = [];
+    const t = createBeaconTransport({
+      endpoint: 'https://example.com/ingest',
+      onInternalError: (err) => notices.push(err),
+    });
+    t.send(event('x') as never);
+    await settleMicrotasks();
+    expect(notices.length).toBe(1);
+    expect((notices[0] as Error & { code?: string }).code).toBe('transport_send_failed');
+  });
+
+  it('oversized_event notice fires once per session (rate-limited per F-8)', () => {
+    beaconCtrl = installSendBeaconDouble({ returnValue: true });
+    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    const notices: Error[] = [];
+    const t = createBeaconTransport({
+      endpoint: 'https://example.com/ingest',
+      onInternalError: (err) => notices.push(err),
+    });
+    const big = 'x'.repeat(70_000);
+    for (let i = 0; i < 5; i += 1) {
+      t.send(event(`oversized ${i}`, { v: big }) as never);
+    }
+    expect(notices.length).toBe(1);
+    expect((notices[0] as Error & { code?: string }).code).toBe('oversized_event');
+  });
 });

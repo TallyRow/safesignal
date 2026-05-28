@@ -231,33 +231,48 @@ export function installAddEventListenerSpy(): AddEventListenerSpyController {
   const originalAdd = globalThis.addEventListener;
   const originalRemove = globalThis.removeEventListener;
 
-  globalThis.addEventListener = ((
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    listenerOptions?: boolean | AddEventListenerOptions,
-  ): void => {
-    registrations.push({ type, listener, options: listenerOptions });
-    originalAdd.call(
-      globalThis,
-      type,
-      listener as EventListener,
-      listenerOptions as boolean | AddEventListenerOptions | undefined,
-    );
-  }) as typeof globalThis.addEventListener;
+  // Use defineProperty defensively — direct assignment fails if a
+  // previous test left the property non-writable (a `defineProperty`
+  // call without `writable: true` is the common cause).
+  Object.defineProperty(globalThis, 'addEventListener', {
+    value: ((
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      listenerOptions?: boolean | AddEventListenerOptions,
+    ): void => {
+      registrations.push({ type, listener, options: listenerOptions });
+      originalAdd.call(
+        globalThis,
+        type,
+        listener as EventListener,
+        listenerOptions as boolean | AddEventListenerOptions | undefined,
+      );
+    }) as typeof globalThis.addEventListener,
+    configurable: true,
+    writable: true,
+  });
 
-  globalThis.removeEventListener = ((
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    listenerOptions?: boolean | EventListenerOptions,
-  ): void => {
-    removals.push({ type, listener, options: listenerOptions as AddEventListenerOptions | boolean | undefined });
-    originalRemove.call(
-      globalThis,
-      type,
-      listener as EventListener,
-      listenerOptions as boolean | EventListenerOptions | undefined,
-    );
-  }) as typeof globalThis.removeEventListener;
+  Object.defineProperty(globalThis, 'removeEventListener', {
+    value: ((
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      listenerOptions?: boolean | EventListenerOptions,
+    ): void => {
+      removals.push({
+        type,
+        listener,
+        options: listenerOptions as AddEventListenerOptions | boolean | undefined,
+      });
+      originalRemove.call(
+        globalThis,
+        type,
+        listener as EventListener,
+        listenerOptions as boolean | EventListenerOptions | undefined,
+      );
+    }) as typeof globalThis.removeEventListener,
+    configurable: true,
+    writable: true,
+  });
 
   return {
     get registrations(): ReadonlyArray<ListenerRegistration> {
@@ -267,8 +282,16 @@ export function installAddEventListenerSpy(): AddEventListenerSpyController {
       return removals;
     },
     uninstall(): void {
-      globalThis.addEventListener = originalAdd;
-      globalThis.removeEventListener = originalRemove;
+      Object.defineProperty(globalThis, 'addEventListener', {
+        value: originalAdd,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(globalThis, 'removeEventListener', {
+        value: originalRemove,
+        configurable: true,
+        writable: true,
+      });
     },
   };
 }

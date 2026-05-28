@@ -144,7 +144,7 @@ the URL.
   Acceptance: A new vitest integration test (running under happy-dom) embeds the exact "Five-minute path (single application)" code block from `quickstart.md` and asserts it compiles + runs successfully. The test imports `createBeaconTransport` from the package's published subpath (resolved via the package's `exports` map, not a relative source path), configures the runtime, emits one `warn` and one `error` event, and asserts both reach the test-double `sendBeacon` with the documented body shape. The test also asserts the `quickstart.md` code block matches the test's embedded source line-for-line (a small fixture-comparison helper guards against drift). No "manual" validation path.
   Parallel: No (depends on T018)
 
-- [ ] T019a [US1] Review boundary: confirm US1 acceptance
+- [X] T019a [US1] Review boundary: confirm US1 acceptance
   Acceptance: TB-1..TB-12 (excluding TB-7 batching variant), D-1..D-12, F-1..F-4, F-7 all pass against the implementation. SC-001 (≤5-minute configure-and-ship), SC-002 (default-config `assertTransportContract` passes), SC-004 (no fixture leak), SC-006 (1,000-transport construction sweep), SC-007 (default entry bit-identical-or-smaller against pre-feature snapshot) verified. `tests/security/transport-beacon-bundle-shape.security.test.ts` passes including the 5 KiB gzipped budget. No regressions in feature 001's existing test groups.
   Parallel: No
 

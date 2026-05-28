@@ -149,7 +149,7 @@ afterEach(() => {
   spies = null;
 });
 
-describe.skip('Constructing N beacon transports performs zero side effects (unlocks at T016)', () => {
+describe('Constructing N beacon transports performs zero side effects', () => {
   it('1,000 transports → zero listener installations', () => {
     if (spies === null) throw new Error('spies not initialised');
     const transports = [];

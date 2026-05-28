@@ -70,7 +70,7 @@ function recordedUrls(): string[] {
   return harness.beacon.calls.map((c) => c.endpoint);
 }
 
-describe.skip('transport-beacon end-to-end secret sweep (unlocks at T016)', () => {
+describe('transport-beacon end-to-end secret sweep', () => {
   it('emits 100+ events carrying every fixture value across attributes / message / context / error', () => {
     if (harness === null) throw new Error('harness not initialised');
     const onInternalError = (err: Error): void => {

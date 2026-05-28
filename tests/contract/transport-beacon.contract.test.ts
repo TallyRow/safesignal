@@ -39,6 +39,7 @@ import * as TB from '@your-org/frontend-logging-sdk/transport-beacon';
 import * as Pkg from '@your-org/frontend-logging-sdk';
 import { assertTransportContract } from '@your-org/frontend-logging-sdk/testing';
 import {
+  installAddEventListenerSpy,
   installFetchDouble,
   installSendBeaconDouble,
 } from '../helpers/beacon-network.js';
@@ -112,10 +113,18 @@ describe('TB-2 — default-entry surface bit-identical to v1', () => {
 // ---------------------------------------------------------------------------
 
 describe('TB-3 — returned transport shape', () => {
-  it.todo(
-    'returns a Transport-shaped object with name, send, flush, shutdown (unlocks at T016)',
-  );
-  it.todo('the returned value is a plain object (prototype === Object.prototype) (unlocks at T016)');
+  it('returns a Transport-shaped object with name, send, flush, shutdown', () => {
+    const t = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
+    expect(typeof t.name).toBe('string');
+    expect(t.name.length).toBeGreaterThan(0);
+    expect(typeof t.send).toBe('function');
+    expect(typeof t.flush).toBe('function');
+    expect(typeof t.shutdown).toBe('function');
+  });
+  it('the returned value is a plain object (prototype === Object.prototype)', () => {
+    const t = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
+    expect(Object.getPrototypeOf(t)).toBe(Object.prototype);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -125,7 +134,7 @@ describe('TB-3 — returned transport shape', () => {
 describe('TB-7 — assertTransportContract battery', () => {
   // T015 lands the full assertion body. The .skip annotation lifts at T016
   // when createBeaconTransport stops throwing on construction.
-  it.skip('default-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery (unskips at T016)', async () => {
+  it('default-mode transport passes the full T-1..T-9 + T-S1..T-S5 battery', async () => {
     const transport = TB.createBeaconTransport({
       endpoint: 'https://logs.example.com/ingest',
     });
@@ -147,8 +156,17 @@ describe('TB-7 — assertTransportContract battery', () => {
 // ---------------------------------------------------------------------------
 
 describe('TB-8 — Transport.name field', () => {
-  it.todo('defaults to "beacon" when options.name is omitted (unlocks at T016)');
-  it.todo('overrides via options.name (unlocks at T016)');
+  it('defaults to "beacon" when options.name is omitted', () => {
+    const t = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
+    expect(t.name).toBe('beacon');
+  });
+  it('overrides via options.name', () => {
+    const t = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+      name: 'beacon-audit',
+    });
+    expect(t.name).toBe('beacon-audit');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -156,8 +174,93 @@ describe('TB-8 — Transport.name field', () => {
 // ---------------------------------------------------------------------------
 
 describe('TB-9 — multi-instance independence', () => {
-  it.todo('two instances installed against different endpoints install independent listeners (unlocks at T016)');
-  it.todo('a drop notice on one instance does not affect the other instance’s rate-limit (unlocks at T016)');
+  it('two instances against different endpoints install independent listeners', () => {
+    const beaconCtrl = installSendBeaconDouble({ returnValue: true });
+    const fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    // Spy must be installed AFTER beaconCtrl/fetchCtrl because those patch
+    // navigator/fetch, not addEventListener — but spy will pick up any
+    // listener install that happens after this point.
+    const listenerSpy = installAddEventListenerSpy();
+    try {
+      const t1 = TB.createBeaconTransport({
+        endpoint: 'https://logs-a.example.com/ingest',
+        name: 'beacon-a',
+      });
+      const t2 = TB.createBeaconTransport({
+        endpoint: 'https://logs-b.example.com/ingest',
+        name: 'beacon-b',
+      });
+      // Construction itself installs nothing.
+      expect(
+        listenerSpy.registrations.filter((r) => r.type === 'pagehide').length,
+      ).toBe(0);
+
+      const event = {
+        timestamp: '2026-05-27T00:00:00.000Z',
+        level: 'warn' as const,
+        message: 'a',
+        attributes: {},
+        context: {},
+      };
+      t1.send(event);
+      t2.send({ ...event, message: 'b' });
+
+      const pagehideAdds = listenerSpy.registrations.filter((r) => r.type === 'pagehide');
+      expect(pagehideAdds.length).toBe(2);
+      // Two distinct handler references — each transport owns its own.
+      expect(pagehideAdds[0]?.listener).not.toBe(pagehideAdds[1]?.listener);
+    } finally {
+      listenerSpy.uninstall();
+      fetchCtrl.uninstall();
+      beaconCtrl.uninstall();
+    }
+  });
+
+  it('a drop notice on one instance does not affect the other instance’s rate-limit', async () => {
+    // Force both primitives to fail — sendBeacon refuses, fetch rejects.
+    const beaconCtrl = installSendBeaconDouble({ returnValue: false });
+    const fetchCtrl = installFetchDouble({
+      behavior: { kind: 'reject', reason: new TypeError('Failed to fetch (synthetic)') },
+    });
+    try {
+      const noticesA: Error[] = [];
+      const noticesB: Error[] = [];
+      const t1 = TB.createBeaconTransport({
+        endpoint: 'https://logs-a.example.com/ingest',
+        name: 'beacon-a',
+        onInternalError: (err) => noticesA.push(err),
+      });
+      const t2 = TB.createBeaconTransport({
+        endpoint: 'https://logs-b.example.com/ingest',
+        name: 'beacon-b',
+        onInternalError: (err) => noticesB.push(err),
+      });
+      const event = {
+        timestamp: '2026-05-27T00:00:00.000Z',
+        level: 'warn' as const,
+        message: 'x',
+        attributes: {},
+        context: {},
+      };
+      t1.send(event);
+      t2.send(event);
+      // Yield microtasks so fetch's rejected Promise settles into our handlers.
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      expect(noticesA.length).toBe(1);
+      expect(noticesB.length).toBe(1);
+      // Each notice names its own transport.
+      expect((noticesA[0] as Error & { transportName?: string }).transportName).toBe('beacon-a');
+      expect((noticesB[0] as Error & { transportName?: string }).transportName).toBe('beacon-b');
+      // Subsequent send on t1 hits the rate-limit (no second notice on A);
+      // but a notice on B is independent — it already fired once but
+      // wouldn't fire twice either. The point of this assertion is that
+      // A's rate-limit didn't suppress B's first notice.
+    } finally {
+      fetchCtrl.uninstall();
+      beaconCtrl.uninstall();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
