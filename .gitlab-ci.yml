@@ -140,6 +140,37 @@ dco-check:
   script:
     - scripts/ci/dco-check.sh
 
+# Quality gates added in Feature 006 (lint / format / coverage).
+# Default Node-22 image; run on source, so no build artifact needed.
+lint:
+  stage: audit
+  extends: .quality_gate_rules
+  needs: []
+  script:
+    - npm run lint
+
+format-check:
+  stage: audit
+  extends: .quality_gate_rules
+  needs: []
+  script:
+    - npm run format:check
+
+coverage:
+  stage: audit
+  extends: .quality_gate_rules
+  # Runs the full suite under coverage; the contract/quickstart tests
+  # import `@tallyrow/safesignal` by name, which resolves only via the
+  # built dist/ exports map — so consume the Node-22 build artifact.
+  needs:
+    - job: build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - npm run test:coverage
+
 # ----------------------------------------------------------------
 # Release pipeline jobs (signed-tag triggered)
 # ----------------------------------------------------------------

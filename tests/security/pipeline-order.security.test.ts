@@ -29,10 +29,9 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
+import type { LogEvent, Redactor } from '../../src/api/types.js';
 import { configureLogging, createLogger } from '../../src/index.js';
 import { createRedactor } from '../../src/pipeline/redactor.js';
-import type { LogEvent, Redactor } from '../../src/api/types.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const APP = { name: 'pipeline-order-lock', version: '1.0.0' };

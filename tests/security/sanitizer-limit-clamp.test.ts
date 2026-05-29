@@ -156,7 +156,7 @@ describe('S-10 / LC-10: values below the documented Min clamp to Min', () => {
     // Runtime enforces 64. A 100-char string truncates at 64 + suffix.
     createLogger().info('s', { s: 'x'.repeat(100) });
     expect(capture.calls[0]!.attributes.s).toBe(
-      'x'.repeat(64) + '...[truncated]',
+      `${'x'.repeat(64)}...[truncated]`,
     );
   });
 

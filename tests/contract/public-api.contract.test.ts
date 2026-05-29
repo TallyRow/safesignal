@@ -53,10 +53,7 @@ describe('public API contract (PA-1..PA-9)', () => {
     for (const name of ROOT_RUNTIME_EXPORTS) {
       it(`exports ${name}`, () => {
         const value = (root as unknown as Record<string, unknown>)[name];
-        expect(
-          value,
-          `'${name}' is missing from src/index.ts`,
-        ).toBeDefined();
+        expect(value, `'${name}' is missing from src/index.ts`).toBeDefined();
       });
     }
   });
@@ -164,7 +161,10 @@ describe('public API contract (PA-1..PA-9)', () => {
       expect(event?.error).toBeDefined();
       expect(event?.error?.name).toBe('TypeError');
       expect(event?.error?.message).toBe('boom');
-      expect(typeof event?.error?.stack === 'string' || event?.error?.stack === undefined).toBe(true);
+      expect(
+        typeof event?.error?.stack === 'string' ||
+          event?.error?.stack === undefined,
+      ).toBe(true);
       // The raw Error is NOT attached.
       expect(event?.error).not.toBeInstanceOf(Error);
     });
@@ -194,19 +194,25 @@ describe('public API contract (PA-1..PA-9)', () => {
       const logger = root.createLogger();
       // @ts-expect-error — `dump` is intentionally not part of the API
       void logger.dump;
-      expect((logger as unknown as Record<string, unknown>).dump).toBeUndefined();
+      expect(
+        (logger as unknown as Record<string, unknown>).dump,
+      ).toBeUndefined();
     });
     it('Logger has no `raw` method (type-level + runtime)', () => {
       const logger = root.createLogger();
       // @ts-expect-error — `raw` is intentionally not part of the API
       void logger.raw;
-      expect((logger as unknown as Record<string, unknown>).raw).toBeUndefined();
+      expect(
+        (logger as unknown as Record<string, unknown>).raw,
+      ).toBeUndefined();
     });
     it('Logger has no `log` method (type-level + runtime)', () => {
       const logger = root.createLogger();
       // @ts-expect-error — `log` is intentionally not part of the API
       void logger.log;
-      expect((logger as unknown as Record<string, unknown>).log).toBeUndefined();
+      expect(
+        (logger as unknown as Record<string, unknown>).log,
+      ).toBeUndefined();
     });
     it('Logger has no `trace`, `fatal`, `verbose`, or other unsupported levels', () => {
       const logger = root.createLogger();

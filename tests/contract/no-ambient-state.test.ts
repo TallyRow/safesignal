@@ -9,7 +9,7 @@
  * read process.env") does not produce a false positive.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -57,7 +57,7 @@ function isExcluded(relativePath: string): boolean {
     (prefix) =>
       relativePath === prefix ||
       relativePath.startsWith(prefix + sep) ||
-      relativePath.startsWith(prefix + '/'),
+      relativePath.startsWith(`${prefix}/`),
   );
 }
 

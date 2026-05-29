@@ -142,8 +142,6 @@ describe('R-3 edge cases', () => {
     // custom shape rule.
     const log = createLogger();
     log.info('payment-id', { reference: '4242 4242 4242 4242' });
-    expect(capture.calls[0]!.attributes.reference).toBe(
-      '4242 4242 4242 4242',
-    );
+    expect(capture.calls[0]!.attributes.reference).toBe('4242 4242 4242 4242');
   });
 });

@@ -25,7 +25,7 @@
  * source's `attributes`.
  */
 
-import type { AttributeValue, Attributes, LogContext } from '../api/types.js';
+import type { Attributes, AttributeValue, LogContext } from '../api/types.js';
 
 /**
  * Merge an ordered list of partial contexts into a single `LogContext`.
@@ -83,13 +83,19 @@ export function mergeContexts(
  * Pure: never mutates `earlier` or `later`. Always returns a fresh
  * object for the merged result.
  */
-function deepMergeAttributes(earlier: Attributes, later: Attributes): Attributes {
+function deepMergeAttributes(
+  earlier: Attributes,
+  later: Attributes,
+): Attributes {
   const result: { [key: string]: AttributeValue } = { ...earlier };
   for (const key of Object.keys(later)) {
     const laterValue = later[key];
     if (laterValue === undefined) continue;
     const earlierValue = result[key];
-    if (isPlainAttributeObject(earlierValue) && isPlainAttributeObject(laterValue)) {
+    if (
+      isPlainAttributeObject(earlierValue) &&
+      isPlainAttributeObject(laterValue)
+    ) {
       result[key] = deepMergeAttributes(earlierValue, laterValue);
     } else {
       result[key] = laterValue;

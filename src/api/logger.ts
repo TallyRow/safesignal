@@ -23,19 +23,19 @@
  */
 
 import { mergeContexts } from '../context/context-merge.js';
-import { safeNotify, wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import {
+  safeNotify,
+  wrapAsPackageError,
+} from '../internal/errors/internal-errors.js';
 import { dispatch } from '../pipeline/dispatcher.js';
 import { buildLogEvent } from '../pipeline/event-builder.js';
 import { passesLevelFilter } from '../pipeline/level-filter.js';
 import {
-  type ConfiguredRuntime,
   buildConfiguredRuntime,
+  type ConfiguredRuntime,
   shutdownRuntime,
 } from '../runtime/configured-runtime.js';
-import {
-  getActiveRuntime,
-  installRuntime,
-} from '../runtime/runtime-ref.js';
+import { getActiveRuntime, installRuntime } from '../runtime/runtime-ref.js';
 import type {
   Attributes,
   CreateLoggerOptions,

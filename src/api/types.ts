@@ -32,7 +32,9 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
  * (LC-3): config.level (LevelMap → environment lookup) takes precedence over
  * the env-default table.
  */
-export type LevelMap = Partial<Record<'production' | 'development' | 'test', LogLevel>>;
+export type LevelMap = Partial<
+  Record<'production' | 'development' | 'test', LogLevel>
+>;
 
 // ---------------------------------------------------------------------------
 // Attributes (recursive constrained union — see locked invariants above)

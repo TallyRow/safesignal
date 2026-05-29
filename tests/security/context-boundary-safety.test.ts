@@ -33,7 +33,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { LogEvent } from '../../src/api/types.js';
 import { configureLogging, createLogger } from '../../src/index.js';
-import { FIXTURE_VALUES, makeSecretFixture } from '../../src/testing/secret-fixtures.js';
+import {
+  FIXTURE_VALUES,
+  makeSecretFixture,
+} from '../../src/testing/secret-fixtures.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const APP = { name: 'context-boundary', version: '1.0.0' };
@@ -113,7 +116,10 @@ describe('pathological values in LoggerConfig.context.attributes are sanitized',
       context: { attributes: { c: cyclic as never } },
     });
     createLogger().info('e');
-    const c = capture.calls[0]!.context.attributes?.c as Record<string, unknown>;
+    const c = capture.calls[0]!.context.attributes?.c as Record<
+      string,
+      unknown
+    >;
     expect(c.self).toBe('[Circular]');
   });
 });
@@ -134,7 +140,9 @@ describe('pathological values via createLogger({ context }) are sanitized', () =
       level: 'debug',
       transports: [capture],
     });
-    createLogger({ context: { attributes: { c: new Cred() as never } } }).info('e');
+    createLogger({ context: { attributes: { c: new Cred() as never } } }).info(
+      'e',
+    );
     expect(capture.calls[0]!.context.attributes?.c).toBe('[Cred]');
     expect(getterCalls).toBe(0);
   });
@@ -170,7 +178,7 @@ describe('pathological values via child() / withContext() are sanitized', () => 
     });
     derived.info('e');
     expect(capture.calls[0]!.context.attributes?.huge).toBe(
-      'x'.repeat(64) + '...[truncated]',
+      `${'x'.repeat(64)}...[truncated]`,
     );
   });
 });
@@ -189,7 +197,10 @@ describe('pathological values via correlation() are sanitized', () => {
       }),
     });
     createLogger().info('e');
-    const c = capture.calls[0]!.context.attributes?.c as Record<string, unknown>;
+    const c = capture.calls[0]!.context.attributes?.c as Record<
+      string,
+      unknown
+    >;
     expect(c.self).toBe('[Circular]');
   });
 

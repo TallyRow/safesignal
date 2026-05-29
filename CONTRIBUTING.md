@@ -248,7 +248,34 @@ npm install
 npm test          # vitest run; expect 48 files / 1088 passing / 10 todo / 0 failing
 npm run build     # tsup; outputs dist/index.{mjs,cjs}, dist/testing.{mjs,cjs}, dist/transport-beacon.{mjs,cjs}
 npm run typecheck # tsc --noEmit on src/ + tests/
+npm run lint          # Biome lint — must be clean
+npm run format:check  # Biome format check — must be clean (npm run format to fix)
+npm run test:coverage # vitest --coverage; enforces the per-package thresholds
 ```
+
+### Quality checks (lint, format, coverage)
+
+The project uses **Biome** for linting and formatting. CI gates every merge
+request on `npm run lint`, `npm run format:check`, and `npm run test:coverage`
+(plus Secret Detection and Dependency Scanning). Run `npm run format` to
+auto-fix formatting before committing.
+
+### Local commit hooks (recommended)
+
+Opt in once per clone to run the same lint/format + DCO checks at commit time:
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+- `pre-commit` runs Biome lint + format-check on your **staged** files and
+  **blocks** the commit on any issue (it never auto-formats or re-stages —
+  run `npm run format` and re-stage yourself).
+- `commit-msg` blocks commits missing a `Signed-off-by:` trailer (use
+  `git commit -s`).
+
+Hooks are a faster local mirror; **CI remains the authoritative gate**, so an
+un-hooked clone still cannot bypass these checks.
 
 The example projects under `examples/host-app/` and
 `examples/federated-module/` have their own `npm install` and

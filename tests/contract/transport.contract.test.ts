@@ -62,7 +62,11 @@ describe('Transport contract (T-1..T-9)', () => {
   afterEach(() => {
     globalThis.removeEventListener?.('unhandledrejection', unhandledHandler);
     // Tear down to keep state clean across describe blocks.
-    configureLogging({ application: FIXED_APP, level: 'debug', transports: [] });
+    configureLogging({
+      application: FIXED_APP,
+      level: 'debug',
+      transports: [],
+    });
   });
 
   describe('T-1: send() receives a canonical post-pipeline LogEvent', () => {
@@ -128,7 +132,9 @@ describe('Transport contract (T-1..T-9)', () => {
       });
       const logger = createLogger();
       expect(() => logger.info('synchronous-throw')).not.toThrow();
-      expect(() => logger.error('error-with-payload', {}, new Error('e'))).not.toThrow();
+      expect(() =>
+        logger.error('error-with-payload', {}, new Error('e')),
+      ).not.toThrow();
       expect(thrower.failureCount).toBe(2);
       expect(onInternalError).toHaveBeenCalledTimes(1);
     });
@@ -277,7 +283,11 @@ describe('Transport contract (T-1..T-9)', () => {
     it('reconfigure with a transport that lacks flush/shutdown does not throw', () => {
       const minimal = { name: 'no-hooks', send: (): void => undefined };
       expect(() =>
-        configureLogging({ application: FIXED_APP, level: 'debug', transports: [minimal] }),
+        configureLogging({
+          application: FIXED_APP,
+          level: 'debug',
+          transports: [minimal],
+        }),
       ).not.toThrow();
       // And re-configure again (which triggers the previous backend's
       // shutdown chain) — also no throw.
@@ -315,12 +325,20 @@ describe('Transport contract (T-1..T-9)', () => {
 
     it('getRootLogger() returned reference also survives reconfigure', () => {
       const a = makeCapturingTransport('root-a');
-      configureLogging({ application: FIXED_APP, level: 'debug', transports: [a] });
+      configureLogging({
+        application: FIXED_APP,
+        level: 'debug',
+        transports: [a],
+      });
       const root = getRootLogger();
       root.info('first');
 
       const b = makeCapturingTransport('root-b');
-      configureLogging({ application: FIXED_APP, level: 'debug', transports: [b] });
+      configureLogging({
+        application: FIXED_APP,
+        level: 'debug',
+        transports: [b],
+      });
       root.info('second');
 
       expect(a.calls.map((e) => e.message)).toEqual(['first']);
@@ -329,13 +347,21 @@ describe('Transport contract (T-1..T-9)', () => {
 
     it('child loggers created before the swap also survive', () => {
       const a = makeCapturingTransport('child-a');
-      configureLogging({ application: FIXED_APP, level: 'debug', transports: [a] });
+      configureLogging({
+        application: FIXED_APP,
+        level: 'debug',
+        transports: [a],
+      });
       const parent = createLogger();
       const child = parent.child({ module: { name: 'm', version: '1.0.0' } });
       child.info('child-pre');
 
       const b = makeCapturingTransport('child-b');
-      configureLogging({ application: FIXED_APP, level: 'debug', transports: [b] });
+      configureLogging({
+        application: FIXED_APP,
+        level: 'debug',
+        transports: [b],
+      });
       child.info('child-post');
 
       expect(a.calls.map((e) => e.message)).toEqual(['child-pre']);
@@ -356,7 +382,11 @@ describe('Transport contract (T-1..T-9)', () => {
     });
 
     it('configureLogging({ transports: [] }) — emissions complete without error', () => {
-      configureLogging({ application: FIXED_APP, level: 'debug', transports: [] });
+      configureLogging({
+        application: FIXED_APP,
+        level: 'debug',
+        transports: [],
+      });
       const logger = createLogger();
       expect(() => logger.info('empty-list')).not.toThrow();
     });

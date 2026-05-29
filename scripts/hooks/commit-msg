@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# SafeSignal commit-msg hook — enforce the DCO Signed-off-by trailer.
+#
+# Enabled together with pre-commit via:
+#   git config core.hooksPath scripts/hooks
+#
+# DCO sign-off must exist before the commit lands; pre-commit fires before the
+# message is composed, so this is a separate hook. CI re-checks via dco-check.
+
+msg_file="$1"
+
+if ! grep -qE '^Signed-off-by: .+ <[^@[:space:]]+@[^>[:space:]]+>' "$msg_file"; then
+  echo "✗ commit-msg: missing DCO sign-off."
+  echo "  Every commit must carry a 'Signed-off-by: Name <email>' trailer."
+  echo "  Re-commit with -s:   git commit -s   (amends in the trailer for you)."
+  exit 1
+fi

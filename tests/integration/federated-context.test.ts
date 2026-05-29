@@ -17,9 +17,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import { configureLogging, createLogger } from '../../src/index.js';
 import type { LogEvent } from '../../src/api/types.js';
+import { configureLogging, createLogger } from '../../src/index.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const HOST_APP = { name: 'checkout-web', version: '2026.05.0' };
@@ -47,8 +46,12 @@ function pick(predicate: (event: LogEvent) => boolean): LogEvent[] {
 describe('Host + module loggers share one configureLogging() call', () => {
   it('every event reaches the host-configured transport (host + modules + derived all flow through the same SafeTransport list)', () => {
     const hostLog = createLogger();
-    const modA = createLogger({ module: { name: 'product-recs', version: '0.4.2' } });
-    const modB = createLogger({ module: { name: 'cart-widget', version: '1.0.0' } });
+    const modA = createLogger({
+      module: { name: 'product-recs', version: '0.4.2' },
+    });
+    const modB = createLogger({
+      module: { name: 'cart-widget', version: '1.0.0' },
+    });
 
     hostLog.info('host-1');
     modA.info('mod-a-1');
@@ -61,7 +64,9 @@ describe('Host + module loggers share one configureLogging() call', () => {
 
   it('every event carries the host application identity (modules do NOT override application by default)', () => {
     const hostLog = createLogger();
-    const modA = createLogger({ module: { name: 'product-recs', version: '0.4.2' } });
+    const modA = createLogger({
+      module: { name: 'product-recs', version: '0.4.2' },
+    });
 
     hostLog.info('host');
     modA.info('mod-a');
@@ -79,8 +84,12 @@ describe('Host + module loggers share one configureLogging() call', () => {
   });
 
   it('module events have distinct module.name and module.version per logger', () => {
-    const modA = createLogger({ module: { name: 'product-recs', version: '0.4.2' } });
-    const modB = createLogger({ module: { name: 'cart-widget', version: '1.0.0' } });
+    const modA = createLogger({
+      module: { name: 'product-recs', version: '0.4.2' },
+    });
+    const modB = createLogger({
+      module: { name: 'cart-widget', version: '1.0.0' },
+    });
 
     modA.info('a-event');
     modB.info('b-event');
@@ -134,7 +143,7 @@ describe('child() and withContext() derivation does not mutate parents', () => {
     expect(capture.calls[0]!.context.attributes?.requestId).toBe('r-1');
   });
 
-  it('the parent does NOT pick up the child\'s context after a child emission', () => {
+  it("the parent does NOT pick up the child's context after a child emission", () => {
     const parent = createLogger();
     const child = parent.child({ attributes: { requestId: 'r-1' } });
     child.info('child event');
@@ -170,7 +179,9 @@ describe('child() and withContext() derivation does not mutate parents', () => {
   it('withContext() behaves the same as child() (alias)', () => {
     const parent = createLogger();
     const derivedViaChild = parent.child({ attributes: { kind: 'child' } });
-    const derivedViaWith = parent.withContext({ attributes: { kind: 'withContext' } });
+    const derivedViaWith = parent.withContext({
+      attributes: { kind: 'withContext' },
+    });
     derivedViaChild.info('a');
     derivedViaWith.info('b');
     expect(capture.calls[0]!.context.attributes?.kind).toBe('child');
@@ -181,11 +192,14 @@ describe('child() and withContext() derivation does not mutate parents', () => {
     const modLog = createLogger({ module: { name: 'shop', version: '1.0' } });
     const requestLog = modLog.child({ attributes: { requestId: 'r-1' } });
     requestLog.info('request');
-    expect(capture.calls[0]!.context.module).toEqual({ name: 'shop', version: '1.0' });
+    expect(capture.calls[0]!.context.module).toEqual({
+      name: 'shop',
+      version: '1.0',
+    });
     expect(capture.calls[0]!.context.attributes?.requestId).toBe('r-1');
   });
 
-  it('a child layer can OVERRIDE the parent\'s module identity (later wins)', () => {
+  it("a child layer can OVERRIDE the parent's module identity (later wins)", () => {
     const modLog = createLogger({ module: { name: 'shop', version: '1.0' } });
     const overrideLog = modLog.child({
       module: { name: 'shop-checkout', version: '1.1' },
@@ -215,7 +229,9 @@ describe('Merge order: root → per-logger → child → correlation', () => {
       level: 'debug',
       transports: [capture],
       context: { attributes: { layer: 'root', from_root: true } },
-      correlation: () => ({ attributes: { layer: 'correlation', from_corr: true } }),
+      correlation: () => ({
+        attributes: { layer: 'correlation', from_corr: true },
+      }),
     });
     const modLog = createLogger({
       module: { name: 'mod', version: '1' },

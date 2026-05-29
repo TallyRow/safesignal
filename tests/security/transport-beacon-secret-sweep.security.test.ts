@@ -27,11 +27,11 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { configureLogging, createLogger } from '../../src/index.js';
 import {
-  configureLogging,
-  createLogger,
-} from '../../src/index.js';
-import { FIXTURE_VALUES, makeSecretFixture } from '../../src/testing/secret-fixtures.js';
+  FIXTURE_VALUES,
+  makeSecretFixture,
+} from '../../src/testing/secret-fixtures.js';
 import { createBeaconTransport } from '../../src/transport-beacon/index.js';
 import {
   installFetchDouble,
@@ -106,7 +106,9 @@ function withoutStacks(body: string): string {
   };
   if (Array.isArray(parsed.events)) {
     // Batched envelope: { events: LogEvent[] }
-    parsed.events = (parsed.events as Array<Record<string, unknown>>).map(stripEvent);
+    parsed.events = (parsed.events as Array<Record<string, unknown>>).map(
+      stripEvent,
+    );
   } else {
     Object.assign(parsed, stripEvent(parsed));
   }
@@ -161,9 +163,18 @@ describe('transport-beacon end-to-end secret sweep', () => {
       };
       logger.warn(`event ${i}`, fixtureAttrs);
       logger.warn(`event ${i}`, { nested: fixtureAttrs });
-      logger.error(`event ${i} error`, fixtureAttrs, new Error(fixture.bearerToken));
-      logger.warn(`event ${i} url`, { url: `https://app.example.com/cb?token=${fixture.token}` });
-      logger.warn(`event ${i}`, { ...fixtureAttrs, Authorization: fixture.bearerToken });
+      logger.error(
+        `event ${i} error`,
+        fixtureAttrs,
+        new Error(fixture.bearerToken),
+      );
+      logger.warn(`event ${i} url`, {
+        url: `https://app.example.com/cb?token=${fixture.token}`,
+      });
+      logger.warn(`event ${i}`, {
+        ...fixtureAttrs,
+        Authorization: fixture.bearerToken,
+      });
       emitted += 5;
     }
     expect(emitted).toBeGreaterThanOrEqual(100);
@@ -204,7 +215,10 @@ describe('transport-beacon end-to-end secret sweep', () => {
     for (const body of bodies) {
       const safe = withoutStacks(body);
       for (const fv of FIXTURE_VALUES) {
-        expect(safe.includes(fv), `fixture value '${fv}' leaked in body: ${safe}`).toBe(false);
+        expect(
+          safe.includes(fv),
+          `fixture value '${fv}' leaked in body: ${safe}`,
+        ).toBe(false);
       }
     }
   });
@@ -222,7 +236,10 @@ describe('transport-beacon end-to-end secret sweep', () => {
     for (const url of recordedUrls()) {
       expect(url).toBe(ENDPOINT); // exact match — no query, no fragment, no path mutation
       for (const fv of FIXTURE_VALUES) {
-        expect(url.includes(fv), `fixture value '${fv}' leaked in URL: ${url}`).toBe(false);
+        expect(
+          url.includes(fv),
+          `fixture value '${fv}' leaked in URL: ${url}`,
+        ).toBe(false);
       }
     }
   });
@@ -292,7 +309,10 @@ describe('transport-beacon end-to-end secret sweep (batching mode)', () => {
       logger.warn(`url ${i}`, {
         url: `https://app.example.com/cb?token=${fixture.token}`,
       });
-      logger.warn(`auth-like ${i}`, { ...fixtureAttrs, Authorization: fixture.bearerToken });
+      logger.warn(`auth-like ${i}`, {
+        ...fixtureAttrs,
+        Authorization: fixture.bearerToken,
+      });
       emitted += 5;
     }
     expect(emitted).toBeGreaterThanOrEqual(100);
@@ -343,7 +363,10 @@ describe('transport-beacon end-to-end secret sweep (batching mode)', () => {
     for (const url of recordedUrls()) {
       expect(url).toBe(ENDPOINT);
       for (const fv of FIXTURE_VALUES) {
-        expect(url.includes(fv), `fixture value '${fv}' leaked in URL: ${url}`).toBe(false);
+        expect(
+          url.includes(fv),
+          `fixture value '${fv}' leaked in URL: ${url}`,
+        ).toBe(false);
       }
     }
   });

@@ -125,7 +125,13 @@ beforeAll(() => {
       `dist/ is missing. Run 'npm run build' before invoking the transport-beacon bundle-shape test.`,
     );
   }
-  for (const path of [TRANSPORT_BEACON_MJS, TRANSPORT_BEACON_CJS, INDEX_MJS, INDEX_CJS, INDEX_DTS]) {
+  for (const path of [
+    TRANSPORT_BEACON_MJS,
+    TRANSPORT_BEACON_CJS,
+    INDEX_MJS,
+    INDEX_CJS,
+    INDEX_DTS,
+  ]) {
     if (!existsSync(path)) {
       throw new Error(
         `Required build artifact ${path} is missing. Run 'npm run build' to refresh.`,
@@ -159,9 +165,14 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
       : [['no source files discovered', SRC_TRANSPORT_BEACON] as const],
   )('%s: imports only from permitted paths', (_label, path) => {
     const source = read(path);
-    const violations: Array<{ from: string; typeOnly: boolean; reason: string }> = [];
+    const violations: Array<{
+      from: string;
+      typeOnly: boolean;
+      reason: string;
+    }> = [];
     let match: RegExpExecArray | null;
     IMPORT_REGEX.lastIndex = 0;
+    // biome-ignore lint/suspicious/noAssignInExpressions: idiomatic RegExp.exec() iteration over all matches.
     while ((match = IMPORT_REGEX.exec(source)) !== null) {
       const typeOnly = match[1] === 'type';
       const from = match[2];
@@ -184,7 +195,11 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
         continue;
       }
 
-      if (FORBIDDEN_RELATIVE_PREFIXES.some((prefix: string) => from.startsWith(prefix))) {
+      if (
+        FORBIDDEN_RELATIVE_PREFIXES.some((prefix: string) =>
+          from.startsWith(prefix),
+        )
+      ) {
         violations.push({
           from,
           typeOnly,
@@ -206,7 +221,9 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
       }
 
       // Bare specifier (npm package) — must NOT be a vendor SDK.
-      if (VENDOR_PACKAGE_NAMES.some((vendor: string) => from.startsWith(vendor))) {
+      if (
+        VENDOR_PACKAGE_NAMES.some((vendor: string) => from.startsWith(vendor))
+      ) {
         violations.push({
           from,
           typeOnly,
@@ -224,16 +241,24 @@ describe('(a) source-import boundary — src/transport-beacon/**/*.ts', () => {
 
 describe('(b) dist/transport-beacon.{mjs,cjs} contains no vendor reference', () => {
   it.each(VENDOR_PACKAGE_NAMES)('mjs contains no reference to "%s"', (name) => {
-    expect(read(TRANSPORT_BEACON_MJS).toLowerCase()).not.toContain(name.toLowerCase());
+    expect(read(TRANSPORT_BEACON_MJS).toLowerCase()).not.toContain(
+      name.toLowerCase(),
+    );
   });
   it.each(VENDOR_PACKAGE_NAMES)('cjs contains no reference to "%s"', (name) => {
-    expect(read(TRANSPORT_BEACON_CJS).toLowerCase()).not.toContain(name.toLowerCase());
+    expect(read(TRANSPORT_BEACON_CJS).toLowerCase()).not.toContain(
+      name.toLowerCase(),
+    );
   });
-  it.each(VENDOR_IDENTIFIERS)('mjs contains no vendor identifier "%s"', (name) => {
+  it.each(
+    VENDOR_IDENTIFIERS,
+  )('mjs contains no vendor identifier "%s"', (name) => {
     const wordBoundary = new RegExp(`\\b${name}\\b`);
     expect(read(TRANSPORT_BEACON_MJS)).not.toMatch(wordBoundary);
   });
-  it.each(VENDOR_IDENTIFIERS)('cjs contains no vendor identifier "%s"', (name) => {
+  it.each(
+    VENDOR_IDENTIFIERS,
+  )('cjs contains no vendor identifier "%s"', (name) => {
     const wordBoundary = new RegExp(`\\b${name}\\b`);
     expect(read(TRANSPORT_BEACON_CJS)).not.toMatch(wordBoundary);
   });

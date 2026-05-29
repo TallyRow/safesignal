@@ -17,18 +17,27 @@
  * runtime-resource set per package/runtime boundary (FR-030).
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // A spy of any signature. `vi.spyOn`'s default return type narrows to
 // `(this: unknown, ...args: unknown[]) => unknown`, which the concretely
 // typed globals (setTimeout, fetch, sendBeacon, …) are not assignable to.
 // These spies are only ever asserted with `.toHaveBeenCalled()`, so the
 // precise call signature is irrelevant.
+// biome-ignore lint/suspicious/noExplicitAny: a spy of any call signature; only ever asserted with toHaveBeenCalled(), so the precise type is irrelevant.
 type AnySpy = MockInstance<(...args: any[]) => any>;
 
-import { configureLogging, createLogger, getRootLogger } from '../../src/index.js';
-import type { LogEvent, Transport, TransportFactory } from '../../src/api/types.js';
+import type {
+  LogEvent,
+  Transport,
+  TransportFactory,
+} from '../../src/api/types.js';
+import {
+  configureLogging,
+  createLogger,
+  getRootLogger,
+} from '../../src/index.js';
 import { clearActiveRuntimeForTests } from '../../src/runtime/runtime-ref.js';
 
 const APP = { name: 'lightweight-logger', version: '1.0.0' };
@@ -71,7 +80,9 @@ function installSpies(): SpyBag {
   // assert the package never touches; if it does, we want the failure
   // to be loud and not produce any side effect.
   const addEventListenerSpy = push(
-    vi.spyOn(EventTarget.prototype, 'addEventListener').mockImplementation(() => undefined),
+    vi
+      .spyOn(EventTarget.prototype, 'addEventListener')
+      .mockImplementation(() => undefined),
   );
   const setTimeoutSpy = push(
     vi
@@ -95,21 +106,34 @@ function installSpies(): SpyBag {
         )
       : undefined;
 
-  const consoleLogSpy = push(vi.spyOn(console, 'log').mockImplementation(() => undefined));
-  const consoleInfoSpy = push(vi.spyOn(console, 'info').mockImplementation(() => undefined));
-  const consoleWarnSpy = push(vi.spyOn(console, 'warn').mockImplementation(() => undefined));
-  const consoleErrorSpy = push(vi.spyOn(console, 'error').mockImplementation(() => undefined));
-  const consoleDebugSpy = push(vi.spyOn(console, 'debug').mockImplementation(() => undefined));
+  const consoleLogSpy = push(
+    vi.spyOn(console, 'log').mockImplementation(() => undefined),
+  );
+  const consoleInfoSpy = push(
+    vi.spyOn(console, 'info').mockImplementation(() => undefined),
+  );
+  const consoleWarnSpy = push(
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined),
+  );
+  const consoleErrorSpy = push(
+    vi.spyOn(console, 'error').mockImplementation(() => undefined),
+  );
+  const consoleDebugSpy = push(
+    vi.spyOn(console, 'debug').mockImplementation(() => undefined),
+  );
 
   const fetchSpy =
     typeof globalThis.fetch === 'function'
       ? push(
-          vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('')),
+          vi
+            .spyOn(globalThis, 'fetch')
+            .mockImplementation(async () => new Response('')),
         )
       : undefined;
 
   const sendBeaconSpy =
-    typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function'
+    typeof navigator !== 'undefined' &&
+    typeof navigator.sendBeacon === 'function'
       ? push(vi.spyOn(navigator, 'sendBeacon').mockImplementation(() => true))
       : undefined;
 
@@ -162,7 +186,14 @@ describe('FR-029: Logger handle construction is side-effect free', () => {
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     // Reset spies AFTER configureLogging — that call DOES legitimately
     // wire up transports; we are asserting handle construction below
@@ -188,7 +219,14 @@ describe('FR-029: Logger handle construction is side-effect free', () => {
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     for (const spy of [
       spies.addEventListener,
@@ -215,7 +253,14 @@ describe('FR-029: Logger handle construction is side-effect free', () => {
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     const log = createLogger();
     for (const spy of [
@@ -244,7 +289,14 @@ describe('FR-029: Logger handle construction is side-effect free', () => {
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     for (const spy of [
       spies.addEventListener,
@@ -276,7 +328,9 @@ describe('FR-030: TransportFactory invocation count is one-per-configureLogging'
   it('factory is called exactly once during configureLogging() — never again as loggers are created', () => {
     const factorySpy = vi.fn<TransportFactory>(() => ({
       name: 'spy-transport',
-      send(_event: LogEvent) { /* no-op */ },
+      send(_event: LogEvent) {
+        /* no-op */
+      },
     }));
     configureLogging({
       application: APP,
@@ -308,7 +362,9 @@ describe('FR-030: TransportFactory invocation count is one-per-configureLogging'
         nameAccesses++;
         return 'instance-transport';
       },
-      send() { /* no-op */ },
+      send() {
+        /* no-op */
+      },
     };
     configureLogging({
       application: APP,
@@ -327,7 +383,9 @@ describe('FR-030: TransportFactory invocation count is one-per-configureLogging'
   it('a fresh configureLogging() re-invokes each factory exactly once (no accumulating handles)', () => {
     const factorySpy = vi.fn<TransportFactory>(() => ({
       name: 'spy',
-      send() { /* no-op */ },
+      send() {
+        /* no-op */
+      },
     }));
     configureLogging({
       application: APP,
@@ -359,7 +417,14 @@ describe('FR-029: per-Logger allocation cost is bounded and constant', () => {
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     const handles = [
       createLogger(),
@@ -375,7 +440,14 @@ describe('FR-029: per-Logger allocation cost is bounded and constant', () => {
       // level.
       const methodKeys = Object.keys(h);
       expect(methodKeys).toEqual(
-        expect.arrayContaining(['debug', 'info', 'warn', 'error', 'child', 'withContext']),
+        expect.arrayContaining([
+          'debug',
+          'info',
+          'warn',
+          'error',
+          'child',
+          'withContext',
+        ]),
       );
       // The handle shouldn't carry inspectable runtime state — no
       // backend, no config, no transports, no captured loggers.

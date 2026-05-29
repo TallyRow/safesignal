@@ -21,7 +21,7 @@
  *   internal leakage — without contradicting the public API contract.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -39,15 +39,14 @@ const FORBIDDEN_REEXPORT_PREFIXES_FOR_RUNTIME = [
   join('src', 'internal'),
   join('src', 'testing'),
 ];
-const FORBIDDEN_REEXPORT_PREFIXES_FOR_TESTING = [
-  join('src', 'internal'),
-];
+const FORBIDDEN_REEXPORT_PREFIXES_FOR_TESTING = [join('src', 'internal')];
 
 /**
  * Match either a static import or a dynamic `import('...')` whose target
  * starts with `@opentelemetry/`. Captures the full module specifier.
  */
-const OTEL_IMPORT_RE = /(?:from\s+['"](@opentelemetry\/[^'"]+)['"]|import\s*\(\s*['"](@opentelemetry\/[^'"]+)['"]\s*\))/g;
+const OTEL_IMPORT_RE =
+  /(?:from\s+['"](@opentelemetry\/[^'"]+)['"]|import\s*\(\s*['"](@opentelemetry\/[^'"]+)['"]\s*\))/g;
 
 /**
  * Match common re-export forms and capture the source module path:
@@ -56,7 +55,8 @@ const OTEL_IMPORT_RE = /(?:from\s+['"](@opentelemetry\/[^'"]+)['"]|import\s*\(\s
  *   export { a, b as c } from '...'
  *   export type { Foo } from '...'
  */
-const REEXPORT_RE = /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[\s\S]*?\})\s+from\s+['"]([^'"]+)['"]/gm;
+const REEXPORT_RE =
+  /^\s*export\s+(?:type\s+)?(?:\*(?:\s+as\s+\w+)?|\{[\s\S]*?\})\s+from\s+['"]([^'"]+)['"]/gm;
 
 function findTsFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -84,7 +84,7 @@ function isUnderPrefix(relativePath: string, prefix: string): boolean {
   return (
     relativePath === prefix ||
     relativePath.startsWith(prefix + sep) ||
-    relativePath.startsWith(prefix + '/')
+    relativePath.startsWith(`${prefix}/`)
   );
 }
 
@@ -167,7 +167,9 @@ describe('source-tree boundary scan', () => {
         const resolved = resolveReexportPath(PUBLIC_ENTRY, importPath);
         for (const forbidden of FORBIDDEN_REEXPORT_PREFIXES_FOR_RUNTIME) {
           if (isUnderPrefix(resolved, forbidden)) {
-            violations.push(`${importPath} → ${resolved} (forbidden prefix: ${forbidden})`);
+            violations.push(
+              `${importPath} → ${resolved} (forbidden prefix: ${forbidden})`,
+            );
           }
         }
       }
@@ -188,7 +190,9 @@ describe('source-tree boundary scan', () => {
         const resolved = resolveReexportPath(TESTING_ENTRY, importPath);
         for (const forbidden of FORBIDDEN_REEXPORT_PREFIXES_FOR_TESTING) {
           if (isUnderPrefix(resolved, forbidden)) {
-            violations.push(`${importPath} → ${resolved} (forbidden prefix: ${forbidden})`);
+            violations.push(
+              `${importPath} → ${resolved} (forbidden prefix: ${forbidden})`,
+            );
           }
         }
       }

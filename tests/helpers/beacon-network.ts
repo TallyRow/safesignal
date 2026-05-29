@@ -71,13 +71,12 @@ export function installSendBeaconDouble(
       : (): boolean => fixedReturn;
 
   const nav = ensureNavigator();
-  const hadOriginal = Object.prototype.hasOwnProperty.call(nav, 'sendBeacon');
+  const hadOriginal = Object.hasOwn(nav, 'sendBeacon');
   const original = (nav as { sendBeacon?: unknown }).sendBeacon;
 
-  (nav as { sendBeacon: (endpoint: string, data?: BodyInit | null) => boolean }).sendBeacon = (
-    endpoint: string,
-    data?: BodyInit | null,
-  ): boolean => {
+  (
+    nav as { sendBeacon: (endpoint: string, data?: BodyInit | null) => boolean }
+  ).sendBeacon = (endpoint: string, data?: BodyInit | null): boolean => {
     const recorded = recordBeaconCall(endpoint, data);
     calls.push(recorded);
     return decide(endpoint, recorded.body);
@@ -113,7 +112,7 @@ export function installSendBeaconDouble(
 export function installSendBeaconUnavailable(): SendBeaconDoubleController {
   const calls: SendBeaconCall[] = [];
   const nav = ensureNavigator();
-  const hadOwn = Object.prototype.hasOwnProperty.call(nav, 'sendBeacon');
+  const hadOwn = Object.hasOwn(nav, 'sendBeacon');
   const originalOwn = hadOwn
     ? (nav as { sendBeacon?: unknown }).sendBeacon
     : undefined;
@@ -148,9 +147,15 @@ export interface FetchCall {
 
 export type FetchDoubleBehavior =
   | { kind: 'resolve'; status?: number /* default 204 */ }
-  | { kind: 'reject'; reason?: unknown /* default new TypeError('Failed to fetch') */ }
+  | {
+      kind: 'reject';
+      reason?: unknown /* default new TypeError('Failed to fetch') */;
+    }
   | { kind: 'unavailable' /* fetch is undefined on globalThis */ }
-  | { kind: 'function'; fn: (url: string, init?: RequestInit) => Promise<Response> | Response };
+  | {
+      kind: 'function';
+      fn: (url: string, init?: RequestInit) => Promise<Response> | Response;
+    };
 
 export interface InstallFetchDoubleOptions {
   behavior?: FetchDoubleBehavior;
@@ -167,16 +172,17 @@ export function installFetchDouble(
   const calls: FetchCall[] = [];
   const behavior: FetchDoubleBehavior = options.behavior ?? { kind: 'resolve' };
 
-  const hadOriginal = Object.prototype.hasOwnProperty.call(globalThis, 'fetch');
+  const hadOriginal = Object.hasOwn(globalThis, 'fetch');
   const original = (globalThis as { fetch?: unknown }).fetch;
 
   if (behavior.kind === 'unavailable') {
     delete (globalThis as { fetch?: unknown }).fetch;
   } else {
-    (globalThis as { fetch: (url: string, init?: RequestInit) => Promise<Response> }).fetch = (
-      url: string,
-      init?: RequestInit,
-    ): Promise<Response> => {
+    (
+      globalThis as {
+        fetch: (url: string, init?: RequestInit) => Promise<Response>;
+      }
+    ).fetch = (url: string, init?: RequestInit): Promise<Response> => {
       const body = readInitBody(init);
       calls.push({ url, init, body });
       if (behavior.kind === 'resolve') {
@@ -184,7 +190,9 @@ export function installFetchDouble(
         return Promise.resolve(makeFakeResponse(status));
       }
       if (behavior.kind === 'reject') {
-        return Promise.reject(behavior.reason ?? new TypeError('Failed to fetch'));
+        return Promise.reject(
+          behavior.reason ?? new TypeError('Failed to fetch'),
+        );
       }
       // kind: 'function' — passes through user-supplied handler.
       const out = behavior.fn(url, init);
@@ -261,7 +269,10 @@ export function installAddEventListenerSpy(): AddEventListenerSpyController {
       removals.push({
         type,
         listener,
-        options: listenerOptions as AddEventListenerOptions | boolean | undefined,
+        options: listenerOptions as
+          | AddEventListenerOptions
+          | boolean
+          | undefined,
       });
       originalRemove.call(
         globalThis,
@@ -322,7 +333,10 @@ export function installSetTimeoutSpy(): SetTimeoutSpyController {
   const originalSetTimeout = globalThis.setTimeout;
   const originalClearTimeout = globalThis.clearTimeout;
 
-  globalThis.setTimeout = ((handler: TimerHandler, timeout: number = 0): number => {
+  globalThis.setTimeout = ((
+    handler: TimerHandler,
+    timeout: number = 0,
+  ): number => {
     const id = nextId++;
     creations.push({ id, delay: timeout });
     callbacks.set(id, () => {
@@ -350,7 +364,9 @@ export function installSetTimeoutSpy(): SetTimeoutSpyController {
     fire(creationIndex: number): unknown {
       const creation = creations[creationIndex];
       if (creation === undefined) {
-        throw new Error(`installSetTimeoutSpy.fire: no timer at index ${creationIndex}`);
+        throw new Error(
+          `installSetTimeoutSpy.fire: no timer at index ${creationIndex}`,
+        );
       }
       const cb = callbacks.get(creation.id);
       if (cb === undefined) {
@@ -384,7 +400,10 @@ function ensureNavigator(): Navigator {
   return nav;
 }
 
-function recordBeaconCall(endpoint: string, data?: BodyInit | null): SendBeaconCall {
+function recordBeaconCall(
+  endpoint: string,
+  data?: BodyInit | null,
+): SendBeaconCall {
   if (data === undefined || data === null) {
     return { endpoint, body: null, bodyType: null, blob: null };
   }
@@ -410,7 +429,9 @@ function recordBeaconCall(endpoint: string, data?: BodyInit | null): SendBeaconC
   if (ArrayBuffer.isView(data)) {
     return {
       endpoint,
-      body: new TextDecoder().decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength)),
+      body: new TextDecoder().decode(
+        new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+      ),
       bodyType: null,
       blob: null,
     };
@@ -421,7 +442,8 @@ function recordBeaconCall(endpoint: string, data?: BodyInit | null): SendBeaconC
 }
 
 function readInitBody(init: RequestInit | undefined): string | null {
-  if (init === undefined || init.body === undefined || init.body === null) return null;
+  if (init === undefined || init.body === undefined || init.body === null)
+    return null;
   if (typeof init.body === 'string') return init.body;
   if (init.body instanceof Blob) return '[Blob]';
   return String(init.body);

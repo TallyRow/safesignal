@@ -43,9 +43,10 @@ describe('LogEvent contract (LE-1..LE-11)', () => {
       log.error('d');
       expect(capturing.calls.length).toBe(4);
       for (const event of capturing.calls) {
-        expect(event.timestamp, `timestamp not ISO-8601: ${event.timestamp}`).toMatch(
-          ISO_8601_RE,
-        );
+        expect(
+          event.timestamp,
+          `timestamp not ISO-8601: ${event.timestamp}`,
+        ).toMatch(ISO_8601_RE);
         // Round-trip check.
         expect(Number.isFinite(Date.parse(event.timestamp))).toBe(true);
       }
@@ -53,15 +54,17 @@ describe('LogEvent contract (LE-1..LE-11)', () => {
   });
 
   describe('LE-2: event.level matches the called method', () => {
-    it.each(['debug', 'info', 'warn', 'error'] as const)(
-      'logger.%s emits event.level=%s',
-      (level) => {
-        const log = createLogger();
-        log[level]('m');
-        const event = capturing.calls.at(-1);
-        expect(event?.level).toBe(level);
-      },
-    );
+    it.each([
+      'debug',
+      'info',
+      'warn',
+      'error',
+    ] as const)('logger.%s emits event.level=%s', (level) => {
+      const log = createLogger();
+      log[level]('m');
+      const event = capturing.calls.at(-1);
+      expect(event?.level).toBe(level);
+    });
   });
 
   describe('LE-3: attributes is always an object, never undefined', () => {
@@ -94,7 +97,10 @@ describe('LogEvent contract (LE-1..LE-11)', () => {
       const log = createLogger();
       log.info('m');
       const event = capturing.calls.at(-1);
-      expect(event?.context.application).toEqual({ name: 'checkout', version: '1.2.3' });
+      expect(event?.context.application).toEqual({
+        name: 'checkout',
+        version: '1.2.3',
+      });
       expect(event?.context.module).toEqual({ name: 'host', version: '0.1.0' });
       expect(event?.context.environment).toBe('development');
       expect(event?.context.attributes).toEqual({ release: 'r-abc' });
@@ -119,10 +125,15 @@ describe('LogEvent contract (LE-1..LE-11)', () => {
         module: { name: 'host' },
         transports: [capturing],
       });
-      const moduleLog = createLogger({ module: { name: 'product-recs', version: '0.4.2' } });
+      const moduleLog = createLogger({
+        module: { name: 'product-recs', version: '0.4.2' },
+      });
       moduleLog.info('m');
       const event = capturing.calls.at(-1);
-      expect(event?.context.module).toEqual({ name: 'product-recs', version: '0.4.2' });
+      expect(event?.context.module).toEqual({
+        name: 'product-recs',
+        version: '0.4.2',
+      });
     });
   });
 
@@ -176,7 +187,9 @@ describe('LogEvent contract (LE-1..LE-11)', () => {
   });
 
   describe('LE-8: sensitive keys masked (Phase 5)', () => {
-    it.todo('Phase 5 T035 + T041 cover redaction of attributes/context/message/error');
+    it.todo(
+      'Phase 5 T035 + T041 cover redaction of attributes/context/message/error',
+    );
   });
 
   describe('LE-9: URL-shaped values query-scrubbed (Phase 5)', () => {

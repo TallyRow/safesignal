@@ -25,12 +25,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  type Attributes,
   configureLogging,
   createLogger,
-  type Attributes,
   type LogEvent,
 } from '../../src/index.js';
-import { installUnhandledRejectionGuard, type UnhandledGuard } from '../helpers/assert-no-unhandled.js';
+import {
+  installUnhandledRejectionGuard,
+  type UnhandledGuard,
+} from '../helpers/assert-no-unhandled.js';
 import {
   makeCapturingTransport,
   makeRejectingTransport,
@@ -48,7 +51,11 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
 
   afterEach(() => {
     unhandled.dispose();
-    configureLogging({ application: FIXED_APP, level: 'debug', transports: [] });
+    configureLogging({
+      application: FIXED_APP,
+      level: 'debug',
+      transports: [],
+    });
   });
 
   describe('FS-1: sync throw from Transport.send() is caught', () => {
@@ -133,7 +140,9 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
       log.info('fs4 emit');
       expect(capturing.calls).toHaveLength(0);
       expect(onInternalError).toHaveBeenCalledTimes(1);
-      const err = onInternalError.mock.calls[0]![0] as Error & { code?: string };
+      const err = onInternalError.mock.calls[0]![0] as Error & {
+        code?: string;
+      };
       expect(err.code).toBe('redactor_failed');
     });
   });
@@ -380,8 +389,8 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
       // shape of the stress test matches the contract, and so this test
       // catches a regression the moment T035 wires the redactor in.
       const throwingRedactor = (event: LogEvent): LogEvent | null => {
-        if (event.attributes['i'] !== undefined) {
-          const i = event.attributes['i'];
+        if (event.attributes.i !== undefined) {
+          const i = event.attributes.i;
           if (typeof i === 'number' && i % 2 === 0) {
             throw new Error('redactor failure');
           }
@@ -402,7 +411,7 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
 
       // Oversized cyclic attribute object reused across all 1000 emits.
       const cyclic: Attributes = { tag: 'root' };
-      (cyclic as Record<string, unknown>)['self'] = cyclic;
+      (cyclic as Record<string, unknown>).self = cyclic;
       // 100 sibling keys to push past trivial sanitizer limits.
       for (let k = 0; k < 100; k++) {
         cyclic[`pad_${String(k)}`] = `value-${String(k)}`;
@@ -441,8 +450,10 @@ describe('Failure Safety contract (FS-1..FS-17)', () => {
       // Assert the per-transport bound:
       const transportNotices = onInternalError.mock.calls.filter((c) => {
         const err = c[0] as Error & { code?: string };
-        return err.message.includes('stress-thrower') ||
-          err.message.includes('stress-rejecter');
+        return (
+          err.message.includes('stress-thrower') ||
+          err.message.includes('stress-rejecter')
+        );
       });
       expect(transportNotices).toHaveLength(2);
 

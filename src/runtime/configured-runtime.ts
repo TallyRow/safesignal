@@ -76,7 +76,9 @@ export interface ConfiguredRuntime {
  * runtime slot — call `runtime-ref.ts::installRuntime()` to make
  * the returned record active.
  */
-export function buildConfiguredRuntime(config: LoggerConfig): ConfiguredRuntime {
+export function buildConfiguredRuntime(
+  config: LoggerConfig,
+): ConfiguredRuntime {
   const normalized = normalizeConfig(config);
 
   // Empty consumer transport list → auto-NoopTransport per
@@ -124,7 +126,9 @@ export function buildConfiguredRuntime(config: LoggerConfig): ConfiguredRuntime 
  * function, so retained `Logger` references already see the new
  * runtime when teardown begins.
  */
-export async function shutdownRuntime(runtime: ConfiguredRuntime): Promise<void> {
+export async function shutdownRuntime(
+  runtime: ConfiguredRuntime,
+): Promise<void> {
   for (const transport of runtime.transports) {
     if (transport.flush !== undefined) {
       try {

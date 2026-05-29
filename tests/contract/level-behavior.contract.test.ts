@@ -148,13 +148,19 @@ describe('LoggerConfig contract (LC-1..LC-4, LC-6..LC-11)', () => {
   describe('LC-6: reconfigure preserves existing logger references', () => {
     it('a logger created before reconfigure still delivers to the new transport', () => {
       const firstTransport = makeCapturingTransport('first');
-      configureLogging({ environment: 'development', transports: [firstTransport] });
+      configureLogging({
+        environment: 'development',
+        transports: [firstTransport],
+      });
       const log = createLogger();
       log.info('one');
       expect(firstTransport.calls.length).toBe(1);
 
       const secondTransport = makeCapturingTransport('second');
-      configureLogging({ environment: 'development', transports: [secondTransport] });
+      configureLogging({
+        environment: 'development',
+        transports: [secondTransport],
+      });
       // Same logger reference.
       log.info('two');
       expect(secondTransport.calls.length).toBe(1);

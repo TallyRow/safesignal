@@ -16,14 +16,16 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { configureLogging, createLogger } from '../../src/index.js';
 import type {
   LogEvent,
   Transport,
   TransportFactory,
 } from '../../src/api/types.js';
-import { clearActiveRuntimeForTests, getActiveRuntime } from '../../src/runtime/runtime-ref.js';
+import { configureLogging, createLogger } from '../../src/index.js';
+import {
+  clearActiveRuntimeForTests,
+  getActiveRuntime,
+} from '../../src/runtime/runtime-ref.js';
 
 const APP = { name: 'many-logger-scale', version: '1.0.0' };
 
@@ -35,7 +37,9 @@ describe('SC-011: ≥1,000 Loggers against one configureLogging() do not multipl
   it('TransportFactory is invoked exactly once during configureLogging() and never again across 1,000 logger creations', () => {
     const factory = vi.fn<TransportFactory>(() => ({
       name: 'scale-test-transport',
-      send(_event: LogEvent) { /* no-op */ },
+      send(_event: LogEvent) {
+        /* no-op */
+      },
     }));
     configureLogging({
       application: APP,
@@ -60,7 +64,9 @@ describe('SC-011: ≥1,000 Loggers against one configureLogging() do not multipl
   it('mixed root + module + derived loggers all share the one TransportFactory invocation', () => {
     const factory = vi.fn<TransportFactory>(() => ({
       name: 'mixed-transport',
-      send() { /* no-op */ },
+      send() {
+        /* no-op */
+      },
     }));
     configureLogging({
       application: APP,
@@ -100,7 +106,14 @@ describe('SC-011: ≥1,000 Loggers against one configureLogging() do not multipl
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     const runtime = getActiveRuntime();
     expect(runtime).toBeDefined();
@@ -122,7 +135,9 @@ describe('SC-011: ≥1,000 Loggers against one configureLogging() do not multipl
       transportConstructorCalls++;
       return {
         name: 'alloc-test',
-        send() { /* no-op */ },
+        send() {
+          /* no-op */
+        },
       };
     };
     configureLogging({
@@ -148,7 +163,14 @@ describe('SC-011: ≥1,000 Loggers against one configureLogging() do not multipl
     configureLogging({
       application: APP,
       environment: 'development',
-      transports: [() => ({ name: 'noop', send() { /* no-op */ } })],
+      transports: [
+        () => ({
+          name: 'noop',
+          send() {
+            /* no-op */
+          },
+        }),
+      ],
     });
     const runtimeBefore = getActiveRuntime();
     for (let i = 0; i < 1000; i++) createLogger();
@@ -178,7 +200,9 @@ describe('shared runtime: every emission uses the same wrapped transport list', 
       transports: [transport],
     });
     for (let i = 0; i < 1000; i++) {
-      const log = createLogger({ module: { name: `m-${String(i)}`, version: '1' } });
+      const log = createLogger({
+        module: { name: `m-${String(i)}`, version: '1' },
+      });
       log.info(`e-${String(i)}`);
     }
     expect(calls).toHaveLength(1000);

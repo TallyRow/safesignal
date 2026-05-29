@@ -12,7 +12,11 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { NoopTransport, configureLogging, createLogger } from '../../src/index.js';
+import {
+  configureLogging,
+  createLogger,
+  NoopTransport,
+} from '../../src/index.js';
 import { createBeaconTransport } from '../../src/transport-beacon/index.js';
 import {
   installAddEventListenerSpy,
@@ -60,7 +64,9 @@ afterEach(() => {
 
 function recordedBodyTexts(): Promise<(string | null)[]> {
   if (harness === null) return Promise.resolve([]);
-  return Promise.all(harness.beacon.calls.map((c) => c.blob?.text() ?? Promise.resolve(null)));
+  return Promise.all(
+    harness.beacon.calls.map((c) => c.blob?.text() ?? Promise.resolve(null)),
+  );
 }
 
 describe('createBeaconTransport batching', () => {
@@ -69,7 +75,12 @@ describe('createBeaconTransport batching', () => {
     configureLogging({
       application: { name: 'host' },
       environment: 'production',
-      transports: [createBeaconTransport({ endpoint: ENDPOINT, batching: { maxBatchSize: 3 } })],
+      transports: [
+        createBeaconTransport({
+          endpoint: ENDPOINT,
+          batching: { maxBatchSize: 3 },
+        }),
+      ],
     });
     const logger = createLogger();
     logger.warn('e0');
@@ -89,7 +100,12 @@ describe('createBeaconTransport batching', () => {
     configureLogging({
       application: { name: 'host' },
       environment: 'production',
-      transports: [createBeaconTransport({ endpoint: ENDPOINT, batching: { maxBatchSize: 50 } })],
+      transports: [
+        createBeaconTransport({
+          endpoint: ENDPOINT,
+          batching: { maxBatchSize: 50 },
+        }),
+      ],
     });
     const logger = createLogger();
     for (let i = 0; i < 1000; i += 1) logger.warn(`e`, { seq: i });
@@ -97,7 +113,9 @@ describe('createBeaconTransport batching', () => {
     const allSeqs: number[] = [];
     for (const t of await recordedBodyTexts()) {
       if (t === null) continue;
-      const envelope = JSON.parse(t) as { events: { attributes: { seq: number } }[] };
+      const envelope = JSON.parse(t) as {
+        events: { attributes: { seq: number } }[];
+      };
       for (const ev of envelope.events) allSeqs.push(ev.attributes.seq);
     }
     expect(allSeqs.length).toBe(1000);
@@ -109,7 +127,12 @@ describe('createBeaconTransport batching', () => {
   it('B-3a: size threshold triggers a flush', async () => {
     if (harness === null) throw new Error('harness not initialised');
     configureLogging({
-      transports: [createBeaconTransport({ endpoint: ENDPOINT, batching: { maxBatchSize: 5 } })],
+      transports: [
+        createBeaconTransport({
+          endpoint: ENDPOINT,
+          batching: { maxBatchSize: 5 },
+        }),
+      ],
     });
     const logger = createLogger();
     for (let i = 0; i < 4; i += 1) logger.warn(`e${i}`);
@@ -121,7 +144,12 @@ describe('createBeaconTransport batching', () => {
   it('B-3b: pagehide fires a final flush of the pending batch', async () => {
     if (harness === null) throw new Error('harness not initialised');
     configureLogging({
-      transports: [createBeaconTransport({ endpoint: ENDPOINT, batching: { maxBatchSize: 100 } })],
+      transports: [
+        createBeaconTransport({
+          endpoint: ENDPOINT,
+          batching: { maxBatchSize: 100 },
+        }),
+      ],
     });
     const logger = createLogger();
     logger.warn('e0');
@@ -153,7 +181,9 @@ describe('createBeaconTransport batching', () => {
     // Threshold-meeting push triggers a flush; envelope > 64 KiB →
     // beacon_batch_drop.
     expect(notices.length).toBe(1);
-    expect((notices[0] as Error & { code?: string }).code).toBe('beacon_batch_drop');
+    expect((notices[0] as Error & { code?: string }).code).toBe(
+      'beacon_batch_drop',
+    );
     expect(harness.beacon.calls.length).toBe(0); // nothing delivered
   });
 
@@ -189,7 +219,9 @@ describe('createBeaconTransport batching', () => {
     // Remaining batch (e0, e2, e3) flushed normally.
     expect(harness.beacon.calls.length).toBe(1);
     const bodyText = await harness.beacon.calls[0]?.blob?.text();
-    const parsed = JSON.parse(bodyText ?? '{}') as { events: { message: string }[] };
+    const parsed = JSON.parse(bodyText ?? '{}') as {
+      events: { message: string }[];
+    };
     expect(parsed.events.map((e) => e.message)).toEqual(['e0', 'e2', 'e3']);
   });
 
@@ -200,7 +232,10 @@ describe('createBeaconTransport batching', () => {
     harness.beacon = installSendBeaconDouble({ returnValue: false });
     harness.fetch.uninstall();
     harness.fetch = installFetchDouble({
-      behavior: { kind: 'reject', reason: new TypeError('Failed to fetch (synthetic)') },
+      behavior: {
+        kind: 'reject',
+        reason: new TypeError('Failed to fetch (synthetic)'),
+      },
     });
 
     const notices: Error[] = [];
@@ -222,7 +257,9 @@ describe('createBeaconTransport batching', () => {
     return new Promise<void>((r) =>
       setTimeout(() => {
         expect(notices.length).toBe(1);
-        expect((notices[0] as Error & { code?: string }).code).toBe('beacon_batch_drop');
+        expect((notices[0] as Error & { code?: string }).code).toBe(
+          'beacon_batch_drop',
+        );
         r();
       }, 0),
     );
@@ -250,9 +287,13 @@ describe('createBeaconTransport batching', () => {
     await transport.shutdown?.();
     await new Promise<void>((r) => setTimeout(r, 0));
     expect(notices.length).toBe(1);
-    expect((notices[0] as Error & { code?: string }).code).toBe('beacon_batch_drop');
+    expect((notices[0] as Error & { code?: string }).code).toBe(
+      'beacon_batch_drop',
+    );
     // Pagehide listener removed.
-    expect(harness.listenerSpy.removals.filter((r) => r.type === 'pagehide').length).toBe(1);
+    expect(
+      harness.listenerSpy.removals.filter((r) => r.type === 'pagehide').length,
+    ).toBe(1);
   });
 
   it('B-11: drop notice payload contains no event content', () => {
@@ -337,7 +378,9 @@ describe('createBeaconTransport batching', () => {
     return new Promise<void>((r) =>
       setTimeout(() => {
         expect(notices.length).toBe(1);
-        expect((notices[0] as Error & { code?: string }).code).toBe('beacon_batch_drop');
+        expect((notices[0] as Error & { code?: string }).code).toBe(
+          'beacon_batch_drop',
+        );
         r();
       }, 0),
     );
@@ -374,15 +417,18 @@ describe('createBeaconTransport batching', () => {
     const draindelivered = callsToA.length === 1;
 
     // Outcome (b): exactly one beacon_batch_drop notice on bt1
-    const dropNotice = noticesA.filter(
-      (n) => (n as Error & { code?: string }).code === 'beacon_batch_drop',
-    ).length === 1;
+    const dropNotice =
+      noticesA.filter(
+        (n) => (n as Error & { code?: string }).code === 'beacon_batch_drop',
+      ).length === 1;
 
     // Exactly one outcome — never both, never neither, never partial.
     expect(draindelivered !== dropNotice).toBe(true);
     if (draindelivered) {
       const bodyText = await callsToA[0]?.blob?.text();
-      const parsed = JSON.parse(bodyText ?? '{}') as { events: { message: string }[] };
+      const parsed = JSON.parse(bodyText ?? '{}') as {
+        events: { message: string }[];
+      };
       expect(parsed.events.map((e) => e.message)).toEqual(['e0', 'e1']);
     }
   });

@@ -145,9 +145,7 @@ async function assertBodyOnlyDelivery(transport: Transport): Promise<void> {
   });
 }
 
-async function assertHttpsForAbsoluteUrls(
-  transport: Transport,
-): Promise<void> {
+async function assertHttpsForAbsoluteUrls(transport: Transport): Promise<void> {
   const event = makeProbeEvent();
   await withInterceptors(async (captured) => {
     await invokeSendSafely(transport, event);

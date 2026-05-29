@@ -21,12 +21,15 @@ import type {
   Transport,
 } from '../api/types.js';
 
-import { PackageError, safeNotify } from '../internal/errors/internal-errors.js';
+import {
+  PackageError,
+  safeNotify,
+} from '../internal/errors/internal-errors.js';
 
 import {
   DEFAULT_SANITIZER_LIMITS,
-  SANITIZER_LIMIT_BOUNDS,
   defaultLevelForEnvironment,
+  SANITIZER_LIMIT_BOUNDS,
 } from './env-defaults.js';
 
 /**
@@ -126,7 +129,9 @@ function resolveSanitizerLimits(
   }
 
   const limits: SanitizerLimits = { ...DEFAULT_SANITIZER_LIMITS };
-  const keys = Object.keys(SANITIZER_LIMIT_BOUNDS) as Array<keyof SanitizerLimits>;
+  const keys = Object.keys(SANITIZER_LIMIT_BOUNDS) as Array<
+    keyof SanitizerLimits
+  >;
 
   for (const key of keys) {
     const requested = overrides[key];

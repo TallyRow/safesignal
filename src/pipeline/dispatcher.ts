@@ -45,7 +45,10 @@
 
 import type { LogEvent } from '../api/types.js';
 import type { NormalizedConfig } from '../config/config.js';
-import { safeNotify, wrapAsPackageError } from '../internal/errors/internal-errors.js';
+import {
+  safeNotify,
+  wrapAsPackageError,
+} from '../internal/errors/internal-errors.js';
 import { controlCharGuard } from './control-char-guard.js';
 import { freezeInDev } from './freeze.js';
 import { redact } from './redactor.js';

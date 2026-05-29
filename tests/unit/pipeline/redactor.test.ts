@@ -22,7 +22,11 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { LogEvent, RedactionRule, Redactor } from '../../../src/api/types.js';
+import type {
+  LogEvent,
+  RedactionRule,
+  Redactor,
+} from '../../../src/api/types.js';
 import { normalizeConfig } from '../../../src/config/config.js';
 import { createRedactor, redact } from '../../../src/pipeline/redactor.js';
 import { makeLogEvent } from '../../helpers/event-fixtures.js';
@@ -33,7 +37,8 @@ const defaultRedactor = createRedactor();
 function runDefaultRedactor(overrides: Partial<LogEvent>): LogEvent {
   const event = makeLogEvent(overrides);
   const out = defaultRedactor(event);
-  if (out === null) throw new Error('default redactor unexpectedly returned null');
+  if (out === null)
+    throw new Error('default redactor unexpectedly returned null');
   return out;
 }
 
@@ -131,7 +136,9 @@ describe('R-2: default shape rules mask matching leaf string values', () => {
     const out = runDefaultRedactor({
       attributes: { note: 'jwt-like prefix eyJ but not a full token' },
     });
-    expect(out.attributes.note).toBe('jwt-like prefix eyJ but not a full token');
+    expect(out.attributes.note).toBe(
+      'jwt-like prefix eyJ but not a full token',
+    );
   });
 
   it('masks Bearer-prefixed strings', () => {
@@ -157,7 +164,9 @@ describe('R-2: default shape rules mask matching leaf string values', () => {
 
   it('applies shape rules to leaf strings inside arrays', () => {
     const out = runDefaultRedactor({
-      attributes: { list: ['Bearer xyz123def', 'safe', 'eyJhbGci0i.aaaaaaaa.bbbbbbbb'] },
+      attributes: {
+        list: ['Bearer xyz123def', 'safe', 'eyJhbGci0i.aaaaaaaa.bbbbbbbb'],
+      },
     });
     expect((out.attributes.list as unknown[])[0]).toBe('[REDACTED]');
     expect((out.attributes.list as unknown[])[1]).toBe('safe');
@@ -166,7 +175,9 @@ describe('R-2: default shape rules mask matching leaf string values', () => {
 
   it('recurses into nested arrays', () => {
     const out = runDefaultRedactor({
-      attributes: { matrix: [['safe', 'Bearer xyz123def'], ['plain']] as never },
+      attributes: {
+        matrix: [['safe', 'Bearer xyz123def'], ['plain']] as never,
+      },
     });
     const row0 = (out.attributes.matrix as unknown[])[0] as unknown[];
     expect(row0[0]).toBe('safe');
@@ -177,8 +188,14 @@ describe('R-2: default shape rules mask matching leaf string values', () => {
     const out = runDefaultRedactor({
       attributes: { records: [{ password: 'p1' }, { name: 'alice' }] },
     });
-    const r0 = (out.attributes.records as unknown[])[0] as Record<string, unknown>;
-    const r1 = (out.attributes.records as unknown[])[1] as Record<string, unknown>;
+    const r0 = (out.attributes.records as unknown[])[0] as Record<
+      string,
+      unknown
+    >;
+    const r1 = (out.attributes.records as unknown[])[1] as Record<
+      string,
+      unknown
+    >;
     expect(r0.password).toBe('[REDACTED]');
     expect(r1.name).toBe('alice');
   });
@@ -247,7 +264,9 @@ describe('R-4 / R-5: custom rule sets and custom redactors', () => {
   it('a custom RedactionRule[] fully replaces the defaults', () => {
     const r = createRedactor([{ key: /^xCustom$/i }]);
     const out = r(
-      makeLogEvent({ attributes: { xCustom: 'hide', password: 'visible-now' } }),
+      makeLogEvent({
+        attributes: { xCustom: 'hide', password: 'visible-now' },
+      }),
     );
     if (out === null) throw new Error('expected event');
     expect(out.attributes.xCustom).toBe('[REDACTED]');
@@ -344,7 +363,11 @@ describe('R-10: event.message and event.error.{name,message,stack} get shape rul
 
   it('replaces error.stack when it matches a shape rule', () => {
     const out = runDefaultRedactor({
-      error: { name: 'JWT', message: 'short', stack: 'eyJhbGci0i.payloadabc.signaturedef' },
+      error: {
+        name: 'JWT',
+        message: 'short',
+        stack: 'eyJhbGci0i.payloadabc.signaturedef',
+      },
     });
     expect(out.error?.stack).toBe('[REDACTED]');
   });
@@ -373,7 +396,9 @@ describe('R-10: event.message and event.error.{name,message,stack} get shape rul
 
 describe('object identity', () => {
   it('returns the same event reference when no rule fires', () => {
-    const event = makeLogEvent({ attributes: { plain: 'value', n: 1, b: true } });
+    const event = makeLogEvent({
+      attributes: { plain: 'value', n: 1, b: true },
+    });
     expect(defaultRedactor(event)).toBe(event);
   });
 
@@ -432,12 +457,48 @@ describe('redact pipeline stage: fail-closed', () => {
     ['string', 'event'],
     ['empty object', {}],
     ['array', []],
-    ['object missing timestamp', { level: 'info', message: 'x', attributes: {}, context: {} }],
-    ['object with non-string level', { timestamp: 'now', level: 7, message: '', attributes: {}, context: {} }],
-    ['object with wrong level', { timestamp: 'now', level: 'unknown', message: '', attributes: {}, context: {} }],
-    ['object missing message', { timestamp: 'now', level: 'info', attributes: {}, context: {} }],
-    ['object with null attributes', { timestamp: 'now', level: 'info', message: '', attributes: null, context: {} }],
-    ['object with null context', { timestamp: 'now', level: 'info', message: '', attributes: {}, context: null }],
+    [
+      'object missing timestamp',
+      { level: 'info', message: 'x', attributes: {}, context: {} },
+    ],
+    [
+      'object with non-string level',
+      { timestamp: 'now', level: 7, message: '', attributes: {}, context: {} },
+    ],
+    [
+      'object with wrong level',
+      {
+        timestamp: 'now',
+        level: 'unknown',
+        message: '',
+        attributes: {},
+        context: {},
+      },
+    ],
+    [
+      'object missing message',
+      { timestamp: 'now', level: 'info', attributes: {}, context: {} },
+    ],
+    [
+      'object with null attributes',
+      {
+        timestamp: 'now',
+        level: 'info',
+        message: '',
+        attributes: null,
+        context: {},
+      },
+    ],
+    [
+      'object with null context',
+      {
+        timestamp: 'now',
+        level: 'info',
+        message: '',
+        attributes: {},
+        context: null,
+      },
+    ],
   ])('detects %s as non-event and throws', (_label, value) => {
     const config = normalizeConfig({
       redactor: () => value as unknown as LogEvent,

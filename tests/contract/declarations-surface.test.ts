@@ -24,10 +24,7 @@ const DIST_TESTING_DTS = join(REPO_ROOT, 'dist', 'testing.d.ts');
  * dependency; any mention here would indicate a leak through the public
  * surface or a re-exported OTel type.
  */
-const FORBIDDEN_STRINGS = [
-  'opentelemetry',
-  '@opentelemetry',
-];
+const FORBIDDEN_STRINGS = ['opentelemetry', '@opentelemetry'];
 
 /**
  * OTel concept names that must not appear as exported identifiers. Word-
@@ -97,28 +94,24 @@ describe('public .d.ts surface', () => {
         ).toBe(true);
       });
 
-      it.each(FORBIDDEN_STRINGS)(
-        'does not contain the forbidden substring %s',
-        (forbidden) => {
-          if (check.code === undefined) return;
-          expect(
-            check.code.toLowerCase().includes(forbidden.toLowerCase()),
-            `${check.label} contains forbidden substring '${forbidden}' (comments stripped)`,
-          ).toBe(false);
-        },
-      );
+      it.each(
+        FORBIDDEN_STRINGS,
+      )('does not contain the forbidden substring %s', (forbidden) => {
+        if (check.code === undefined) return;
+        expect(
+          check.code.toLowerCase().includes(forbidden.toLowerCase()),
+          `${check.label} contains forbidden substring '${forbidden}' (comments stripped)`,
+        ).toBe(false);
+      });
 
-      it.each(FORBIDDEN_NAMES)(
-        'does not expose the OTel name %s',
-        (name) => {
-          if (check.code === undefined) return;
-          const regex = new RegExp(`\\b${name}\\b`);
-          expect(
-            regex.test(check.code),
-            `${check.label} exposes forbidden OTel name '${name}' (comments stripped)`,
-          ).toBe(false);
-        },
-      );
+      it.each(FORBIDDEN_NAMES)('does not expose the OTel name %s', (name) => {
+        if (check.code === undefined) return;
+        const regex = new RegExp(`\\b${name}\\b`);
+        expect(
+          regex.test(check.code),
+          `${check.label} exposes forbidden OTel name '${name}' (comments stripped)`,
+        ).toBe(false);
+      });
     });
   }
 });

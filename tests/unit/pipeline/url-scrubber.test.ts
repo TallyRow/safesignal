@@ -53,7 +53,9 @@ describe('scrubUrl: input that is not a parseable http(s) URL', () => {
   });
 
   it('returns a non-http(s) URL unchanged (ftp, mailto, data, file)', () => {
-    expect(scrubUrl('ftp://host/path?token=abc')).toBe('ftp://host/path?token=abc');
+    expect(scrubUrl('ftp://host/path?token=abc')).toBe(
+      'ftp://host/path?token=abc',
+    );
     expect(scrubUrl('mailto:alice@example.com?token=abc')).toBe(
       'mailto:alice@example.com?token=abc',
     );
@@ -125,9 +127,9 @@ describe('scrubUrl: default param denylist (query)', () => {
   });
 
   it('preserves safe params alongside sensitive ones', () => {
-    expect(
-      scrubUrl('https://x/?token=abc&page=2&visible=true'),
-    ).toBe('https://x/?token=%5BREDACTED%5D&page=2&visible=true');
+    expect(scrubUrl('https://x/?token=abc&page=2&visible=true')).toBe(
+      'https://x/?token=%5BREDACTED%5D&page=2&visible=true',
+    );
   });
 
   it('redacts every value of a repeated sensitive param', () => {
@@ -164,9 +166,9 @@ describe('scrubUrl: fragment handling', () => {
   });
 
   it('opts out of fragment scrubbing when options.fragment is false', () => {
-    expect(scrubUrl('https://x/?token=abc#token=xyz', { fragment: false })).toBe(
-      'https://x/?token=%5BREDACTED%5D#token=xyz',
-    );
+    expect(
+      scrubUrl('https://x/?token=abc#token=xyz', { fragment: false }),
+    ).toBe('https://x/?token=%5BREDACTED%5D#token=xyz');
   });
 
   it('opts into fragment scrubbing when options.fragment is true (default)', () => {
@@ -220,7 +222,9 @@ describe('scrubUrl: options.extraParams', () => {
       scrubUrl('https://x/?token=t1&customSecret=cs1&safe=ok', {
         extraParams: ['customSecret'],
       }),
-    ).toBe('https://x/?token=%5BREDACTED%5D&customSecret=%5BREDACTED%5D&safe=ok');
+    ).toBe(
+      'https://x/?token=%5BREDACTED%5D&customSecret=%5BREDACTED%5D&safe=ok',
+    );
   });
 
   it('handles an empty extraParams array as a no-op', () => {
@@ -271,9 +275,7 @@ describe('urlScrub pipeline stage', () => {
         attributes: { url: 'https://x/?token=abc' },
       },
     });
-    expect(out.context.attributes?.url).toBe(
-      'https://x/?token=%5BREDACTED%5D',
-    );
+    expect(out.context.attributes?.url).toBe('https://x/?token=%5BREDACTED%5D');
   });
 
   it('skips scrubbing when context.attributes is undefined', () => {

@@ -58,20 +58,19 @@ describe('validateEndpoint — non-string endpoint', () => {
     [true, 'boolean'],
     [false, 'boolean'],
     [Symbol('x'), 'symbol'],
-  ] as ReadonlyArray<readonly [unknown, string]>)(
-    'rejects %p with TypeError naming the type (%s)',
-    (value, typeLabel) => {
-      let thrown: unknown;
-      try {
-        validateEndpoint(value, false);
-      } catch (err) {
-        thrown = err;
-      }
-      expect(thrown).toBeInstanceOf(TypeError);
-      expect((thrown as Error).message).toMatch(/endpoint must be a string/);
-      expect((thrown as Error).message).toContain(typeLabel);
-    },
-  );
+  ] as ReadonlyArray<
+    readonly [unknown, string]
+  >)('rejects %p with TypeError naming the type (%s)', (value, typeLabel) => {
+    let thrown: unknown;
+    try {
+      validateEndpoint(value, false);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(TypeError);
+    expect((thrown as Error).message).toMatch(/endpoint must be a string/);
+    expect((thrown as Error).message).toContain(typeLabel);
+  });
 });
 
 describe('validateEndpoint — malformed URLs', () => {
@@ -146,8 +145,12 @@ describe('validateEndpoint — loopback opt-in (flag=true)', () => {
       thrown = err;
     }
     expect(thrown).toBeInstanceOf(Error);
-    expect((thrown as Error).message).toMatch(/allowInsecureLoopback permits only/);
-    expect((thrown as Error).message).toMatch(/localhost.*127\.0\.0\.1.*\[::1\]/);
+    expect((thrown as Error).message).toMatch(
+      /allowInsecureLoopback permits only/,
+    );
+    expect((thrown as Error).message).toMatch(
+      /localhost.*127\.0\.0\.1.*\[::1\]/,
+    );
     expect((thrown as Error).message).toContain(endpoint);
   });
 });
@@ -188,12 +191,18 @@ describe('validateEndpoint — side-effect freedom', () => {
         return Reflect.get(originalEnv, prop);
       },
     });
-    Object.defineProperty(process, 'env', { value: trapped, configurable: true });
+    Object.defineProperty(process, 'env', {
+      value: trapped,
+      configurable: true,
+    });
     try {
       validateEndpoint('https://example.com', false);
       validateEndpoint('http://localhost', true);
     } finally {
-      Object.defineProperty(process, 'env', { value: originalEnv, configurable: true });
+      Object.defineProperty(process, 'env', {
+        value: originalEnv,
+        configurable: true,
+      });
     }
     expect(envReads).toBe(0);
   });

@@ -27,7 +27,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ConsoleTransport, configureLogging, createLogger } from '../../src/index.js';
+import {
+  ConsoleTransport,
+  configureLogging,
+  createLogger,
+} from '../../src/index.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const APP = { name: 'log-injection', version: '1.0.0' };
@@ -184,9 +188,9 @@ describe('FR-017: ConsoleTransport passes events as structured objects, not inte
       const eventArg = consoleInfo.mock.calls[0]![1] as Record<string, unknown>;
       expect(eventArg).toBeTypeOf('object');
       expect(eventArg.level).toBe('info');
-      expect(
-        (eventArg.attributes as Record<string, unknown>).attacker,
-      ).toBe('\\u0007shell');
+      expect((eventArg.attributes as Record<string, unknown>).attacker).toBe(
+        '\\u0007shell',
+      );
     } finally {
       consoleInfo.mockRestore();
     }

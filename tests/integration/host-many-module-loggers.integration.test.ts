@@ -136,7 +136,7 @@ describe('SC-013: host + many module loggers share one delivery pipeline', () =>
 
     expect(cap.calls).toHaveLength(2);
     for (const event of cap.calls) {
-      expect(event.attributes.value).toBe('x'.repeat(64) + '...[truncated]');
+      expect(event.attributes.value).toBe(`${'x'.repeat(64)}...[truncated]`);
     }
   });
 

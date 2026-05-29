@@ -21,6 +21,6 @@
  */
 
 export {
-  createBeaconTransport,
   type BeaconTransportOptions,
+  createBeaconTransport,
 } from './beacon-transport.js';

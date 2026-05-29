@@ -22,7 +22,12 @@
  *     is attached at the top-level attributes.
  */
 
-import type { AttributeValue, ErrorInfo, LogContext, LogEvent } from '../api/types.js';
+import type {
+  AttributeValue,
+  ErrorInfo,
+  LogContext,
+  LogEvent,
+} from '../api/types.js';
 import type { NormalizedConfig } from '../config/config.js';
 import type { PipelineStage } from './dispatcher.js';
 
@@ -110,7 +115,8 @@ function withTruncationMarker(
   omitted: number,
 ): { [key: string]: AttributeValue } {
   const tagged: { [key: string]: AttributeValue } = { ...attrs };
-  tagged[TRUNCATION_MARKER_KEY] = `[Truncated: ${String(omitted)} keys omitted]`;
+  tagged[TRUNCATION_MARKER_KEY] =
+    `[Truncated: ${String(omitted)} keys omitted]`;
   return tagged;
 }
 
@@ -148,7 +154,8 @@ function sanitizeValueImpl(
   // null and primitives ------------------------------------------------------
   if (value === null) return null;
   const t = typeof value;
-  if (t === 'string') return truncateString(value as string, ctx.maxStringLength);
+  if (t === 'string')
+    return truncateString(value as string, ctx.maxStringLength);
   if (t === 'number') {
     const n = value as number;
     return Number.isFinite(n) ? n : null;
@@ -298,7 +305,7 @@ function sanitizeErrorAsAttribute(
   };
   const stack = safeOptional(() => err.stack);
   if (stack !== undefined) {
-    reduced['stack'] = stack;
+    reduced.stack = stack;
   }
   return sanitizeObject(reduced, depth, ctx);
 }
@@ -338,7 +345,9 @@ function isPlainObject(obj: object): boolean {
 
 function getConstructorName(obj: object): string {
   try {
-    const proto = Object.getPrototypeOf(obj) as { constructor?: { name?: unknown } } | null;
+    const proto = Object.getPrototypeOf(obj) as {
+      constructor?: { name?: unknown };
+    } | null;
     const ctor = proto?.constructor;
     const name = ctor?.name;
     if (typeof name === 'string' && name.length > 0) return name;

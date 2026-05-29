@@ -32,13 +32,12 @@
  */
 
 import type {
-  AttributeValue,
   Attributes,
+  AttributeValue,
   ErrorInfo,
   LogContext,
   LogEvent,
 } from '../api/types.js';
-import type { NormalizedConfig } from '../config/config.js';
 import type { PipelineStage } from './dispatcher.js';
 
 // Targeted code points:
@@ -62,7 +61,7 @@ function escapeControlChars(value: string): string {
   if (!HAS_CONTROL_CHAR.test(value)) return value;
   return value.replace(CONTROL_CHAR_GLOBAL, (ch) => {
     const code = ch.charCodeAt(0);
-    return '\\u' + code.toString(16).padStart(4, '0');
+    return `\\u${code.toString(16).padStart(4, '0')}`;
   });
 }
 
@@ -76,7 +75,8 @@ export const controlCharGuard: PipelineStage = (event, _config) => {
     const escName = escapeControlChars(event.error.name);
     const escMessage = escapeControlChars(event.error.message);
     const stack = event.error.stack;
-    const escStack = stack === undefined ? undefined : escapeControlChars(stack);
+    const escStack =
+      stack === undefined ? undefined : escapeControlChars(stack);
     if (
       escName === event.error.name &&
       escMessage === event.error.message &&
