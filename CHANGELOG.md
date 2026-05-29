@@ -26,6 +26,10 @@ publishes under `latest`.
 - **Auth**: removed the manual `_authToken` step — npm ≥ 11.5.1
   auto-detects the `NPM_ID_TOKEN` id_token; the publish job upgrades
   npm first (node:22 ships npm 10.x).
+- **Provenance**: added the `SIGSTORE_ID_TOKEN` (aud `sigstore`)
+  id_token required for `npm publish --provenance` on GitLab — npm
+  signs the Sigstore attestation with a token distinct from the npm
+  auth token.
 - **Pipeline order**: `build` runs before `typecheck`/`test` so the
   public-API/quickstart tests resolve `@tallyrow/safesignal` via the
   built `dist/`.
