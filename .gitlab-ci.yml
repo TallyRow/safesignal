@@ -249,6 +249,12 @@ publish:
       # GitLab — NOT the registry URL. With the wrong aud the token
       # exchange fails at publish time.
       aud: "npm:registry.npmjs.org"
+    SIGSTORE_ID_TOKEN:
+      # Separate token for `npm publish --provenance`: npm signs the
+      # provenance attestation via Sigstore, which needs its own GitLab
+      # id_token with the "sigstore" audience (distinct from the npm
+      # auth token above).
+      aud: "sigstore"
   script:
     # Derive dist-tag from the version string (POSIX case — alpine's
     # /bin/sh has no `[[ ]]`):
