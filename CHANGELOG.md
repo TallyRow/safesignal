@@ -6,6 +6,22 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-05-29
+
+### Operational hardening (Feature 005) — first stable OIDC/provenance release
+
+Promotes `1.0.1-rc.2` to stable. This is the first `@tallyrow/safesignal`
+version published under the `latest` dist-tag via the GitLab CI release
+pipeline with OIDC trusted publishing + SLSA provenance attestation. It
+supersedes the manual bootstrap `1.0.1-rc.1` (which only existed because
+npm trusted publishing cannot create a brand-new package).
+
+No consumer-visible API change since `1.0.0` — this release ships the
+Feature 005 CI/CD + release-workflow hardening (quality-gate pipeline,
+signed-tag release pipeline, `main` default branch + branch protection,
+provenance publishing). See the `1.0.1-rc.2` entry below for the full
+list of release-pipeline fixes.
+
 ## [1.0.1-rc.2] — 2026-05-29
 
 ### Release candidate — first OIDC-published artifact (real F005 release-pipeline dogfood)
