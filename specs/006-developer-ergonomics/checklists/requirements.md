@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,18 +31,15 @@
 
 ## Notes
 
-- **3 [NEEDS CLARIFICATION] markers remain intentionally** and are deferred to
-  `/speckit-clarify` (the user explicitly directed that tooling/undecided
-  specifics be resolved there, not guessed in `/speckit-specify`). They are the
-  3 highest-impact open decisions, within the max-3 limit, prioritized
-  scope → security → technical:
-  1. **FR-007 (scope)** — initial lint-cleanup scope: format/fix the whole
-     existing codebase in one baseline commit, vs. baseline-ignore-existing and
-     enforce on changed files only.
-  2. **FR-014 (security)** — how the dependency-update bot authenticates to open
-     MRs without violating the no-long-lived-publish-token posture.
-  3. **FR-005 (technical)** — which linter + formatter (ESLint+Prettier vs Biome
-     vs oxlint+dprint).
+- **All 3 [NEEDS CLARIFICATION] markers resolved** via `/speckit-clarify`
+  (Session 2026-05-29), recorded in the spec's Clarifications section and
+  applied to the relevant FRs:
+  1. **FR-005 (technical)** — linter/formatter → **Biome** (single tool).
+  2. **FR-007 (scope)** — initial cleanup → **full format baseline** in one
+     mechanical commit.
+  3. **FR-014 (security)** — bot auth → **`safesignal`-scoped GitLab Project
+     Access Token** (Developer role, `api` scope, masked CI variable;
+     non-publish). npm publish stays OIDC-only.
 - **"No implementation details" caveat**: this is a CI/tooling feature, so some
   platform capabilities are named where they were *decided product choices* from
   the input (GitLab Secret Detection / Dependency Scanning, Renovate, native

@@ -27,6 +27,14 @@ re-enable F005" framing is obsolete (F005 shipped), and two of its stories —
 test-code typecheck debt and MR-creation tooling — are **already complete** in
 F005 and are explicitly out of scope here.
 
+## Clarifications
+
+### Session 2026-05-29
+
+- Q: Which linter + formatter should the project adopt (none exists today)? → A: Biome — a single tool providing both lint and format, one config, ~1 devDependency; chosen for minimalism + reproducibility, with strict `tsc` already covering deep type checks.
+- Q: Scope of the initial lint/format cleanup on the never-linted codebase? → A: Full baseline now — auto-fix + format the entire codebase in one mechanical baseline commit; bundle-invariance + test suite prove behavior is unchanged.
+- Q: How does the Renovate bot authenticate to open MRs given the OIDC-only / no-long-lived-publish-token posture? → A: A GitLab Project Access Token scoped to `safesignal` only (Developer role, `api` scope), stored as a masked/protected CI variable used solely by the Renovate scheduled pipeline; non-publish, repo-scoped — a bounded, documented exception. npm publish stays OIDC-only.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Supply-chain scanning on every change (Priority: P1)
@@ -242,19 +250,18 @@ holds or improves coverage passes.
 
 **Lint + format baseline (US2)**
 
-- **FR-005**: The project MUST provide a single linter and a single formatter,
+- **FR-005**: The project MUST adopt **Biome** as the single lint + format tool,
   exposed via stable `package.json` scripts (a `lint` check, a `format:check`,
-  and a `format` writer), runnable from a fresh clone. [NEEDS CLARIFICATION:
-  which linter + formatter? e.g. ESLint + Prettier, or Biome (single tool), or
-  oxlint + dprint — affects config shape, speed, and devDependency count]
+  and a `format` writer), runnable from a fresh clone with one config file and a
+  single pinned devDependency.
 - **FR-006**: CI MUST gate every merge request on the lint check and the
   format-check; violations MUST fail the pipeline and name the offending
   file(s)/rule(s).
 - **FR-007**: The committed tree MUST pass lint + format-check with zero
-  violations after the baseline is established. [NEEDS CLARIFICATION: scope of
-  the initial cleanup — auto-fix/format the entire existing codebase in one
-  baseline commit, or adopt a "baseline-ignore existing, enforce on changed
-  files only" ratchet? Impacts diff size and review burden]
+  violations after the baseline is established. The baseline MUST be created by
+  auto-fixing + formatting the **entire existing codebase in one mechanical
+  baseline commit** (not a changed-files-only ratchet), verified behavior-neutral
+  by the test suite + bundle-invariance gates.
 - **FR-008**: Establishing the format baseline MUST NOT change the built/published
   bundle bytes; the existing bundle-invariance gate MUST still pass.
 
@@ -277,12 +284,12 @@ holds or improves coverage passes.
   scheduled cadence that opens merge requests, batching minor/patch updates into
   a single MR and isolating each major update into its own MR.
 - **FR-013**: Each update MR MUST run the full standard quality-gate pipeline.
-- **FR-014**: The bot's credential MUST be scoped to the minimum needed to open
-  MRs and MUST NOT carry publish rights or be a long-lived npm token. [NEEDS
-  CLARIFICATION: how does the bot authenticate given the no-long-lived-token
-  posture? e.g. a scoped GitLab project/group access token stored as a masked
-  CI variable (a bounded, documented exception), a bot account, or another
-  mechanism]
+- **FR-014**: The bot MUST authenticate via a GitLab **Project Access Token
+  scoped to `safesignal` only** (Developer role, `api` scope), stored as a
+  masked/protected CI variable and used solely by the Renovate scheduled
+  pipeline. The token MUST NOT carry npm publish rights and MUST NOT be a
+  long-lived npm token; it is a bounded, documented exception for MR creation
+  only (npm publish remains OIDC-only).
 
 **Coverage gating (US5)**
 
@@ -357,10 +364,11 @@ holds or improves coverage passes.
 - GitLab.com free-tier shared runners (`saas-linux-small-amd64`) remain the CI
   environment, and GitLab's bundled Secret Detection + Dependency Scanning
   templates are available on this tier.
-- The dependency-update bot will require **some** credential to open MRs; the
-  no-long-lived-token posture refers specifically to **npm publish** tokens
-  (OIDC-only). A narrowly-scoped, non-publish MR-creation credential is an
-  acceptable, documented exception pending the FR-014 clarification.
+- The dependency-update bot authenticates with a `safesignal`-scoped GitLab
+  Project Access Token (Developer role, `api` scope, masked CI variable) — a
+  narrowly-scoped, non-publish MR-creation credential. The no-long-lived-token
+  posture refers specifically to **npm publish** tokens, which remain OIDC-only;
+  this bot token is the one bounded, documented exception (FR-014).
 - Coverage instrumentation is available through the existing test runner; exact
   per-package threshold values are calibrated at `/speckit-plan` time against the
   measured `main` baseline (not picked aspirationally).
