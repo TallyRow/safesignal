@@ -49,8 +49,8 @@ runtime change beyond the one-time mechanical format baseline.
 **Goal**: lint + format enforced as blocking CI jobs on every MR.
 **Independent test**: committed tree passes both; a planted lint/format violation fails the matching job. Depends on Phase 2 (clean baseline).
 
-- [ ] T011 [US2] Extend `.gitlab-ci.yml`: add a `lint` job (`npm run lint`) under `.quality_gate_rules` (`node:22-alpine`, `npm ci`, no `needs: build`); `glab ci lint` (maps FR-006)
-- [ ] T012 [US2] Extend `.gitlab-ci.yml`: add a `format-check` job (`npm run format:check`) under `.quality_gate_rules`; `glab ci lint` (maps FR-006)
+- [X] T011 [US2] Extend `.gitlab-ci.yml`: add a `lint` job (`npm run lint`) under `.quality_gate_rules` (`node:22-alpine`, `npm ci`, no `needs: build`); `glab ci lint` (maps FR-006)
+- [X] T012 [US2] Extend `.gitlab-ci.yml`: add a `format-check` job (`npm run format:check`) under `.quality_gate_rules`; `glab ci lint` (maps FR-006)
 - [ ] T013 [US2] Verify on the dogfood MR: both jobs are green on the clean tree; a planted lint error fails `lint` and a planted format drift fails `format-check`, each naming the file. Record in `baselines.md` (maps SC-003)
 
 ---
@@ -86,7 +86,7 @@ runtime change beyond the one-time mechanical format baseline.
 **Goal**: enforce the **existing** `vitest.config.ts` thresholds in CI. Independent of other stories.
 **Independent test**: coverage job passes at the ~95% baseline; a planted coverage drop below a threshold fails it.
 
-- [ ] T024 [US5] Extend `.gitlab-ci.yml`: add a `coverage` job (`npm run test:coverage`) under `.quality_gate_rules` (`node:22-alpine`, `npm ci`, no `needs: build`); `glab ci lint` (maps FR-015)
+- [X] T024 [US5] Extend `.gitlab-ci.yml`: add a `coverage` job (`npm run test:coverage`) under `.quality_gate_rules` (`node:22-alpine`, `npm ci`, no `needs: build`); `glab ci lint` (maps FR-015)
 - [ ] T025 [US5] Verify on the dogfood MR: the coverage job passes at baseline; a planted under-threshold change fails it with a per-package report. Record in `baselines.md` (maps SC-006)
 - [ ] T026 [P] [US5] Document the coverage thresholds + the relaxation-review process in `CONTRIBUTING.md` (or `contracts/quality-gates.md` reference). Note thresholds were retained from `vitest.config.ts` (90% global; 100% on the four pipeline-security files), stronger than baseline−2pp (maps FR-016)
 
@@ -98,7 +98,7 @@ runtime change beyond the one-time mechanical format baseline.
 - [ ] T028 [P] Post-feature invariance: `npm test` = 48/1,088/10/0/0; gzipped bundles identical to T004; coverage ≥ thresholds. Record in `baselines.md` (maps SC-007)
 - [ ] T029 [P] Confirm local↔CI reproducibility: `npm run lint`, `npm run format:check`, `npm run test:coverage` give the same pass/fail on a fresh clone as their CI jobs (maps SC-008, FR-021)
 - [ ] T030 Write `specs/006-developer-ergonomics/checklists/final-review.md`: gate outcomes, maintainer-ops status (T021/T022), invariance numbers, acceptance statement
-- [ ] T031 **Decision**: ratify constitution **v1.3.0** (merge the `constitution-v1.3.0` branch) so the spec's Principle VIII/IX citations resolve on `main` — or explicitly document deferral. Soft prerequisite; not blocking implementation
+- [X] T031 **Decision**: ratify constitution **v1.3.0** (merge the `constitution-v1.3.0` branch) so the spec's Principle VIII/IX citations resolve on `main` — or explicitly document deferral. Soft prerequisite; not blocking implementation
 
 ---
 
