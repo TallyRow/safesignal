@@ -150,6 +150,26 @@ project expects:
 
 Optional sections (Spec Kit linkage, migration notes) follow.
 
+### Use `glab` so your description lands intact
+
+Open the MR with the [GitLab CLI](https://gitlab.com/gitlab-org/cli)
+(`glab auth login` once per machine). Write your filled-in template to a
+file, then pass it via `--description` so multi-line content is
+preserved:
+
+```bash
+glab mr create \
+  --source-branch "$(git branch --show-current)" \
+  --target-branch main \
+  --title "Short, imperative summary" \
+  --description "$(cat mr-body.md)" \
+  --remove-source-branch
+```
+
+Do **not** open MRs via `git push -o merge_request.description=...`:
+GitLab push options reject newlines, so multi-line descriptions are
+silently dropped. The `glab` flow above is the supported path.
+
 ## Developer Certificate of Origin (DCO)
 
 SafeSignal requires every commit to be **signed off** under the
