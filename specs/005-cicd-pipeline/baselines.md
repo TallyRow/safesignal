@@ -133,16 +133,22 @@ group). Full detail in the `npm-oidc-release-gotchas` note and the
 `1.0.1-rc.2` CHANGELOG entry. The `tallyrow` group + `safesignal`
 project were made public on 2026-05-29 (`opsdeck` remains private).
 
-## Stable release (T029) — v1.0.1
+## Stable release (T029) — v1.0.1 — PASS (2026-05-29)
 
-Bumped to `1.0.1` + `[1.0.1]` CHANGELOG entry in this MR. After merge,
-cut `git tag -s v1.0.1` on `main` → OIDC publishes `1.0.1` under
-`latest` (moving `latest` off the rc.1 bootstrap). To record once run:
+Stable `v1.0.1` cut from `main` (`git tag -s v1.0.1`) and published via
+the OIDC release pipeline.
 
-- Pipeline URL:
-- npm `latest` → version:
-- Provenance verified: yes / no
-- Verdict: PASS / FAIL
+- npm: `@tallyrow/safesignal@1.0.1`, dist-tag **`latest`** (moved off the
+  rc.1 bootstrap; `next` → `1.0.1-rc.2`)
+- Provenance: `attestations.provenance.predicateType =
+  https://slsa.dev/provenance/v0.2`; clean-install `npm audit signatures`
+  → "1 verified registry signature + 1 verified attestation"
+- Release jobs all green (verify-tag-signed → … → publish →
+  provenance-verify)
+- Verdict: **PASS**
+
+Feature 005 is complete and shipped — `npm install @tallyrow/safesignal`
+now resolves the stable, provenance-attested `1.0.1`.
 
 ## Branch protection verification (T020)
 
