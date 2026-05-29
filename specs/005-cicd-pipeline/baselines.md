@@ -32,35 +32,53 @@ Settings → Usage page. F005 introduces CI; this baseline is the
   value here before T012's first pipeline run, so post-feature
   consumption can be quantified.
 
+## Maintainer-side ops verification (T002 / T003)
+
+Verified 2026-05-29 via the GitLab REST API (`glab api`):
+
+- **T002 default branch** = `main` (`projects/...:default_branch`).
+  `git ls-remote --symref origin HEAD` → `ref: refs/heads/main`. The
+  `master` protected-branch alias remains (FR-021, keep ≥90 days).
+- **T003 branch protection on `main`**: push = No one (access 0),
+  merge = Maintainers (40), allow_force_push = false.
+- **T003 MR gates** (set 2026-05-29 via API):
+  `only_allow_merge_if_pipeline_succeeds` = true,
+  `only_allow_merge_if_all_discussions_are_resolved` = true,
+  approval rule "All Members" (any_approver) = 1 required, with
+  author self-approval allowed (`merge_requests_author_approval` =
+  true) so the sole maintainer is not deadlocked. Auto-delete source
+  branch on merge = true.
+
 ## NPM_TOKEN audit (T004)
 
-(To be recorded by the maintainer after auditing GitLab project
-Settings → CI/CD → Variables.)
-
-- Maintainer: confirm NO variable named `NPM_TOKEN`,
-  `NPM_PUBLISH_TOKEN`, `NODE_AUTH_TOKEN`, or equivalent
-  long-lived npm credential exists. Record the audit timestamp
-  + result here.
+Verified 2026-05-29 via `glab api projects/.../variables`:
+**0 CI/CD variables defined** — no `NPM_TOKEN`, `NPM_PUBLISH_TOKEN`,
+`NODE_AUTH_TOKEN`, or any long-lived npm credential. OIDC-only per
+FR-014. **PASS.**
 
 ## npm registry state (T007)
 
-(To be recorded by the maintainer after running `npm view
-@tallyrow/safesignal versions --json`.)
-
-- Maintainer: capture the registry response. If "package not
-  found", the first CI-triggered publish (T017's RC) claims the
-  scope+name. If versions exist, confirm the maintainer's npm
-  account has publish rights.
+Verified 2026-05-29: `npm view @tallyrow/safesignal versions --json`
+→ `E404 Not Found` (package not in registry). The first CI-triggered
+publish (T017's `v1.0.1-rc.1`) will claim the scope+name. **PASS.**
 
 ## US1 first pipeline run (T012)
 
-(To be recorded after T010 + T011 commits push and the maintainer
-opens a no-op test MR.)
+Recorded 2026-05-29. The 005 feature MR (!5) doubles as the US1
+dogfood (its quality-gate pipeline = the acceptance gate).
 
-- Pipeline URL:
-- Wall-clock duration:
-- Per-stage breakdown:
-- Verdict: PASS / FAIL
+- Pipeline URL: https://gitlab.com/tallyrow/safesignal/-/pipelines/2562289684
+- Commit: `c593c88`
+- Wall-clock duration: 131s (~2m11s)
+- Jobs (all green): build [20], build [22], typecheck [20],
+  typecheck [22], test [20], test [22], bundle-invariance,
+  dependency-pins, dco-check
+- Verdict: **PASS**
+- Note: two real blockers were surfaced + fixed before green —
+  (1) 96 pre-existing tests/ typecheck errors (commit `84e98bd`);
+  (2) a Node-20-only sanitizer test-setup throw (commit `c593c88`).
+  Also corrected the CI to build-first so package-name imports
+  resolve dist-less.
 
 ## US2 dogfood release (T017)
 
