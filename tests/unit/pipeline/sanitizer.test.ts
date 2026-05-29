@@ -194,6 +194,17 @@ describe('S-2: sanitizer never throws on any input', () => {
 
   it('handles an Error whose name/message/stack getters throw', () => {
     const err = new Error('original');
+    // Define the `stack` getter FIRST, while `name`/`message` are still
+    // plain. On Node 20's V8, `Object.defineProperty(err, 'stack', …)`
+    // settles the lazy stack accessor, which formats the error by reading
+    // `name`/`message`; if those already threw, the throw would escape
+    // here in setup (before the sanitizer runs). Node 22 doesn't do this.
+    // Defining stack first keeps the test portable across both.
+    Object.defineProperty(err, 'stack', {
+      get() {
+        throw new Error('stack explosion');
+      },
+    });
     Object.defineProperty(err, 'name', {
       get() {
         throw new Error('name explosion');
@@ -202,11 +213,6 @@ describe('S-2: sanitizer never throws on any input', () => {
     Object.defineProperty(err, 'message', {
       get() {
         throw new Error('message explosion');
-      },
-    });
-    Object.defineProperty(err, 'stack', {
-      get() {
-        throw new Error('stack explosion');
       },
     });
     expect(() => sanitizeAttrs({ err: err as never })).not.toThrow();
