@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+# SafeSignal pre-commit hook — Biome lint + format check on STAGED files.
+#
+# Enable once per clone:
+#   git config core.hooksPath scripts/hooks
+#
+# Blocks the commit on any lint or formatting issue; never auto-formats or
+# re-stages. CI enforces the same checks (this hook is a faster local mirror).
+
+# Collect staged, lintable files (added/copied/modified only).
+staged=$(git diff --cached --name-only --diff-filter=ACM \
+  -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.json' '*.jsonc' 2>/dev/null)
+
+[ -z "$staged" ] && exit 0
+
+# biome check = lint + format-check + import organization (read-only here).
+if ! npx --no-install biome check --no-errors-on-unmatched --files-ignore-unknown=true $staged; then
+  echo ""
+  echo "✗ pre-commit: Biome found lint/format issues in staged files (above)."
+  echo "  Fix formatting: npm run format   then re-stage the files."
+  echo "  Fix lint:       address the reported rules, or add a justified"
+  echo "                  // biome-ignore <rule>: <reason> comment."
+  echo "  CI enforces these same checks on every merge request."
+  exit 1
+fi

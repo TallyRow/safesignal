@@ -60,11 +60,11 @@ runtime change beyond the one-time mechanical format baseline.
 **Goal**: lint/format/DCO caught at commit time. Depends on Phase 1 (Biome scripts) + Phase 2 (clean baseline).
 **Independent test**: with hooks enabled, a staged violation or a missing sign-off blocks the commit; a clean signed-off commit succeeds.
 
-- [ ] T014 [P] [US3] Create `scripts/hooks/pre-commit` (pure shell): compute staged lintable files (`git diff --cached --name-only --diff-filter=ACM`), run Biome lint + format-check on them; BLOCK on findings with a fix pointer; never re-stage (maps FR-009, FR-010)
-- [ ] T015 [P] [US3] Create `scripts/hooks/commit-msg` (pure shell): fail if `$1` lacks a `Signed-off-by: Name <email>` trailer; print the `git commit -s` remedy (maps FR-009, FR-010)
-- [ ] T016 [US3] Set executable bits and commit them: `chmod +x scripts/hooks/* && git update-index --chmod=+x scripts/hooks/pre-commit scripts/hooks/commit-msg`
-- [ ] T017 [US3] Document the one-time opt-in (`git config core.hooksPath scripts/hooks`) + the Biome workflow in `CONTRIBUTING.md`; note CI remains authoritative (maps FR-011)
-- [ ] T018 [US3] Verify: enable hooks, confirm a staged format violation blocks commit, a missing sign-off blocks commit, and a clean signed-off commit succeeds (maps SC-004)
+- [X] T014 [P] [US3] Create `scripts/hooks/pre-commit` (pure shell): compute staged lintable files (`git diff --cached --name-only --diff-filter=ACM`), run Biome lint + format-check on them; BLOCK on findings with a fix pointer; never re-stage (maps FR-009, FR-010)
+- [X] T015 [P] [US3] Create `scripts/hooks/commit-msg` (pure shell): fail if `$1` lacks a `Signed-off-by: Name <email>` trailer; print the `git commit -s` remedy (maps FR-009, FR-010)
+- [X] T016 [US3] Set executable bits and commit them: `chmod +x scripts/hooks/* && git update-index --chmod=+x scripts/hooks/pre-commit scripts/hooks/commit-msg`
+- [X] T017 [US3] Document the one-time opt-in (`git config core.hooksPath scripts/hooks`) + the Biome workflow in `CONTRIBUTING.md`; note CI remains authoritative (maps FR-011)
+- [X] T018 [US3] Verify: enable hooks, confirm a staged format violation blocks commit, a missing sign-off blocks commit, and a clean signed-off commit succeeds (maps SC-004)
 
 ---
 
