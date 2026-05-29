@@ -86,6 +86,31 @@
   silently replace it) and the duplicate-package-copy contract — explicitly one
   of isolated, shared, or unsupported — with consumer guidance for the chosen
   classification.
+- Reproducible Verification: Confirm every quality check this plan defines
+  (typecheck, test, build, bundle-size, dependency-pins, security, integrity,
+  performance, and any new check this feature adds) is invokable through a
+  single documented entrypoint (`npm` script or equivalent) and produces the
+  same pass/fail outcome locally and in CI for the same source state. Identify
+  any prerequisite (built `dist/`, fixture data, network endpoint, environment
+  variable) and either bring it up in the check's own setup phase or fail
+  loudly with an actionable message when it is absent. Confirm test code under
+  `tests/` is held to the same TypeScript typing, lint, build, and
+  import-resolution standards as `src/`; list any tolerated relaxation with a
+  written, named, time-bound removal condition recorded in this feature's task
+  list. Where two runners must coexist (e.g., Vitest alongside `tsc --noEmit`),
+  document how their behavior on the same input is reconciled so they cannot
+  reach contradictory conclusions.
+- Mechanical Enforcement of Documented Contracts: For every quality gate this
+  plan documents (invariants, bundle budgets, security clauses such as
+  T-S1..T-S5, dependency pin sets, sign-off rules, performance targets, the
+  `exports` map shape, and any new rule this feature introduces), list the
+  automated enforcement mechanism — test file path, CI job name, lint rule
+  identifier, or publish-time hook — that fails closed when the gate is
+  violated. Any documented gate without an automated enforcement path MUST be
+  filed as a named, time-bound remediation task in this feature's task list
+  before the plan is approved. Removing or disabling the enforcement of a
+  previously-enforced gate requires the same justification process as relaxing
+  the underlying principle.
 - Test & Documentation Coverage: List the contract, unit, integration, failure,
   and security-and-privacy tests required to prove compliance, plus any setup or
   integration docs that must change with the implementation. Confirm docs and
