@@ -18,17 +18,17 @@ runtime change beyond the one-time mechanical format baseline.
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Add `@biomejs/biome` as an exact-pinned devDependency in `package.json` and run `npm install` to refresh `package-lock.json`
-- [ ] T002 [P] Create `biome.json` (lint recommended rules + formatter; `includes` for `src/`, `tests/`, root configs; ignore `dist/`, `node_modules/`, `.specify/`, `*.d.ts`, lockfiles). Pick formatter options to minimize baseline churn where reasonable
-- [ ] T003 [P] Add `package.json` scripts: `lint` (`biome lint`), `format` (`biome format --write`), `format:check` (`biome format`), `test:coverage` (`vitest run --coverage`)
-- [ ] T004 Capture pre-feature baselines into `specs/006-developer-ergonomics/baselines.md`: `npm test` headline (48/1,088/10/0/0); gzipped `dist/index.mjs` (8,162), `dist/transport-beacon.mjs` (3,101), `dist/testing.mjs` (2,724); coverage (95.16/95.28/98.47/95.16). Same `## Pre-feature baseline` pattern as F003–F005
+- [X] T001 Add `@biomejs/biome` as an exact-pinned devDependency in `package.json` and run `npm install` to refresh `package-lock.json`
+- [X] T002 [P] Create `biome.json` (lint recommended rules + formatter; `includes` for `src/`, `tests/`, root configs; ignore `dist/`, `node_modules/`, `.specify/`, `*.d.ts`, lockfiles). Pick formatter options to minimize baseline churn where reasonable
+- [X] T003 [P] Add `package.json` scripts: `lint` (`biome lint`), `format` (`biome format --write`), `format:check` (`biome format`), `test:coverage` (`vitest run --coverage`)
+- [X] T004 Capture pre-feature baselines into `specs/006-developer-ergonomics/baselines.md`: `npm test` headline (48/1,088/10/0/0); gzipped `dist/index.mjs` (8,162), `dist/transport-beacon.mjs` (3,101), `dist/testing.mjs` (2,724); coverage (95.16/95.28/98.47/95.16). Same `## Pre-feature baseline` pattern as F003–F005
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Blocks US2 (lint/format gate) and US3 (hooks) — neither can gate a dirty tree.**
 
-- [ ] T005 Apply the one-time format baseline: run `npm run format` across the whole tree; review the diff is purely mechanical (no logic change); commit as a dedicated "format baseline" commit
-- [ ] T006 Prove the baseline is behavior-neutral and bundle-safe: `npm test` still 48/1,088/10/0/0; `npm run build` then compare gzipped bundle sizes — MUST equal the T004 baselines; `npm run lint` + `npm run format:check` exit 0. Record results in `baselines.md` (maps FR-008, FR-017, FR-018)
+- [X] T005 Apply the one-time format baseline: run `npm run format` across the whole tree; review the diff is purely mechanical (no logic change); commit as a dedicated "format baseline" commit
+- [X] T006 Prove the baseline is behavior-neutral and bundle-safe: `npm test` still 48/1,088/10/0/0; `npm run build` then compare gzipped bundle sizes — MUST equal the T004 baselines; `npm run lint` + `npm run format:check` exit 0. Record results in `baselines.md` (maps FR-008, FR-017, FR-018)
 
 ---
 

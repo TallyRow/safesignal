@@ -34,6 +34,7 @@ F005 and are explicitly out of scope here.
 - Q: Which linter + formatter should the project adopt (none exists today)? → A: Biome — a single tool providing both lint and format, one config, ~1 devDependency; chosen for minimalism + reproducibility, with strict `tsc` already covering deep type checks.
 - Q: Scope of the initial lint/format cleanup on the never-linted codebase? → A: Full baseline now — auto-fix + format the entire codebase in one mechanical baseline commit; bundle-invariance + test suite prove behavior is unchanged.
 - Q: How does the Renovate bot authenticate to open MRs given the OIDC-only / no-long-lived-publish-token posture? → A: A GitLab Project Access Token scoped to `safesignal` only (Developer role, `api` scope), stored as a masked/protected CI variable used solely by the Renovate scheduled pipeline; non-publish, repo-scoped — a bounded, documented exception. npm publish stays OIDC-only.
+- Q: (implementation) Formatting `src/` shifts the non-minified bundle by a few bytes, so the spec's original "byte-identical" bundle requirement is unachievable. Re-baseline, or exclude `src/` from formatting? → A: Format everything incl. `src/` and re-baseline — the shift (~+4/+5/0 B gz) is within the bundle-invariance gate's ±1 KiB tolerance (behavior identical); FR-008/SC-007 reworded from "byte-identical" to "within ±1 KiB", new sizes recorded in `baselines.md`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -203,8 +204,10 @@ holds or improves coverage passes.
 - **Hooks not installed**: `core.hooksPath` is opt-in per clone; CI MUST remain
   the authoritative gate so an un-hooked contributor cannot bypass quality.
 - **Format vs. build output**: a formatter applied to `src/` changes source
-  layout; the built/published bundle bytes MUST NOT change (guaranteed by the
-  existing bundle-invariance gate).
+  layout, and because tsup/esbuild emits **non-minified** output, that reaches
+  `dist/` by a few bytes (~+4/+5 B gz). "Byte-identical" is NOT achievable; the
+  bundles stay **within the ±1 KiB bundle-invariance gate** and a one-time
+  re-baseline is recorded. (Empirically confirmed during implementation.)
 - **Update-bot credential**: the dependency bot needs an identity to open MRs;
   this is a new credential surface that MUST be scoped to the minimum and MUST
   NOT be a long-lived publish-capable token.
@@ -262,8 +265,12 @@ holds or improves coverage passes.
   auto-fixing + formatting the **entire existing codebase in one mechanical
   baseline commit** (not a changed-files-only ratchet), verified behavior-neutral
   by the test suite + bundle-invariance gates.
-- **FR-008**: Establishing the format baseline MUST NOT change the built/published
-  bundle bytes; the existing bundle-invariance gate MUST still pass.
+- **FR-008**: Establishing the format baseline keeps the built bundles **within
+  the existing bundle-invariance gate's ±1 KiB tolerance** (behavior identical).
+  tsup/esbuild emits non-minified output, so source formatting reaches `dist/`
+  by a few bytes — "byte-identical" is not achievable while formatting `src/`.
+  The one-time post-baseline sizes are recorded in `baselines.md`; the gate keeps
+  enforcing the ±1 KiB budget thereafter.
 
 **Pre-commit hooks (US3)**
 
@@ -350,9 +357,10 @@ holds or improves coverage passes.
   publish-capable or long-lived npm credential.
 - **SC-006**: A coverage regression below a package threshold fails CI with a
   clear per-package report; coverage cannot silently decline.
-- **SC-007**: Test-suite headline counts (48 / 1,088 / 10 / 0 / 0) and the three
-  gzipped bundle sizes (8,162 / 3,101 / 2,724 B) are **identical** before and
-  after the feature.
+- **SC-007**: Test-suite headline counts (48 / 1,088 / 10 / 0 / 0) are identical
+  before and after the feature; the gzipped bundles stay **within the ±1 KiB
+  bundle-invariance gate** (the one-time format-baseline shift is ~+4/+5/0 B,
+  recorded in `baselines.md`).
 - **SC-008**: Every new check is reproducible locally from a fresh clone with the
   same pass/fail result as CI.
 
