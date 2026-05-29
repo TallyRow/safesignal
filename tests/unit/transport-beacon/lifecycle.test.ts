@@ -39,13 +39,17 @@ describe('installPagehideHandler — primitive', () => {
   it('does NOT install a visibilitychange listener', () => {
     spy = installAddEventListenerSpy();
     installPagehideHandler(() => undefined);
-    expect(spy.registrations.find((r) => r.type === 'visibilitychange')).toBeUndefined();
+    expect(
+      spy.registrations.find((r) => r.type === 'visibilitychange'),
+    ).toBeUndefined();
   });
 
   it('does NOT install a beforeunload listener', () => {
     spy = installAddEventListenerSpy();
     installPagehideHandler(() => undefined);
-    expect(spy.registrations.find((r) => r.type === 'beforeunload')).toBeUndefined();
+    expect(
+      spy.registrations.find((r) => r.type === 'beforeunload'),
+    ).toBeUndefined();
   });
 
   it('returned uninstall removes the pagehide listener', () => {
@@ -104,7 +108,9 @@ describe('installPagehideHandler — primitive', () => {
       firedB += 1;
     });
     try {
-      const pagehideAdds = spy.registrations.filter((r) => r.type === 'pagehide');
+      const pagehideAdds = spy.registrations.filter(
+        (r) => r.type === 'pagehide',
+      );
       expect(pagehideAdds.length).toBe(2);
       // Two distinct listener references.
       expect(pagehideAdds[0]?.listener).not.toBe(pagehideAdds[1]?.listener);
@@ -163,7 +169,9 @@ describe('Transport-level lazy lifecycle', () => {
 
   beforeEach(() => {
     beaconCtrl = installSendBeaconDouble({ returnValue: true });
-    fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    fetchCtrl = installFetchDouble({
+      behavior: { kind: 'resolve', status: 204 },
+    });
     listenerSpy = installAddEventListenerSpy();
   });
 
@@ -180,9 +188,13 @@ describe('Transport-level lazy lifecycle', () => {
     if (listenerSpy === null) throw new Error('spy not initialised');
     const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
     // Construction installs nothing.
-    expect(listenerSpy.registrations.filter((r) => r.type === 'pagehide').length).toBe(0);
+    expect(
+      listenerSpy.registrations.filter((r) => r.type === 'pagehide').length,
+    ).toBe(0);
     t.send(SAMPLE_EVENT as never);
-    expect(listenerSpy.registrations.filter((r) => r.type === 'pagehide').length).toBe(1);
+    expect(
+      listenerSpy.registrations.filter((r) => r.type === 'pagehide').length,
+    ).toBe(1);
   });
 
   it('subsequent send() calls install zero additional listeners (gated)', () => {
@@ -191,16 +203,22 @@ describe('Transport-level lazy lifecycle', () => {
     for (let i = 0; i < 10; i += 1) {
       t.send({ ...SAMPLE_EVENT, message: `m${i}` } as never);
     }
-    expect(listenerSpy.registrations.filter((r) => r.type === 'pagehide').length).toBe(1);
+    expect(
+      listenerSpy.registrations.filter((r) => r.type === 'pagehide').length,
+    ).toBe(1);
   });
 
   it('shutdown() removes the listener and clears the installed flag (D-12)', async () => {
     if (listenerSpy === null) throw new Error('spy not initialised');
     const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
     t.send(SAMPLE_EVENT as never);
-    expect(listenerSpy.registrations.filter((r) => r.type === 'pagehide').length).toBe(1);
+    expect(
+      listenerSpy.registrations.filter((r) => r.type === 'pagehide').length,
+    ).toBe(1);
     await t.shutdown?.();
-    expect(listenerSpy.removals.filter((r) => r.type === 'pagehide').length).toBe(1);
+    expect(
+      listenerSpy.removals.filter((r) => r.type === 'pagehide').length,
+    ).toBe(1);
   });
 
   it('shutdown() called twice is a no-op (D-12 idempotency)', async () => {
@@ -208,10 +226,14 @@ describe('Transport-level lazy lifecycle', () => {
     const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
     t.send(SAMPLE_EVENT as never);
     await t.shutdown?.();
-    const removalCountAfterFirst = listenerSpy.removals.filter((r) => r.type === 'pagehide').length;
+    const removalCountAfterFirst = listenerSpy.removals.filter(
+      (r) => r.type === 'pagehide',
+    ).length;
     await expect(t.shutdown?.()).resolves.toBeUndefined();
     // Second shutdown removed nothing additional.
-    expect(listenerSpy.removals.filter((r) => r.type === 'pagehide').length).toBe(removalCountAfterFirst);
+    expect(
+      listenerSpy.removals.filter((r) => r.type === 'pagehide').length,
+    ).toBe(removalCountAfterFirst);
   });
 
   it('send() called after shutdown is a no-op (no encoding, no primitive call)', async () => {
@@ -228,8 +250,13 @@ describe('Transport-level lazy lifecycle', () => {
   it('the transport NEVER installs visibilitychange or beforeunload listeners', () => {
     if (listenerSpy === null) throw new Error('spy not initialised');
     const t = createBeaconTransport({ endpoint: 'https://example.com/ingest' });
-    for (let i = 0; i < 10; i += 1) t.send({ ...SAMPLE_EVENT, message: `m${i}` } as never);
-    expect(listenerSpy.registrations.find((r) => r.type === 'visibilitychange')).toBeUndefined();
-    expect(listenerSpy.registrations.find((r) => r.type === 'beforeunload')).toBeUndefined();
+    for (let i = 0; i < 10; i += 1)
+      t.send({ ...SAMPLE_EVENT, message: `m${i}` } as never);
+    expect(
+      listenerSpy.registrations.find((r) => r.type === 'visibilitychange'),
+    ).toBeUndefined();
+    expect(
+      listenerSpy.registrations.find((r) => r.type === 'beforeunload'),
+    ).toBeUndefined();
   });
 });

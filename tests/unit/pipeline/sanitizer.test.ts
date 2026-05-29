@@ -127,13 +127,17 @@ describe('S-1: input/output table', () => {
   });
 
   it('recurses into plain objects with `Object.prototype`', () => {
-    expect(sanitizeAttrs({ outer: { inner: 'x' } }).outer).toEqual({ inner: 'x' });
+    expect(sanitizeAttrs({ outer: { inner: 'x' } }).outer).toEqual({
+      inner: 'x',
+    });
   });
 
   it('recurses into objects with `null` prototype', () => {
     const nullProto = Object.create(null) as Record<string, unknown>;
     nullProto.inner = 'x';
-    expect(sanitizeAttrs({ outer: nullProto as never }).outer).toEqual({ inner: 'x' });
+    expect(sanitizeAttrs({ outer: nullProto as never }).outer).toEqual({
+      inner: 'x',
+    });
   });
 });
 
@@ -185,7 +189,9 @@ describe('S-2: sanitizer never throws on any input', () => {
     expect(() =>
       sanitizeAttrs({
         cyclic: cyclic as never,
-        deeplyNested: { a: { b: { c: { d: { e: { f: { g: { h: 'leaf' } } } } } } } } as never,
+        deeplyNested: {
+          a: { b: { c: { d: { e: { f: { g: { h: 'leaf' } } } } } } },
+        } as never,
         invalid: new Date('not-a-date') as never,
         bigArr: new Array(2000).fill(1) as never,
       }),
@@ -286,7 +292,9 @@ describe('S-3: class instances are type-tagged; getters are NOT invoked', () => 
 
   it('falls back to "Object" when the constructor name is missing or non-string', () => {
     // Object with a custom prototype whose constructor has no name
-    const proto = Object.create(Object.prototype) as { constructor: { name: unknown } };
+    const proto = Object.create(Object.prototype) as {
+      constructor: { name: unknown };
+    };
     proto.constructor = { name: '' };
     const instance = Object.create(proto) as object;
     expect(sanitizeAttrs({ i: instance as never }).i).toBe('[Object]');
@@ -384,7 +392,9 @@ describe('framework type tags (rows from the input/output table)', () => {
   });
 
   it('tags a Promise', () => {
-    expect(sanitizeAttrs({ p: Promise.resolve(1) as never }).p).toBe('[Promise]');
+    expect(sanitizeAttrs({ p: Promise.resolve(1) as never }).p).toBe(
+      '[Promise]',
+    );
   });
 
   it('tags Map / Set / WeakMap / WeakSet', () => {
@@ -397,15 +407,21 @@ describe('framework type tags (rows from the input/output table)', () => {
   it('tags Blob, FormData, URL', () => {
     expect(sanitizeAttrs({ b: new Blob([]) as never }).b).toBe('[Blob]');
     expect(sanitizeAttrs({ f: new FormData() as never }).f).toBe('[FormData]');
-    expect(sanitizeAttrs({ u: new URL('https://x/') as never }).u).toBe('[URL]');
+    expect(sanitizeAttrs({ u: new URL('https://x/') as never }).u).toBe(
+      '[URL]',
+    );
   });
 
   it('tags Request / Response when available', () => {
     if (typeof Request !== 'undefined') {
-      expect(sanitizeAttrs({ r: new Request('https://x/') as never }).r).toBe('[Request]');
+      expect(sanitizeAttrs({ r: new Request('https://x/') as never }).r).toBe(
+        '[Request]',
+      );
     }
     if (typeof Response !== 'undefined') {
-      expect(sanitizeAttrs({ r: new Response() as never }).r).toBe('[Response]');
+      expect(sanitizeAttrs({ r: new Response() as never }).r).toBe(
+        '[Response]',
+      );
     }
   });
 });
@@ -500,13 +516,13 @@ describe('S-8: attribute count limit produces the documented truncation marker',
     expect(out.b).toBe(2);
     expect(out.c).toBeUndefined();
     expect(out.d).toBeUndefined();
-    expect(out['__truncated__']).toBe('[Truncated: 2 keys omitted]');
+    expect(out.__truncated__).toBe('[Truncated: 2 keys omitted]');
   });
 
   it('does NOT attach a truncation marker when nothing was omitted', () => {
     const cfg = configWithLimits({ maxAttributeCount: 10 });
     const out = sanitizeAttrs({ a: 1, b: 2 }, cfg);
-    expect(out['__truncated__']).toBeUndefined();
+    expect(out.__truncated__).toBeUndefined();
   });
 });
 
@@ -519,14 +535,14 @@ describe('S-9: string length limit truncates with "...[truncated]" suffix', () =
     const cfg = configWithLimits({ maxStringLength: 64 }); // min is 64
     const longStr = 'a'.repeat(100);
     const out = sanitizeAttrs({ s: longStr }, cfg);
-    expect(out.s).toBe('a'.repeat(64) + '...[truncated]');
+    expect(out.s).toBe(`${'a'.repeat(64)}...[truncated]`);
   });
 
   it('truncates the event message itself', () => {
     const cfg = configWithLimits({ maxStringLength: 64 });
     const event = makeLogEvent({ message: 'x'.repeat(200) });
     const out = sanitize(event, cfg)!;
-    expect(out.message).toBe('x'.repeat(64) + '...[truncated]');
+    expect(out.message).toBe(`${'x'.repeat(64)}...[truncated]`);
   });
 
   it('truncates strings inside Error info', () => {
@@ -539,9 +555,9 @@ describe('S-9: string length limit truncates with "...[truncated]" suffix', () =
       },
     });
     const out = sanitize(event, cfg)!;
-    expect(out.error?.name).toBe('x'.repeat(64) + '...[truncated]');
-    expect(out.error?.message).toBe('y'.repeat(64) + '...[truncated]');
-    expect(out.error?.stack).toBe('z'.repeat(64) + '...[truncated]');
+    expect(out.error?.name).toBe(`${'x'.repeat(64)}...[truncated]`);
+    expect(out.error?.message).toBe(`${'y'.repeat(64)}...[truncated]`);
+    expect(out.error?.stack).toBe(`${'z'.repeat(64)}...[truncated]`);
   });
 
   it('leaves strings at-or-under the limit unchanged', () => {

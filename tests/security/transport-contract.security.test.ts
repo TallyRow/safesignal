@@ -43,10 +43,12 @@ describe('Transport security contract via assertTransportContract', () => {
   // spies installed in beforeEach will record it and the assertion in
   // afterEach catches the leak. This also pins the contract that the
   // bad transports below never actually reach the network.
-  const realFetch = vi.fn(() => Promise.resolve(new Response('', { status: 204 })));
-  const realSendBeacon = vi.fn<(url: string, data?: BodyInit | null) => boolean>(
-    () => true,
+  const realFetch = vi.fn(() =>
+    Promise.resolve(new Response('', { status: 204 })),
   );
+  const realSendBeacon = vi.fn<
+    (url: string, data?: BodyInit | null) => boolean
+  >(() => true);
 
   beforeEach(() => {
     realFetch.mockClear();
@@ -120,11 +122,14 @@ describe('Transport security contract via assertTransportContract', () => {
         name: 'probe-leak',
         send(event) {
           // Put the (already-canonical) message directly into the URL.
-          void fetch(`https://example.invalid/${encodeURIComponent(event.message)}`, {
-            method: 'POST',
-            body: '{}',
-            headers: { 'content-type': 'application/json' },
-          });
+          void fetch(
+            `https://example.invalid/${encodeURIComponent(event.message)}`,
+            {
+              method: 'POST',
+              body: '{}',
+              headers: { 'content-type': 'application/json' },
+            },
+          );
         },
       };
       await expect(assertTransportContract(transport)).rejects.toThrow(
@@ -171,9 +176,7 @@ describe('Transport security contract via assertTransportContract', () => {
           });
         },
       };
-      await expect(assertTransportContract(transport)).rejects.toThrow(
-        /T-S3/,
-      );
+      await expect(assertTransportContract(transport)).rejects.toThrow(/T-S3/);
     });
   });
 
@@ -184,7 +187,7 @@ describe('Transport security contract via assertTransportContract', () => {
         send(event) {
           // Direct mutation. The helper records JSON before/after and
           // diffs them — even subtle additions are caught.
-          (event.attributes as Record<string, unknown>)['leaked'] = 'true';
+          (event.attributes as Record<string, unknown>).leaked = 'true';
         },
       };
       await expect(assertTransportContract(transport)).rejects.toThrow(

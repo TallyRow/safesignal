@@ -96,33 +96,35 @@ beforeAll(() => {
 // ---------------------------------------------------------------------------
 
 describe('dist/index.d.ts is vendor-neutral', () => {
-  it.each(VENDOR_PACKAGE_NAMES)(
-    'contains no reference to vendor package name "%s"',
-    (name) => {
-      const dts = read(INDEX_DTS);
-      const dcts = read(INDEX_DCTS);
-      expect(dts.toLowerCase(), `dist/index.d.ts contains "${name}"`).not.toContain(
-        name.toLowerCase(),
-      );
-      expect(dcts.toLowerCase(), `dist/index.d.cts contains "${name}"`).not.toContain(
-        name.toLowerCase(),
-      );
-    },
-  );
+  it.each(
+    VENDOR_PACKAGE_NAMES,
+  )('contains no reference to vendor package name "%s"', (name) => {
+    const dts = read(INDEX_DTS);
+    const dcts = read(INDEX_DCTS);
+    expect(
+      dts.toLowerCase(),
+      `dist/index.d.ts contains "${name}"`,
+    ).not.toContain(name.toLowerCase());
+    expect(
+      dcts.toLowerCase(),
+      `dist/index.d.cts contains "${name}"`,
+    ).not.toContain(name.toLowerCase());
+  });
 
-  it.each(VENDOR_IDENTIFIERS)(
-    'contains no vendor-specific identifier "%s"',
-    (name) => {
-      const dts = read(INDEX_DTS);
-      const dcts = read(INDEX_DCTS);
-      // Word-boundary match avoids false positives like "TracerProvider"
-      // accidentally matching as "Provider" — we want to flag exact
-      // identifier names, not substrings inside an unrelated word.
-      const pattern = new RegExp(`\\b${name}\\b`);
-      expect(pattern.test(dts), `dist/index.d.ts contains "${name}"`).toBe(false);
-      expect(pattern.test(dcts), `dist/index.d.cts contains "${name}"`).toBe(false);
-    },
-  );
+  it.each(
+    VENDOR_IDENTIFIERS,
+  )('contains no vendor-specific identifier "%s"', (name) => {
+    const dts = read(INDEX_DTS);
+    const dcts = read(INDEX_DCTS);
+    // Word-boundary match avoids false positives like "TracerProvider"
+    // accidentally matching as "Provider" — we want to flag exact
+    // identifier names, not substrings inside an unrelated word.
+    const pattern = new RegExp(`\\b${name}\\b`);
+    expect(pattern.test(dts), `dist/index.d.ts contains "${name}"`).toBe(false);
+    expect(pattern.test(dcts), `dist/index.d.cts contains "${name}"`).toBe(
+      false,
+    );
+  });
 
   it('declares the documented public surface and nothing else', () => {
     // PA-1..PA-9 lock — every export listed must be present, and
@@ -161,7 +163,9 @@ describe('dist/index.d.ts is vendor-neutral', () => {
 describe('dist/testing.d.ts is reachable only via the ./testing subpath', () => {
   it('declares the documented test helpers (assertTransportContract, makeSecretFixture)', () => {
     if (!existsSync(TESTING_DTS)) {
-      throw new Error('dist/testing.d.ts missing — build did not emit testing entry');
+      throw new Error(
+        'dist/testing.d.ts missing — build did not emit testing entry',
+      );
     }
     const dts = read(TESTING_DTS);
     expect(dts).toContain('assertTransportContract');
@@ -180,24 +184,24 @@ describe('dist/testing.d.ts is reachable only via the ./testing subpath', () => 
 // ---------------------------------------------------------------------------
 
 describe('dist/index.{mjs,cjs} default entry does not re-export internal/testing', () => {
-  it.each(['index.mjs', 'index.cjs'])(
-    '%s does not re-export from dist/internal/** or dist/testing/**',
-    (file) => {
-      const content = read(resolve(DIST_ROOT, file));
-      // tsup emits a single bundled file; the file itself should contain
-      // no path strings referencing internal or testing subdirectories,
-      // since those are bundled in (for internal) or excluded entirely
-      // (for testing — testing is a separate entry).
-      expect(content).not.toMatch(/from\s+['"]\.\/internal\//);
-      expect(content).not.toMatch(/from\s+['"]\.\/testing\//);
-      expect(content).not.toMatch(/require\(['"]\.\/internal\//);
-      expect(content).not.toMatch(/require\(['"]\.\/testing\//);
-      // The testing entry's main export names also must not appear
-      // (they live in dist/testing.mjs, not the default entry).
-      expect(content).not.toContain('assertTransportContract');
-      expect(content).not.toContain('makeSecretFixture');
-    },
-  );
+  it.each([
+    'index.mjs',
+    'index.cjs',
+  ])('%s does not re-export from dist/internal/** or dist/testing/**', (file) => {
+    const content = read(resolve(DIST_ROOT, file));
+    // tsup emits a single bundled file; the file itself should contain
+    // no path strings referencing internal or testing subdirectories,
+    // since those are bundled in (for internal) or excluded entirely
+    // (for testing — testing is a separate entry).
+    expect(content).not.toMatch(/from\s+['"]\.\/internal\//);
+    expect(content).not.toMatch(/from\s+['"]\.\/testing\//);
+    expect(content).not.toMatch(/require\(['"]\.\/internal\//);
+    expect(content).not.toMatch(/require\(['"]\.\/testing\//);
+    // The testing entry's main export names also must not appear
+    // (they live in dist/testing.mjs, not the default entry).
+    expect(content).not.toContain('assertTransportContract');
+    expect(content).not.toContain('makeSecretFixture');
+  });
 
   // The "no vendor SDK in the built JS default entry" guarantee was
   // unlocked by T066 (dispatcher refactor) and is now locked here.
@@ -209,21 +213,18 @@ describe('dist/index.{mjs,cjs} default entry does not re-export internal/testing
   it.each([
     ['index.mjs', INDEX_MJS],
     ['index.cjs', INDEX_CJS],
-  ])(
-    '%s contains no @opentelemetry/* / @datadog/* / @sentry/* imports',
-    (_label, file) => {
-      const content = readFileSync(file, 'utf8');
-      for (const vendor of [
-        '@opentelemetry/',
-        '@datadog/',
-        '@sentry/',
-        'dd-rum',
-        'dd-trace',
-      ]) {
-        expect(content).not.toContain(vendor);
-      }
-    },
-  );
+  ])('%s contains no @opentelemetry/* / @datadog/* / @sentry/* imports', (_label, file) => {
+    const content = readFileSync(file, 'utf8');
+    for (const vendor of [
+      '@opentelemetry/',
+      '@datadog/',
+      '@sentry/',
+      'dd-rum',
+      'dd-trace',
+    ]) {
+      expect(content).not.toContain(vendor);
+    }
+  });
 });
 
 describe('dist/testing.{mjs,cjs} is a separate entry from default index', () => {

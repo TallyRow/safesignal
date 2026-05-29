@@ -83,7 +83,9 @@ describe('buildLogEvent', () => {
       });
       expect(a.timestamp).toMatch(ISO_8601_RE);
       expect(b.timestamp).toMatch(ISO_8601_RE);
-      expect(Date.parse(b.timestamp)).toBeGreaterThanOrEqual(Date.parse(a.timestamp));
+      expect(Date.parse(b.timestamp)).toBeGreaterThanOrEqual(
+        Date.parse(a.timestamp),
+      );
     });
   });
 
@@ -186,7 +188,10 @@ describe('buildLogEvent', () => {
         context: {},
         errorValue: 'plain string',
       });
-      expect(event.error).toEqual({ name: 'NonError', message: 'plain string' });
+      expect(event.error).toEqual({
+        name: 'NonError',
+        message: 'plain string',
+      });
     });
 
     it('reduces objects, numbers, and null without throwing', () => {
@@ -214,7 +219,13 @@ describe('buildLogEvent', () => {
         errorValue: undefined,
       });
       const keys = Object.keys(event).sort();
-      expect(keys).toEqual(['attributes', 'context', 'level', 'message', 'timestamp']);
+      expect(keys).toEqual([
+        'attributes',
+        'context',
+        'level',
+        'message',
+        'timestamp',
+      ]);
     });
 
     it('adds the `error` key only when errorValue is provided', () => {

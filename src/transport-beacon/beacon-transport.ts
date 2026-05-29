@@ -41,14 +41,14 @@
 import type { LogEvent, Transport } from '../api/types.js';
 
 import { type Batcher, createBatcher } from './batcher.js';
-import { BeaconError, type BeaconErrorCode } from './errors.js';
-import { validateEndpoint } from './endpoint-validation.js';
 import {
   BEACON_SIZE_LIMIT_BYTES,
   getPayloadByteLength,
   tryBeacon,
   tryFetchKeepalive,
 } from './delivery.js';
+import { validateEndpoint } from './endpoint-validation.js';
+import { BeaconError, type BeaconErrorCode } from './errors.js';
 import { installPagehideHandler } from './lifecycle.js';
 
 // ---------------------------------------------------------------------------
@@ -100,10 +100,16 @@ function validateOptions(options: BeaconTransportOptions): void {
 
   if (options.batching !== undefined) {
     if (typeof options.batching !== 'object' || options.batching === null) {
-      throw new TypeError('beacon transport: options.batching must be an object');
+      throw new TypeError(
+        'beacon transport: options.batching must be an object',
+      );
     }
     const { maxBatchSize, maxBatchAgeMs } = options.batching;
-    if (!Number.isInteger(maxBatchSize) || maxBatchSize < 1 || maxBatchSize > 1000) {
+    if (
+      !Number.isInteger(maxBatchSize) ||
+      maxBatchSize < 1 ||
+      maxBatchSize > 1000
+    ) {
       throw new RangeError(
         `beacon transport: batching.maxBatchSize must be an integer in [1, 1000], got ${String(maxBatchSize)}`,
       );
@@ -162,7 +168,11 @@ function notify(
   }
 }
 
-function notifyOversized(state: BeaconTransportState, event: LogEvent, bytes: number): void {
+function notifyOversized(
+  state: BeaconTransportState,
+  event: LogEvent,
+  bytes: number,
+): void {
   if (state.notified.oversized_event) return;
   state.notified.oversized_event = true;
   // Truncate the event message to 256 chars (F-2 notice integrity: never
@@ -233,7 +243,10 @@ export function createBeaconTransport(
   validateOptions(options);
 
   const allowInsecureLoopback = options.allowInsecureLoopback ?? false;
-  const parsedEndpoint = validateEndpoint(options.endpoint, allowInsecureLoopback);
+  const parsedEndpoint = validateEndpoint(
+    options.endpoint,
+    allowInsecureLoopback,
+  );
   // We keep the raw endpoint string (not parsedEndpoint.toString()) so the
   // wire matches exactly what the consumer supplied — important for ingestion
   // endpoints that are path-sensitive.
@@ -421,7 +434,10 @@ export function createBeaconTransport(
     );
   }
 
-  function dispatchBatch(state: BeaconTransportState, events: LogEvent[]): void {
+  function dispatchBatch(
+    state: BeaconTransportState,
+    events: LogEvent[],
+  ): void {
     if (events.length === 0) return;
 
     // Encode envelope. Failure here is unexpected (the events came
@@ -431,7 +447,12 @@ export function createBeaconTransport(
     try {
       envelope = JSON.stringify({ events });
     } catch (cause) {
-      notifyBatchDrop(state, events.length, 'JSON.stringify threw on the envelope', cause);
+      notifyBatchDrop(
+        state,
+        events.length,
+        'JSON.stringify threw on the envelope',
+        cause,
+      );
       return;
     }
 
@@ -476,7 +497,12 @@ export function createBeaconTransport(
           }
         },
         (cause: unknown) => {
-          notifyBatchDrop(state, events.length, `fetch fallback rejected`, cause);
+          notifyBatchDrop(
+            state,
+            events.length,
+            `fetch fallback rejected`,
+            cause,
+          );
         },
       );
       return;
@@ -489,10 +515,15 @@ export function createBeaconTransport(
     );
   }
 
-  function primitiveAvailability(): { hasSendBeacon: boolean; hasFetch: boolean } {
+  function primitiveAvailability(): {
+    hasSendBeacon: boolean;
+    hasFetch: boolean;
+  } {
     const nav = (globalThis as { navigator?: Navigator }).navigator;
-    const hasSendBeacon = nav !== undefined && typeof nav.sendBeacon === 'function';
-    const hasFetch = typeof (globalThis as { fetch?: typeof fetch }).fetch === 'function';
+    const hasSendBeacon =
+      nav !== undefined && typeof nav.sendBeacon === 'function';
+    const hasFetch =
+      typeof (globalThis as { fetch?: typeof fetch }).fetch === 'function';
     return { hasSendBeacon, hasFetch };
   }
 

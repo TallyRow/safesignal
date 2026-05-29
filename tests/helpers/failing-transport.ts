@@ -22,7 +22,9 @@ export interface FailingTransportController {
   reset(): void;
 }
 
-export interface ThrowingTransport extends Transport, FailingTransportController {}
+export interface ThrowingTransport
+  extends Transport,
+    FailingTransportController {}
 
 export interface MakeThrowingTransportOptions {
   /** Defaults to `'throwing'`. */
@@ -145,7 +147,9 @@ export function makeFlakyTransport(
       callIndex++;
       if (callIndex % failEvery === 0) {
         failureCount++;
-        const err = new Error(`${name}.send failed on call ${String(callIndex)}`);
+        const err = new Error(
+          `${name}.send failed on call ${String(callIndex)}`,
+        );
         if (mode === 'reject') {
           return Promise.reject(err);
         }
@@ -172,7 +176,9 @@ export function makeFlakyTransport(
   };
 }
 
-export interface CapturingTransport extends Transport, FailingTransportController {}
+export interface CapturingTransport
+  extends Transport,
+    FailingTransportController {}
 
 /**
  * Transport that records every received event and always succeeds. Use to

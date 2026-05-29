@@ -24,7 +24,10 @@ import { LoggerProvider } from '@opentelemetry/sdk-logs';
 
 import type { LogEvent } from '../../../api/types.js';
 import type { NormalizedConfig } from '../../../config/config.js';
-import { safeNotify, wrapAsPackageError } from '../../errors/internal-errors.js';
+import {
+  safeNotify,
+  wrapAsPackageError,
+} from '../../errors/internal-errors.js';
 import type { TelemetryBackend } from '../backend.js';
 import { NoopBackend } from '../noop-backend.js';
 import { EventBridge } from './event-bridge.js';

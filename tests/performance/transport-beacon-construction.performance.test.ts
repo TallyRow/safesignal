@@ -33,7 +33,12 @@ interface Spies {
   setTimeout: ReturnType<typeof installSetTimeoutSpy>;
   fetch: ReturnType<typeof installFetchDouble>;
   sendBeacon: ReturnType<typeof installSendBeaconDouble>;
-  ambientReads: { location: number; cookie: number; localStorage: number; sessionStorage: number };
+  ambientReads: {
+    location: number;
+    cookie: number;
+    localStorage: number;
+    sessionStorage: number;
+  };
   restoreAmbient: () => void;
 }
 
@@ -50,7 +55,10 @@ function installAmbientProbes(): {
     localStorage?: unknown;
     sessionStorage?: unknown;
   };
-  const originalLocationDescriptor = Object.getOwnPropertyDescriptor(win, 'location');
+  const originalLocationDescriptor = Object.getOwnPropertyDescriptor(
+    win,
+    'location',
+  );
   const originalCookieDescriptor =
     win.document !== undefined
       ? Object.getOwnPropertyDescriptor(win.document, 'cookie')
@@ -63,16 +71,25 @@ function installAmbientProbes(): {
     Object.defineProperty(win, 'location', {
       get(): unknown {
         reads.location += 1;
-        return originalLocationDescriptor.value ?? originalLocationDescriptor.get?.call(win);
+        return (
+          originalLocationDescriptor.value ??
+          originalLocationDescriptor.get?.call(win)
+        );
       },
       configurable: true,
     });
   }
-  if (win.document !== undefined && originalCookieDescriptor?.configurable === true) {
+  if (
+    win.document !== undefined &&
+    originalCookieDescriptor?.configurable === true
+  ) {
     Object.defineProperty(win.document, 'cookie', {
       get(): unknown {
         reads.cookie += 1;
-        return originalCookieDescriptor.value ?? originalCookieDescriptor.get?.call(win.document);
+        return (
+          originalCookieDescriptor.value ??
+          originalCookieDescriptor.get?.call(win.document)
+        );
       },
       configurable: true,
     });
@@ -103,7 +120,10 @@ function installAmbientProbes(): {
       if (originalLocationDescriptor !== undefined) {
         Object.defineProperty(win, 'location', originalLocationDescriptor);
       }
-      if (win.document !== undefined && originalCookieDescriptor !== undefined) {
+      if (
+        win.document !== undefined &&
+        originalCookieDescriptor !== undefined
+      ) {
         Object.defineProperty(win.document, 'cookie', originalCookieDescriptor);
       }
       if (originalLocal !== undefined) {
@@ -127,7 +147,9 @@ function installAmbientProbes(): {
 beforeEach(() => {
   const addEventListener = installAddEventListenerSpy();
   const setTimeoutSpy = installSetTimeoutSpy();
-  const fetchDouble = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+  const fetchDouble = installFetchDouble({
+    behavior: { kind: 'resolve', status: 204 },
+  });
   const sendBeaconDouble = installSendBeaconDouble({ returnValue: true });
   const ambient = installAmbientProbes();
   spies = {
@@ -154,7 +176,9 @@ describe('Constructing N beacon transports performs zero side effects', () => {
     if (spies === null) throw new Error('spies not initialised');
     const transports = [];
     for (let i = 0; i < 1000; i += 1) {
-      transports.push(createBeaconTransport({ endpoint: 'https://example.com/ingest' }));
+      transports.push(
+        createBeaconTransport({ endpoint: 'https://example.com/ingest' }),
+      );
     }
     expect(transports.length).toBe(1000);
     expect(spies.addEventListener.registrations.length).toBe(0);

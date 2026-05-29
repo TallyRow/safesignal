@@ -12,11 +12,12 @@
 import type { LogLevel, SanitizerLimits } from '../api/types.js';
 
 /** Per-environment baseline minimum level. Unknown environments fall back to `warn`. */
-export const DEFAULT_LEVEL_BY_ENVIRONMENT: Readonly<Record<string, LogLevel>> = {
-  production: 'warn',
-  development: 'debug',
-  test: 'warn',
-};
+export const DEFAULT_LEVEL_BY_ENVIRONMENT: Readonly<Record<string, LogLevel>> =
+  {
+    production: 'warn',
+    development: 'debug',
+    test: 'warn',
+  };
 
 /** Hard fallback when no level resolution path yields a value. */
 export const FALLBACK_LEVEL: LogLevel = 'warn';
@@ -47,7 +48,9 @@ export const SANITIZER_LIMIT_BOUNDS: Readonly<{
  * Resolve the default level for a given environment string. Returns
  * `FALLBACK_LEVEL` when the environment is undefined or unknown.
  */
-export function defaultLevelForEnvironment(environment: string | undefined): LogLevel {
+export function defaultLevelForEnvironment(
+  environment: string | undefined,
+): LogLevel {
   if (environment === undefined) return FALLBACK_LEVEL;
   return DEFAULT_LEVEL_BY_ENVIRONMENT[environment] ?? FALLBACK_LEVEL;
 }

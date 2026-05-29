@@ -27,11 +27,13 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { NoopTransport, configureLogging, createLogger } from '@tallyrow/safesignal';
+import {
+  configureLogging,
+  createLogger,
+  NoopTransport,
+} from '@tallyrow/safesignal';
 import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   installFetchDouble,
@@ -55,7 +57,10 @@ const EMBEDDED_QUICKSTART_BATCHING_CODE = `createBeaconTransport({
 // ---------------------------------------------------------------------------
 
 function extractBatchingBlock(): string {
-  const path = resolve(process.cwd(), 'specs/002-beacon-transport/quickstart.md');
+  const path = resolve(
+    process.cwd(),
+    'specs/002-beacon-transport/quickstart.md',
+  );
   const md = readFileSync(path, 'utf8');
   const sectionIdx = md.indexOf('## Opt-in batching');
   if (sectionIdx === -1) {
@@ -63,7 +68,9 @@ function extractBatchingBlock(): string {
   }
   const fenceStart = md.indexOf('```ts', sectionIdx);
   if (fenceStart === -1) {
-    throw new Error(`quickstart.md: code fence start not found after section header`);
+    throw new Error(
+      `quickstart.md: code fence start not found after section header`,
+    );
   }
   const bodyStart = fenceStart + '```ts\n'.length;
   const fenceEnd = md.indexOf('\n```', bodyStart);
@@ -148,7 +155,10 @@ describe('quickstart batching runtime smoke', () => {
 
     // Envelope shape: exactly { events: [...] } with no extra fields.
     expect(Object.keys(parsed).sort()).toEqual(['events']);
-    const events = parsed.events as Array<{ message: string; attributes: { seq: number } }>;
+    const events = parsed.events as Array<{
+      message: string;
+      attributes: { seq: number };
+    }>;
     expect(events.length).toBe(50);
 
     // Order preserved (B-4): seq 0..49 in order.

@@ -14,17 +14,10 @@
 
 // Functions ----------------------------------------------------------------
 export {
-  createLogger,
   configureLogging,
+  createLogger,
   getRootLogger,
 } from './api/logger.js';
-export { createRedactor } from './pipeline/redactor.js';
-export { scrubUrl } from './pipeline/url-scrubber.js';
-
-// Built-in transport factories ---------------------------------------------
-export { ConsoleTransport } from './transport/console-transport.js';
-export { NoopTransport } from './transport/noop-transport.js';
-
 // Types --------------------------------------------------------------------
 export type {
   AppIdentity,
@@ -39,10 +32,15 @@ export type {
   LoggerConfig,
   LogLevel,
   ModuleIdentity,
-  Redactor,
   RedactionRule,
+  Redactor,
   SanitizerLimits,
   ScrubUrlOptions,
   Transport,
   TransportFactory,
 } from './api/types.js';
+export { createRedactor } from './pipeline/redactor.js';
+export { scrubUrl } from './pipeline/url-scrubber.js';
+// Built-in transport factories ---------------------------------------------
+export { ConsoleTransport } from './transport/console-transport.js';
+export { NoopTransport } from './transport/noop-transport.js';

@@ -15,10 +15,9 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-
+import type { LogEvent } from '../../src/api/types.js';
 import { configureLogging, createLogger } from '../../src/index.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
-import type { LogEvent } from '../../src/api/types.js';
 
 const APP = { name: 'url-query-leakage', version: '1.0.0' };
 const REDACTED = '%5BREDACTED%5D'; // `[REDACTED]` URL-encoded
@@ -48,9 +47,7 @@ describe('FR-013 + FR-014: single-param query-string leakage', () => {
     const log = createLogger();
     log.info('url', { u: 'https://example.com/api?token=secret_VALUE_VVVV' });
     const event = capture.calls[0]!;
-    expect(urlAt(event, 'u')).toBe(
-      `https://example.com/api?token=${REDACTED}`,
-    );
+    expect(urlAt(event, 'u')).toBe(`https://example.com/api?token=${REDACTED}`);
     expect(urlAt(event, 'u')).not.toContain('secret_VALUE_VVVV');
   });
 
@@ -73,9 +70,7 @@ describe('FR-013 + FR-014: single-param query-string leakage', () => {
   it('replaces #auth=... in the fragment', () => {
     const log = createLogger();
     log.info('url', { u: 'https://x/a#auth=oauth_callback_VALUE' });
-    expect(urlAt(capture.calls[0]!, 'u')).toBe(
-      `https://x/a#auth=${REDACTED}`,
-    );
+    expect(urlAt(capture.calls[0]!, 'u')).toBe(`https://x/a#auth=${REDACTED}`);
   });
 });
 
@@ -137,7 +132,9 @@ describe('FR-013 + FR-014: multiple sensitive params in one URL', () => {
         `session_id=${REDACTED}`,
         `password=${REDACTED}`,
         `secret=${REDACTED}`,
-      ].join('&').replace(/api\?&/, 'api?'),
+      ]
+        .join('&')
+        .replace(/api\?&/, 'api?'),
     );
   });
 
@@ -176,7 +173,10 @@ describe('FR-013 + FR-014: URL scrubbing reaches every attribute location', () =
     log.info('nested', {
       request: { url: 'https://x/?token=secret_NESTED_VAL' },
     });
-    const request = capture.calls[0]!.attributes.request as Record<string, unknown>;
+    const request = capture.calls[0]!.attributes.request as Record<
+      string,
+      unknown
+    >;
     expect(request.url).toBe(`https://x/?token=${REDACTED}`);
   });
 

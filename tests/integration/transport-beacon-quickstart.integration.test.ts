@@ -24,11 +24,9 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import { configureLogging, createLogger } from '@tallyrow/safesignal';
 import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   installFetchDouble,
@@ -63,7 +61,10 @@ logger.error('payment processor returned 5xx', { orderId: 'ord_9f3' }, new Error
 // ---------------------------------------------------------------------------
 
 function extractFiveMinutePathCode(): string {
-  const path = resolve(process.cwd(), 'specs/002-beacon-transport/quickstart.md');
+  const path = resolve(
+    process.cwd(),
+    'specs/002-beacon-transport/quickstart.md',
+  );
   const md = readFileSync(path, 'utf8');
   const sectionIdx = md.indexOf('## Five-minute path');
   if (sectionIdx === -1) {
@@ -71,7 +72,9 @@ function extractFiveMinutePathCode(): string {
   }
   const fenceStart = md.indexOf('```ts', sectionIdx);
   if (fenceStart === -1) {
-    throw new Error(`quickstart.md: code fence start not found after section header`);
+    throw new Error(
+      `quickstart.md: code fence start not found after section header`,
+    );
   }
   const bodyStart = fenceStart + '```ts\n'.length;
   const fenceEnd = md.indexOf('\n```', bodyStart);
@@ -157,13 +160,21 @@ describe('quickstart runtime smoke', () => {
     if (secondCall?.blob === null || secondCall?.blob === undefined) {
       throw new Error('expected second call to carry a Blob body');
     }
-    const first = JSON.parse(await firstCall.blob.text()) as Record<string, unknown>;
-    const second = JSON.parse(await secondCall.blob.text()) as Record<string, unknown>;
+    const first = JSON.parse(await firstCall.blob.text()) as Record<
+      string,
+      unknown
+    >;
+    const second = JSON.parse(await secondCall.blob.text()) as Record<
+      string,
+      unknown
+    >;
 
     expect(first.level).toBe('warn');
     expect(first.message).toBe('payment retry exceeded threshold');
     expect(first.attributes).toMatchObject({ attemptCount: 4 });
-    expect((first.context as Record<string, unknown>).application).toMatchObject({
+    expect(
+      (first.context as Record<string, unknown>).application,
+    ).toMatchObject({
       name: 'payments',
       version: '2.4.1',
     });

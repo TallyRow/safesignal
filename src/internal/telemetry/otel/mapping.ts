@@ -15,7 +15,7 @@
  * other source file imports from `@opentelemetry/*`.
  */
 
-import { SeverityNumber, type LogRecord } from '@opentelemetry/api-logs';
+import { type LogRecord, SeverityNumber } from '@opentelemetry/api-logs';
 import type { LogRecord as SdkLogRecord } from '@opentelemetry/sdk-logs';
 
 import type { LogEvent, LogLevel } from '../../../api/types.js';
@@ -83,10 +83,12 @@ export function fromLogRecord(record: SdkLogRecord): LogEvent {
 function reconstruct(record: SdkLogRecord): LogEvent {
   const severity = record.severityNumber;
   const level: LogLevel =
-    (severity !== undefined ? SEVERITY_TO_LEVEL[severity] : undefined) ?? 'info';
+    (severity !== undefined ? SEVERITY_TO_LEVEL[severity] : undefined) ??
+    'info';
 
   const body = record.body;
-  const message = typeof body === 'string' ? body : body !== undefined ? String(body) : '';
+  const message =
+    typeof body === 'string' ? body : body !== undefined ? String(body) : '';
 
   return {
     timestamp: hrTimeToIso(record.hrTime),

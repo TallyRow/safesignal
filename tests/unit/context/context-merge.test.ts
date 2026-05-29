@@ -231,10 +231,10 @@ describe('deep merge for attributes', () => {
 describe('merge precedence chain (root → per-logger → child → correlation)', () => {
   it('correlation wins over child, which wins over per-logger, which wins over root, for the same key', () => {
     const out = mergeContexts(
-      { attributes: { layer: 'root' } },         // 1. root
-      { attributes: { layer: 'logger' } },        // 2. per-logger
-      { attributes: { layer: 'child' } },         // 3. child
-      { attributes: { layer: 'correlation' } },   // 4. correlation
+      { attributes: { layer: 'root' } }, // 1. root
+      { attributes: { layer: 'logger' } }, // 2. per-logger
+      { attributes: { layer: 'child' } }, // 3. child
+      { attributes: { layer: 'correlation' } }, // 4. correlation
     );
     expect(out.attributes).toEqual({ layer: 'correlation' });
   });
@@ -272,7 +272,7 @@ describe('merge precedence chain (root → per-logger → child → correlation)
 // ---------------------------------------------------------------------------
 
 describe('purity: mergeContexts() never mutates its inputs', () => {
-  it('does not mutate the earlier source\'s attributes object', () => {
+  it("does not mutate the earlier source's attributes object", () => {
     const earlier: Partial<LogContext> = {
       attributes: { outer: { a: 1 } },
     };
@@ -281,7 +281,7 @@ describe('purity: mergeContexts() never mutates its inputs', () => {
     expect(earlier).toEqual(earlierCopy);
   });
 
-  it('does not mutate the later source\'s attributes object', () => {
+  it("does not mutate the later source's attributes object", () => {
     const later: Partial<LogContext> = {
       attributes: { outer: { b: 2 } },
     };

@@ -85,7 +85,7 @@ describe('FR-016 + FR-018: pathological input produces documented coercion outpu
     const log = createLogger();
     expect(() => log.info('huge', { s: huge })).not.toThrow();
     const s = capture.calls[0]!.attributes.s as string;
-    expect(s).toBe('x'.repeat(8192) + '...[truncated]');
+    expect(s).toBe(`${'x'.repeat(8192)}...[truncated]`);
   });
 
   it('type-tags DOM nodes (Element) instead of recursing', () => {
@@ -169,7 +169,11 @@ describe('FR-016 + FR-018: pathological input produces documented coercion outpu
   it('coerces NaN, Infinity, -Infinity to null', () => {
     const log = createLogger();
     log.info('nan', { a: NaN, b: Infinity, c: -Infinity });
-    expect(capture.calls[0]!.attributes).toMatchObject({ a: null, b: null, c: null });
+    expect(capture.calls[0]!.attributes).toMatchObject({
+      a: null,
+      b: null,
+      c: null,
+    });
   });
 
   it('coerces bigint to its string representation', () => {

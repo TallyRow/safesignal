@@ -46,15 +46,17 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
+import type { Attributes, LogEvent, Transport } from '../../src/api/types.js';
 import {
   ConsoleTransport,
-  NoopTransport,
   configureLogging,
   createLogger,
+  NoopTransport,
 } from '../../src/index.js';
-import type { Attributes, LogEvent, Transport } from '../../src/api/types.js';
-import { FIXTURE_VALUES, makeSecretFixture } from '../../src/testing/secret-fixtures.js';
+import {
+  FIXTURE_VALUES,
+  makeSecretFixture,
+} from '../../src/testing/secret-fixtures.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const APP = { name: 'secret-sweep-e2e', version: '2026.05.0' };
@@ -90,9 +92,15 @@ function spyOnConsole(): { restore: () => void; getCalls: () => string[] } {
     log: console.log,
   };
   const calls: string[] = [];
-  for (const key of Object.keys(original) as ReadonlyArray<keyof typeof original>) {
+  for (const key of Object.keys(original) as ReadonlyArray<
+    keyof typeof original
+  >) {
     console[key] = (...args: unknown[]) => {
-      calls.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
+      calls.push(
+        args
+          .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
+          .join(' '),
+      );
     };
   }
   return {
@@ -232,7 +240,10 @@ describe('every fixture value in every documented location is masked end-to-end'
     },
     {
       label: 'array-of-objects with denied key (entries[].token)',
-      place: (f, a) => ({ ...a, entries: [{ token: f.token }, { token: f.token }] }),
+      place: (f, a) => ({
+        ...a,
+        entries: [{ token: f.token }, { token: f.token }],
+      }),
     },
     {
       label: 'URL query parameter (callback_url has ?token=...)',
@@ -299,7 +310,11 @@ describe('every fixture value in every documented location is masked end-to-end'
   it('masks fixture values in error.message (Bearer / JWT shape)', () => {
     const fixture = makeSecretFixture();
     const log = createLogger();
-    log.error('auth-fail', { reason: 'invalid' }, new Error(fixture.bearerToken));
+    log.error(
+      'auth-fail',
+      { reason: 'invalid' },
+      new Error(fixture.bearerToken),
+    );
     log.error('jwt-fail', { phase: 'decode' }, new Error(fixture.jwt));
     expect(capture.calls).toHaveLength(2);
     for (const event of capture.calls) {
@@ -332,7 +347,9 @@ describe('every fixture value in every documented location is masked end-to-end'
 
   it('masks fixture values in child-logger attributes', () => {
     const fixture = makeSecretFixture();
-    const child = createLogger().child({ attributes: { secret: fixture.secret } });
+    const child = createLogger().child({
+      attributes: { secret: fixture.secret },
+    });
     child.info('child-with-secret');
     const event = capture.calls[0]!;
     expect(event.context.attributes?.secret).toBe('[REDACTED]');
@@ -578,7 +595,9 @@ describe('failure-isolated fan-out: a throwing transport sibling does not leak a
     expect(internalErrors.length).toBeGreaterThanOrEqual(1);
     for (const e of internalErrors) {
       for (const v of FIXTURE_VALUES) {
-        expect(e.message.includes(v), `internal error notice leaked ${v}`).toBe(false);
+        expect(e.message.includes(v), `internal error notice leaked ${v}`).toBe(
+          false,
+        );
       }
     }
   });

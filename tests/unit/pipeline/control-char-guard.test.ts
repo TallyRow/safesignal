@@ -34,7 +34,7 @@ function attrString(overrides: Partial<LogEvent>): string {
 }
 
 function escapeHex(code: number): string {
-  return '\\u' + code.toString(16).padStart(4, '0');
+  return `\\u${code.toString(16).padStart(4, '0')}`;
 }
 
 // ---------------------------------------------------------------------------

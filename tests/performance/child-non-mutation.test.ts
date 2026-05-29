@@ -11,9 +11,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import { configureLogging, createLogger } from '../../src/index.js';
 import type { LogEvent } from '../../src/api/types.js';
+import { configureLogging, createLogger } from '../../src/index.js';
 import { clearActiveRuntimeForTests } from '../../src/runtime/runtime-ref.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
@@ -37,7 +36,12 @@ function findEvent(message: string): LogEvent | undefined {
 }
 
 function parentEvent(label: string): LogEvent {
-  return findEvent(label) ?? (() => { throw new Error(`event ${label} not captured`); })();
+  return (
+    findEvent(label) ??
+    (() => {
+      throw new Error(`event ${label} not captured`);
+    })()
+  );
 }
 
 describe('child-non-mutation at scale', () => {
@@ -49,7 +53,9 @@ describe('child-non-mutation at scale', () => {
 
     // Baseline parent emit.
     parent.info('baseline');
-    const baseline = JSON.parse(JSON.stringify(parentEvent('baseline'))) as LogEvent;
+    const baseline = JSON.parse(
+      JSON.stringify(parentEvent('baseline')),
+    ) as LogEvent;
 
     // Create 1,000 sibling children, each with its own unique attributes.
     for (let i = 0; i < 1000; i++) {
@@ -79,12 +85,16 @@ describe('child-non-mutation at scale', () => {
       context: { attributes: { parent_tag: 'root' } },
     });
     parent.info('baseline');
-    const baseline = JSON.parse(JSON.stringify(parentEvent('baseline'))) as LogEvent;
+    const baseline = JSON.parse(
+      JSON.stringify(parentEvent('baseline')),
+    ) as LogEvent;
 
     // Build a 50-deep chain.
     let cursor = parent;
     for (let i = 0; i < 50; i++) {
-      cursor = cursor.child({ attributes: { depth: i, lane: `D-${String(i)}` } });
+      cursor = cursor.child({
+        attributes: { depth: i, lane: `D-${String(i)}` },
+      });
     }
     cursor.info('deepest');
     const deepest = findEvent('deepest')!;
@@ -106,7 +116,9 @@ describe('child-non-mutation at scale', () => {
       context: { attributes: { kind: 'parent' } },
     });
     parent.info('baseline');
-    const baseline = JSON.parse(JSON.stringify(parentEvent('baseline'))) as LogEvent;
+    const baseline = JSON.parse(
+      JSON.stringify(parentEvent('baseline')),
+    ) as LogEvent;
 
     for (let i = 0; i < 200; i++) {
       const derivedChild = parent.child({
@@ -131,7 +143,9 @@ describe('child-non-mutation at scale', () => {
       module: { name: 'parent-mod', version: '1.0' },
     });
     parent.info('baseline');
-    const baseline = JSON.parse(JSON.stringify(parentEvent('baseline'))) as LogEvent;
+    const baseline = JSON.parse(
+      JSON.stringify(parentEvent('baseline')),
+    ) as LogEvent;
 
     for (let i = 0; i < 100; i++) {
       const overridden = parent.child({
@@ -150,7 +164,9 @@ describe('child-non-mutation at scale', () => {
     const parent = createLogger();
     const child = parent.child({ attributes: { lane: 'L' } });
     child.info('child-baseline');
-    const childBaseline = JSON.parse(JSON.stringify(parentEvent('child-baseline'))) as LogEvent;
+    const childBaseline = JSON.parse(
+      JSON.stringify(parentEvent('child-baseline')),
+    ) as LogEvent;
 
     for (let i = 0; i < 100; i++) {
       const grandchild = child.child({
@@ -161,12 +177,14 @@ describe('child-non-mutation at scale', () => {
 
     child.info('child-post');
     const childPost = parentEvent('child-post');
-    expect(childPost.context.attributes).toEqual(childBaseline.context.attributes);
+    expect(childPost.context.attributes).toEqual(
+      childBaseline.context.attributes,
+    );
     expect(childPost.context.attributes?.gc_idx).toBeUndefined();
     expect(childPost.context.attributes?.gc_tag).toBeUndefined();
   });
 
-  it('sibling children do not see each other\'s context (no cross-pollination)', () => {
+  it("sibling children do not see each other's context (no cross-pollination)", () => {
     const parent = createLogger();
     const childA = parent.child({ attributes: { sibling: 'A' } });
     const childB = parent.child({ attributes: { sibling: 'B' } });

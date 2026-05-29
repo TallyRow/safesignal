@@ -23,11 +23,13 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-
-import { configureLogging, createLogger } from '../../src/index.js';
-import { FIXTURE_VALUES, makeSecretFixture } from '../../src/testing/secret-fixtures.js';
-import { makeCapturingTransport } from '../helpers/failing-transport.js';
 import type { LogEvent } from '../../src/api/types.js';
+import { configureLogging, createLogger } from '../../src/index.js';
+import {
+  FIXTURE_VALUES,
+  makeSecretFixture,
+} from '../../src/testing/secret-fixtures.js';
+import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const APP = { name: 'secret-leakage-sweep', version: '1.0.0' };
 
@@ -43,7 +45,7 @@ beforeEach(() => {
   });
 });
 
-function jsonOf(event: LogEvent): string {
+function _jsonOf(event: LogEvent): string {
   return JSON.stringify(event);
 }
 
@@ -116,55 +118,61 @@ const FIXTURE_TO_DENIED_KEY: ReadonlyArray<{
 // ---------------------------------------------------------------------------
 
 describe('FR-012/14/15 + SC-008: per-key sweep across attribute locations', () => {
-  it.each(FIXTURE_TO_DENIED_KEY)(
-    'masks $fixtureKey at top-level attributes (under attrKey="$attrKey")',
-    ({ fixtureKey, attrKey }) => {
-      const fixture = makeSecretFixture();
-      const value = fixture[fixtureKey];
-      const log = createLogger();
-      log.info('secret-at-top', { [attrKey]: value });
-      expect(capture.calls).toHaveLength(1);
-      const event = capture.calls[0]!;
-      expect(event.attributes[attrKey]).toBe('[REDACTED]');
-      expect(findLeaks(event)).toEqual([]);
-    },
-  );
+  it.each(
+    FIXTURE_TO_DENIED_KEY,
+  )('masks $fixtureKey at top-level attributes (under attrKey="$attrKey")', ({
+    fixtureKey,
+    attrKey,
+  }) => {
+    const fixture = makeSecretFixture();
+    const value = fixture[fixtureKey];
+    const log = createLogger();
+    log.info('secret-at-top', { [attrKey]: value });
+    expect(capture.calls).toHaveLength(1);
+    const event = capture.calls[0]!;
+    expect(event.attributes[attrKey]).toBe('[REDACTED]');
+    expect(findLeaks(event)).toEqual([]);
+  });
 
-  it.each(FIXTURE_TO_DENIED_KEY)(
-    'masks $fixtureKey at nested attributes (attrs.outer.$attrKey)',
-    ({ fixtureKey, attrKey }) => {
-      const fixture = makeSecretFixture();
-      const value = fixture[fixtureKey];
-      const log = createLogger();
-      log.info('secret-nested', { outer: { [attrKey]: value } });
-      expect(capture.calls).toHaveLength(1);
-      const event = capture.calls[0]!;
-      const outer = event.attributes.outer as Record<string, unknown>;
-      expect(outer[attrKey]).toBe('[REDACTED]');
-      expect(findLeaks(event)).toEqual([]);
-    },
-  );
+  it.each(
+    FIXTURE_TO_DENIED_KEY,
+  )('masks $fixtureKey at nested attributes (attrs.outer.$attrKey)', ({
+    fixtureKey,
+    attrKey,
+  }) => {
+    const fixture = makeSecretFixture();
+    const value = fixture[fixtureKey];
+    const log = createLogger();
+    log.info('secret-nested', { outer: { [attrKey]: value } });
+    expect(capture.calls).toHaveLength(1);
+    const event = capture.calls[0]!;
+    const outer = event.attributes.outer as Record<string, unknown>;
+    expect(outer[attrKey]).toBe('[REDACTED]');
+    expect(findLeaks(event)).toEqual([]);
+  });
 
-  it.each(FIXTURE_TO_DENIED_KEY)(
-    'masks $fixtureKey at context.attributes (under attrKey="$attrKey")',
-    ({ fixtureKey, attrKey }) => {
-      const fixture = makeSecretFixture();
-      const value = fixture[fixtureKey];
-      configureLogging({
-        application: APP,
-        environment: 'development',
-        level: 'debug',
-        transports: [capture],
-        context: { attributes: { [attrKey]: value } },
-      });
-      const log = createLogger();
-      log.info('secret-in-context');
-      expect(capture.calls).toHaveLength(1);
-      const event = capture.calls[0]!;
-      expect(event.context.attributes?.[attrKey]).toBe('[REDACTED]');
-      expect(findLeaks(event)).toEqual([]);
-    },
-  );
+  it.each(
+    FIXTURE_TO_DENIED_KEY,
+  )('masks $fixtureKey at context.attributes (under attrKey="$attrKey")', ({
+    fixtureKey,
+    attrKey,
+  }) => {
+    const fixture = makeSecretFixture();
+    const value = fixture[fixtureKey];
+    configureLogging({
+      application: APP,
+      environment: 'development',
+      level: 'debug',
+      transports: [capture],
+      context: { attributes: { [attrKey]: value } },
+    });
+    const log = createLogger();
+    log.info('secret-in-context');
+    expect(capture.calls).toHaveLength(1);
+    const event = capture.calls[0]!;
+    expect(event.context.attributes?.[attrKey]).toBe('[REDACTED]');
+    expect(findLeaks(event)).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -236,7 +244,7 @@ describe('FR-012/14/15 + SC-008: a single event carrying the full fixture leaks 
     }
     // Also place a JWT-shape value under a non-denied key to verify
     // the shape rule fires.
-    everyKey['extra_jwt'] = fixture.jwt!;
+    everyKey.extra_jwt = fixture.jwt!;
     const log = createLogger();
     log.info('every-secret-at-once', everyKey);
     expect(capture.calls).toHaveLength(1);
@@ -247,7 +255,11 @@ describe('FR-012/14/15 + SC-008: a single event carrying the full fixture leaks 
   it('emits an error event with the bearer fixture in error.message and leaks nothing', () => {
     const fixture = makeSecretFixture();
     const log = createLogger();
-    log.error('bearer-in-error', { token: fixture.token }, new Error(fixture.bearerToken!));
+    log.error(
+      'bearer-in-error',
+      { token: fixture.token },
+      new Error(fixture.bearerToken!),
+    );
     expect(capture.calls).toHaveLength(1);
     const event = capture.calls[0]!;
     expect(event.attributes.token).toBe('[REDACTED]');

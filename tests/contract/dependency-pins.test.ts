@@ -33,7 +33,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -147,7 +147,12 @@ beforeAll(() => {
   // Assertions (a) and (b) read only `package.json` and can run any time.
   // Assertions (c) and (d) read `dist/`; fail loudly if missing so that a
   // CI step that forgot `npm run build` doesn't silently pass.
-  const distFiles = [DIST_INDEX_MJS, DIST_INDEX_CJS, DIST_INDEX_DTS, DIST_INDEX_DCTS];
+  const distFiles = [
+    DIST_INDEX_MJS,
+    DIST_INDEX_CJS,
+    DIST_INDEX_DTS,
+    DIST_INDEX_DCTS,
+  ];
   const missing = distFiles.filter((p) => !existsSync(p));
   if (missing.length > 0) {
     throw new Error(
@@ -235,10 +240,12 @@ describe('T070 (b) — vendor packages used by the adapter seam live in `devDepe
       '@opentelemetry/sdk-logs',
     ]) {
       expect(
-        Object.prototype.hasOwnProperty.call(devDeps, otelName),
-        'expected "' + otelName + '" in devDependencies ' +
+        Object.hasOwn(devDeps, otelName),
+        'expected "' +
+          otelName +
+          '" in devDependencies ' +
           "(it's used by the dormant adapter seam at " +
-          "src/internal/telemetry/otel/** and must not be installed " +
+          'src/internal/telemetry/otel/** and must not be installed ' +
           'for downstream consumers)',
       ).toBe(true);
     }
@@ -248,7 +255,9 @@ describe('T070 (b) — vendor packages used by the adapter seam live in `devDepe
     const pkg = loadPackageJson();
     const runtime = new Set(Object.keys(pkg.dependencies ?? {}));
     const dev = Object.keys(pkg.devDependencies ?? {});
-    const doublyDeclared = dev.filter((n) => runtime.has(n) && isVendorPackage(n));
+    const doublyDeclared = dev.filter(
+      (n) => runtime.has(n) && isVendorPackage(n),
+    );
     expect(doublyDeclared).toEqual([]);
   });
 });
@@ -314,7 +323,9 @@ describe('T070 (c) — built `dist/index.{mjs,cjs}` contains no vendor SDK impor
       // Substring match for these is too aggressive (e.g., "newrelic"
       // could collide with valid identifier text in unrelated code).
       // Use word-boundary instead.
-      const re = new RegExp(`\\b${exact.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`);
+      const re = new RegExp(
+        `\\b${exact.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`,
+      );
       expect(
         re.test(content),
         `dist/index.${_label} contains the vendor-package name "${exact}"`,
@@ -348,28 +359,27 @@ describe('T070 (d) — published `dist/index.d.{ts,cts}` contain no vendor-speci
     ['index.d.cts', DIST_INDEX_DCTS],
   ] as const) {
     describe(label, () => {
-      it.each(VENDOR_DTS_IDENTIFIERS)(
-        'does not expose the vendor-specific identifier "%s"',
-        (ident) => {
-          const code = stripComments(readFileSync(path, 'utf8'));
-          const re = new RegExp(`\\b${ident}\\b`);
-          expect(
-            re.test(code),
-            `dist/${label} exposes the vendor identifier "${ident}" (comments stripped)`,
-          ).toBe(false);
-        },
-      );
+      it.each(
+        VENDOR_DTS_IDENTIFIERS,
+      )('does not expose the vendor-specific identifier "%s"', (ident) => {
+        const code = stripComments(readFileSync(path, 'utf8'));
+        const re = new RegExp(`\\b${ident}\\b`);
+        expect(
+          re.test(code),
+          `dist/${label} exposes the vendor identifier "${ident}" (comments stripped)`,
+        ).toBe(false);
+      });
 
-      it.each([...VENDOR_PACKAGE_PREFIXES, ...VENDOR_EXACT_PACKAGES])(
-        'does not name the vendor package "%s"',
-        (name) => {
-          const code = stripComments(readFileSync(path, 'utf8'));
-          expect(
-            code.toLowerCase().includes(name.toLowerCase()),
-            `dist/${label} names the vendor package "${name}" (comments stripped)`,
-          ).toBe(false);
-        },
-      );
+      it.each([
+        ...VENDOR_PACKAGE_PREFIXES,
+        ...VENDOR_EXACT_PACKAGES,
+      ])('does not name the vendor package "%s"', (name) => {
+        const code = stripComments(readFileSync(path, 'utf8'));
+        expect(
+          code.toLowerCase().includes(name.toLowerCase()),
+          `dist/${label} names the vendor package "${name}" (comments stripped)`,
+        ).toBe(false);
+      });
     });
   }
 });
@@ -382,7 +392,11 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
   it('exports map keys are exactly { ".", "./testing", "./transport-beacon" }', () => {
     const pkg = loadPackageJson();
     const exports = pkg.exports ?? {};
-    expect(Object.keys(exports).sort()).toEqual(['.', './testing', './transport-beacon']);
+    expect(Object.keys(exports).sort()).toEqual([
+      '.',
+      './testing',
+      './transport-beacon',
+    ]);
   });
 
   it('sideEffects is explicitly false', () => {
@@ -406,7 +420,9 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
     ['./transport-beacon', 'transport-beacon'],
   ])('entry %s has the documented { types, import, require } triple for "%s"', (key, name) => {
     const pkg = loadPackageJson();
-    const entry = (pkg.exports as Record<string, Record<string, string>> | undefined)?.[key];
+    const entry = (
+      pkg.exports as Record<string, Record<string, string>> | undefined
+    )?.[key];
     expect(entry).toEqual({
       types: `./dist/${name}.d.ts`,
       import: `./dist/${name}.mjs`,
@@ -436,11 +452,12 @@ describe('T030 sanity — no new runtime or vendor deps after 002-beacon-transpo
     // never linked into the default or beacon-transport bundles —
     // enforced separately by feature 001's bundle-shape test and
     // by tests/security/transport-beacon-bundle-shape.security.test.ts.
-    const newVendorIntroductions = dev.filter((name) =>
-      name.startsWith('@datadog/') ||
-      name === 'dd-rum' ||
-      name === 'dd-trace' ||
-      name.startsWith('@sentry/'),
+    const newVendorIntroductions = dev.filter(
+      (name) =>
+        name.startsWith('@datadog/') ||
+        name === 'dd-rum' ||
+        name === 'dd-trace' ||
+        name.startsWith('@sentry/'),
     );
     expect(newVendorIntroductions).toEqual([]);
   });

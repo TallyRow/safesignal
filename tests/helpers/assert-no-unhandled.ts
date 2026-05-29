@@ -30,11 +30,19 @@ export interface UnhandledGuard {
 type WindowLike = {
   addEventListener: (
     type: string,
-    listener: (ev: { reason?: unknown; error?: unknown; preventDefault?: () => void }) => void,
+    listener: (ev: {
+      reason?: unknown;
+      error?: unknown;
+      preventDefault?: () => void;
+    }) => void,
   ) => void;
   removeEventListener: (
     type: string,
-    listener: (ev: { reason?: unknown; error?: unknown; preventDefault?: () => void }) => void,
+    listener: (ev: {
+      reason?: unknown;
+      error?: unknown;
+      preventDefault?: () => void;
+    }) => void,
   ) => void;
 };
 
@@ -45,7 +53,8 @@ type ProcessLike = {
 
 function getWindow(): WindowLike | undefined {
   const g = globalThis as { window?: WindowLike };
-  return typeof g.window !== 'undefined' && typeof g.window.addEventListener === 'function'
+  return typeof g.window !== 'undefined' &&
+    typeof g.window.addEventListener === 'function'
     ? g.window
     : undefined;
 }
@@ -70,11 +79,17 @@ export function installUnhandledRejectionGuard(): UnhandledGuard {
   let disposed = false;
 
   // Browser-shaped listeners
-  const onWindowRejection = (ev: { reason?: unknown; preventDefault?: () => void }) => {
+  const onWindowRejection = (ev: {
+    reason?: unknown;
+    preventDefault?: () => void;
+  }) => {
     events.push({ reason: ev.reason, kind: 'rejection' });
     ev.preventDefault?.();
   };
-  const onWindowError = (ev: { error?: unknown; preventDefault?: () => void }) => {
+  const onWindowError = (ev: {
+    error?: unknown;
+    preventDefault?: () => void;
+  }) => {
     events.push({ reason: ev.error, kind: 'error' });
     ev.preventDefault?.();
   };

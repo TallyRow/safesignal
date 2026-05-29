@@ -50,8 +50,8 @@
  */
 
 import type {
-  AttributeValue,
   Attributes,
+  AttributeValue,
   ErrorInfo,
   LogContext,
   LogEvent,
@@ -60,7 +60,6 @@ import type {
   Redactor,
 } from '../api/types.js';
 import { PackageError } from '../internal/errors/internal-errors.js';
-import type { NormalizedConfig } from '../config/config.js';
 import type { PipelineStage } from './dispatcher.js';
 
 const DEFAULT_REPLACEMENT = '[REDACTED]';
@@ -139,10 +138,15 @@ export function createRedactor(rules?: RedactionRule[]): Redactor {
     let error: ErrorInfo | undefined = event.error;
     if (event.error !== undefined) {
       const escName = applyShapeRules(event.error.name, compiled.shapeRules);
-      const escMessage = applyShapeRules(event.error.message, compiled.shapeRules);
+      const escMessage = applyShapeRules(
+        event.error.message,
+        compiled.shapeRules,
+      );
       const stack = event.error.stack;
       const escStack =
-        stack === undefined ? undefined : applyShapeRules(stack, compiled.shapeRules);
+        stack === undefined
+          ? undefined
+          : applyShapeRules(stack, compiled.shapeRules);
       const errorChanged =
         escName !== event.error.name ||
         escMessage !== event.error.message ||
@@ -257,7 +261,10 @@ function redactValueAtKey(
   return value;
 }
 
-function walkArray(arr: AttributeValue[], rules: CompiledRules): AttributeValue[] {
+function walkArray(
+  arr: AttributeValue[],
+  rules: CompiledRules,
+): AttributeValue[] {
   let changed = false;
   let result: AttributeValue[] | null = null;
   for (let i = 0; i < arr.length; i++) {
@@ -282,7 +289,10 @@ function walkArray(arr: AttributeValue[], rules: CompiledRules): AttributeValue[
   return changed && result !== null ? result : arr;
 }
 
-function applyShapeRules(value: string, rules: ReadonlyArray<ShapeRule>): string {
+function applyShapeRules(
+  value: string,
+  rules: ReadonlyArray<ShapeRule>,
+): string {
   for (const rule of rules) {
     if (rule.pattern.test(value)) return rule.replacement;
   }
@@ -310,11 +320,12 @@ function isLogEventShape(value: unknown): value is LogEvent {
     return false;
   }
   const obj = value as Record<string, unknown>;
-  if (typeof obj['timestamp'] !== 'string') return false;
-  if (typeof obj['level'] !== 'string') return false;
-  if (!VALID_LEVELS.has(obj['level'] as LogLevel)) return false;
-  if (typeof obj['message'] !== 'string') return false;
-  if (obj['attributes'] === null || typeof obj['attributes'] !== 'object') return false;
-  if (obj['context'] === null || typeof obj['context'] !== 'object') return false;
+  if (typeof obj.timestamp !== 'string') return false;
+  if (typeof obj.level !== 'string') return false;
+  if (!VALID_LEVELS.has(obj.level as LogLevel)) return false;
+  if (typeof obj.message !== 'string') return false;
+  if (obj.attributes === null || typeof obj.attributes !== 'object')
+    return false;
+  if (obj.context === null || typeof obj.context !== 'object') return false;
   return true;
 }

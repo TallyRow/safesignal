@@ -29,14 +29,13 @@
  */
 
 import type {
-  AttributeValue,
   Attributes,
+  AttributeValue,
   ErrorInfo,
   LogContext,
   LogEvent,
   ScrubUrlOptions,
 } from '../api/types.js';
-import type { NormalizedConfig } from '../config/config.js';
 import type { PipelineStage } from './dispatcher.js';
 
 const REDACTED = '[REDACTED]';
@@ -116,11 +115,12 @@ export const urlScrub: PipelineStage = (event, _config) => {
   const attributes = walkAttributes(event.attributes);
   const context = walkContext(event.context);
 
-  let error: ErrorInfo | undefined = undefined;
+  let error: ErrorInfo | undefined;
   if (event.error !== undefined) {
     const scrubbedMessage = maybeScrubString(event.error.message);
     const stack = event.error.stack;
-    const scrubbedStack = stack === undefined ? undefined : maybeScrubString(stack);
+    const scrubbedStack =
+      stack === undefined ? undefined : maybeScrubString(stack);
     error = { name: event.error.name, message: scrubbedMessage };
     if (scrubbedStack !== undefined) error.stack = scrubbedStack;
   }
@@ -209,11 +209,14 @@ function scrubHashFragment(
   }
   if (!changed) return false;
 
-  parsed.hash = '#' + out.join('&');
+  parsed.hash = `#${out.join('&')}`;
   return true;
 }
 
-function isDenied(name: string, extras: ReadonlyArray<string | RegExp>): boolean {
+function isDenied(
+  name: string,
+  extras: ReadonlyArray<string | RegExp>,
+): boolean {
   for (const pattern of DEFAULT_PARAM_DENYLIST) {
     if (pattern.test(name)) return true;
   }
@@ -248,9 +251,7 @@ function maybeScrubString(value: string): string {
   return value;
 }
 
-function walkAttributes(
-  attrs: Attributes,
-): Attributes {
+function walkAttributes(attrs: Attributes): Attributes {
   let changed = false;
   let result: { [key: string]: AttributeValue } | null = null;
   for (const key of Object.keys(attrs)) {

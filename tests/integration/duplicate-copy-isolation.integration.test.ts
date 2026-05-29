@@ -91,8 +91,12 @@ describe('FR-033: each physical package copy owns an independent ConfiguredRunti
       transports: [tB],
     });
 
-    const logA = copyA.createLogger({ module: { name: 'mod-in-A', version: '1' } });
-    const logB = copyB.createLogger({ module: { name: 'mod-in-B', version: '1' } });
+    const logA = copyA.createLogger({
+      module: { name: 'mod-in-A', version: '1' },
+    });
+    const logB = copyB.createLogger({
+      module: { name: 'mod-in-B', version: '1' },
+    });
 
     logA.info('from-A');
     logB.info('from-B');
@@ -100,12 +104,18 @@ describe('FR-033: each physical package copy owns an independent ConfiguredRunti
     expect(tA.calls).toHaveLength(1);
     expect(tB.calls).toHaveLength(1);
     expect(tA.calls[0]!.message).toBe('from-A');
-    expect(tA.calls[0]!.context.application).toEqual({ name: 'app-A', version: '1.0' });
+    expect(tA.calls[0]!.context.application).toEqual({
+      name: 'app-A',
+      version: '1.0',
+    });
     expect(tB.calls[0]!.message).toBe('from-B');
-    expect(tB.calls[0]!.context.application).toEqual({ name: 'app-B', version: '2.0' });
+    expect(tB.calls[0]!.context.application).toEqual({
+      name: 'app-B',
+      version: '2.0',
+    });
   });
 
-  it('emitting through copy A reaches only copy A\'s transports — not copy B\'s', async () => {
+  it("emitting through copy A reaches only copy A's transports — not copy B's", async () => {
     const copyA = await loadIsolatedCopy();
     const copyB = await loadIsolatedCopy();
 
@@ -132,7 +142,7 @@ describe('FR-033: each physical package copy owns an independent ConfiguredRunti
     expect(tB.calls).toHaveLength(0);
   });
 
-  it('reconfiguring one copy does not invalidate the other copy\'s runtime', async () => {
+  it("reconfiguring one copy does not invalidate the other copy's runtime", async () => {
     const copyA = await loadIsolatedCopy();
     const copyB = await loadIsolatedCopy();
 
@@ -205,9 +215,9 @@ describe('FR-033: each physical package copy owns an independent ConfiguredRunti
 
     // No new global was created by the emission path.
     const globalKeysAfter = new Set(Object.keys(globalThis));
-    expect([...globalKeysAfter].filter((k) => !globalKeysBefore.has(k))).toEqual(
-      [],
-    );
+    expect(
+      [...globalKeysAfter].filter((k) => !globalKeysBefore.has(k)),
+    ).toEqual([]);
 
     // No `Symbol.for(...)` registry entry exists that points at the
     // package's runtime. We can't enumerate the shared symbol
@@ -226,7 +236,7 @@ describe('FR-033: each physical package copy owns an independent ConfiguredRunti
     }
   });
 
-  it('a Logger reference from copy A held against copy B\'s configureLogging() does not cross-route events', async () => {
+  it("a Logger reference from copy A held against copy B's configureLogging() does not cross-route events", async () => {
     // Two copies of the package. Logger handles from copy A read
     // through copy A's getActiveRuntime() (it's a closure into copy
     // A's runtime-ref module). Copy B has its own getActiveRuntime().
@@ -274,7 +284,7 @@ describe('FR-033: each physical package copy owns an independent ConfiguredRunti
 // concern, NOT a runtime back door.
 // ---------------------------------------------------------------------------
 
-describe('FR-033 documentation: cross-copy sharing is the bundler\'s job, not the package\'s', () => {
+describe("FR-033 documentation: cross-copy sharing is the bundler's job, not the package's", () => {
   it('the package does not look up a shared runtime via globalThis on import', async () => {
     // Plant a fake shared-runtime sentinel on globalThis BEFORE
     // loading a fresh copy. If the package were to look for a

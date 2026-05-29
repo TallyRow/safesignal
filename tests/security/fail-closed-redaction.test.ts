@@ -19,9 +19,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { configureLogging, createLogger } from '../../src/index.js';
 import type { LogEvent, Redactor } from '../../src/api/types.js';
+import { configureLogging, createLogger } from '../../src/index.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
 const APP = { name: 'fail-closed-redaction', version: '1.0.0' };
@@ -104,39 +103,56 @@ describe('FR-019 + FR-020: redactor returning non-event/non-null drops the event
     ],
     [
       'an object with an invalid LogLevel',
-      { timestamp: 'now', level: 'unknown', message: '', attributes: {}, context: {} },
+      {
+        timestamp: 'now',
+        level: 'unknown',
+        message: '',
+        attributes: {},
+        context: {},
+      },
     ],
     [
       'an object with null attributes',
-      { timestamp: 'now', level: 'info', message: '', attributes: null, context: {} },
+      {
+        timestamp: 'now',
+        level: 'info',
+        message: '',
+        attributes: null,
+        context: {},
+      },
     ],
     [
       'an object with null context',
-      { timestamp: 'now', level: 'info', message: '', attributes: {}, context: null },
+      {
+        timestamp: 'now',
+        level: 'info',
+        message: '',
+        attributes: {},
+        context: null,
+      },
     ],
   ];
 
-  it.each(cases)(
-    'drops the event when redactor returns %s and notifies onInternalError once',
-    (_label, returnValue) => {
-      const capture = makeCapturingTransport('capture');
-      const onInternalError = vi.fn();
-      configureLogging({
-        application: APP,
-        environment: 'development',
-        level: 'debug',
-        transports: [capture],
-        redactor: (() => returnValue) as unknown as Redactor,
-        onInternalError,
-      });
-      const log = createLogger();
-      log.info('attack', { token: 'leak-this' });
-      expect(capture.calls).toHaveLength(0);
-      expect(onInternalError).toHaveBeenCalledTimes(1);
-      const err = onInternalError.mock.calls[0]![0] as Error & { code?: string };
-      expect(err.code).toBe('redactor_failed');
-    },
-  );
+  it.each(
+    cases,
+  )('drops the event when redactor returns %s and notifies onInternalError once', (_label, returnValue) => {
+    const capture = makeCapturingTransport('capture');
+    const onInternalError = vi.fn();
+    configureLogging({
+      application: APP,
+      environment: 'development',
+      level: 'debug',
+      transports: [capture],
+      redactor: (() => returnValue) as unknown as Redactor,
+      onInternalError,
+    });
+    const log = createLogger();
+    log.info('attack', { token: 'leak-this' });
+    expect(capture.calls).toHaveLength(0);
+    expect(onInternalError).toHaveBeenCalledTimes(1);
+    const err = onInternalError.mock.calls[0]![0] as Error & { code?: string };
+    expect(err.code).toBe('redactor_failed');
+  });
 });
 
 // ---------------------------------------------------------------------------

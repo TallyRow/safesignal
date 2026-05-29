@@ -32,12 +32,10 @@
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import * as TB from '@tallyrow/safesignal/transport-beacon';
 import * as Pkg from '@tallyrow/safesignal';
 import { assertTransportContract } from '@tallyrow/safesignal/testing';
+import * as TB from '@tallyrow/safesignal/transport-beacon';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   installAddEventListenerSpy,
   installFetchDouble,
@@ -98,12 +96,16 @@ describe('TB-2 — default-entry surface bit-identical to v1', () => {
   });
 
   it('does NOT re-export `createBeaconTransport`', () => {
-    expect((Pkg as unknown as { createBeaconTransport?: unknown }).createBeaconTransport).toBeUndefined();
+    expect(
+      (Pkg as unknown as { createBeaconTransport?: unknown })
+        .createBeaconTransport,
+    ).toBeUndefined();
   });
 
   it('does NOT re-export `BeaconTransportOptions` as a runtime symbol', () => {
     expect(
-      (Pkg as unknown as { BeaconTransportOptions?: unknown }).BeaconTransportOptions,
+      (Pkg as unknown as { BeaconTransportOptions?: unknown })
+        .BeaconTransportOptions,
     ).toBeUndefined();
   });
 });
@@ -114,7 +116,9 @@ describe('TB-2 — default-entry surface bit-identical to v1', () => {
 
 describe('TB-3 — returned transport shape', () => {
   it('returns a Transport-shaped object with name, send, flush, shutdown', () => {
-    const t = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
+    const t = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+    });
     expect(typeof t.name).toBe('string');
     expect(t.name.length).toBeGreaterThan(0);
     expect(typeof t.send).toBe('function');
@@ -122,7 +126,9 @@ describe('TB-3 — returned transport shape', () => {
     expect(typeof t.shutdown).toBe('function');
   });
   it('the returned value is a plain object (prototype === Object.prototype)', () => {
-    const t = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
+    const t = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+    });
     expect(Object.getPrototypeOf(t)).toBe(Object.prototype);
   });
 });
@@ -172,7 +178,9 @@ describe('TB-7 — assertTransportContract battery', () => {
 
 describe('TB-8 — Transport.name field', () => {
   it('defaults to "beacon" when options.name is omitted', () => {
-    const t = TB.createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' });
+    const t = TB.createBeaconTransport({
+      endpoint: 'https://logs.example.com/ingest',
+    });
     expect(t.name).toBe('beacon');
   });
   it('overrides via options.name', () => {
@@ -191,7 +199,9 @@ describe('TB-8 — Transport.name field', () => {
 describe('TB-9 — multi-instance independence', () => {
   it('two instances against different endpoints install independent listeners', () => {
     const beaconCtrl = installSendBeaconDouble({ returnValue: true });
-    const fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+    const fetchCtrl = installFetchDouble({
+      behavior: { kind: 'resolve', status: 204 },
+    });
     // Spy must be installed AFTER beaconCtrl/fetchCtrl because those patch
     // navigator/fetch, not addEventListener — but spy will pick up any
     // listener install that happens after this point.
@@ -220,7 +230,9 @@ describe('TB-9 — multi-instance independence', () => {
       t1.send(event);
       t2.send({ ...event, message: 'b' });
 
-      const pagehideAdds = listenerSpy.registrations.filter((r) => r.type === 'pagehide');
+      const pagehideAdds = listenerSpy.registrations.filter(
+        (r) => r.type === 'pagehide',
+      );
       expect(pagehideAdds.length).toBe(2);
       // Two distinct handler references — each transport owns its own.
       expect(pagehideAdds[0]?.listener).not.toBe(pagehideAdds[1]?.listener);
@@ -235,7 +247,10 @@ describe('TB-9 — multi-instance independence', () => {
     // Force both primitives to fail — sendBeacon refuses, fetch rejects.
     const beaconCtrl = installSendBeaconDouble({ returnValue: false });
     const fetchCtrl = installFetchDouble({
-      behavior: { kind: 'reject', reason: new TypeError('Failed to fetch (synthetic)') },
+      behavior: {
+        kind: 'reject',
+        reason: new TypeError('Failed to fetch (synthetic)'),
+      },
     });
     try {
       const noticesA: Error[] = [];
@@ -265,8 +280,12 @@ describe('TB-9 — multi-instance independence', () => {
       expect(noticesA.length).toBe(1);
       expect(noticesB.length).toBe(1);
       // Each notice names its own transport.
-      expect((noticesA[0] as Error & { transportName?: string }).transportName).toBe('beacon-a');
-      expect((noticesB[0] as Error & { transportName?: string }).transportName).toBe('beacon-b');
+      expect(
+        (noticesA[0] as Error & { transportName?: string }).transportName,
+      ).toBe('beacon-a');
+      expect(
+        (noticesB[0] as Error & { transportName?: string }).transportName,
+      ).toBe('beacon-b');
       // Subsequent send on t1 hits the rate-limit (no second notice on A);
       // but a notice on B is independent — it already fired once but
       // wouldn't fire twice either. The point of this assertion is that
@@ -306,7 +325,9 @@ describe('TB-10 — synchronous factory and synchronous send', () => {
       // Hermetic: prevent the real-network fetch fallback that would
       // otherwise hit https://logs.example.com from a test environment.
       beaconCtrl = installSendBeaconDouble({ returnValue: true });
-      fetchCtrl = installFetchDouble({ behavior: { kind: 'resolve', status: 204 } });
+      fetchCtrl = installFetchDouble({
+        behavior: { kind: 'resolve', status: 204 },
+      });
     });
     afterEach(() => {
       beaconCtrl?.uninstall();

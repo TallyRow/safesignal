@@ -17,9 +17,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { configureLogging, createLogger, getRootLogger } from '../../src/index.js';
 import type { LogEvent, Transport } from '../../src/api/types.js';
+import {
+  configureLogging,
+  createLogger,
+  getRootLogger,
+} from '../../src/index.js';
 import { clearActiveRuntimeForTests } from '../../src/runtime/runtime-ref.js';
 
 const APP_V1 = { name: 'app', version: '1.0' };
@@ -234,7 +237,9 @@ describe('FR-031 + no-throw invariant: reconfigure never propagates exceptions t
     const onInternalError = vi.fn();
     const flaky: Transport = {
       name: 'flaky-flush',
-      send() { /* no-op */ },
+      send() {
+        /* no-op */
+      },
       async flush() {
         flushed = true;
         throw new Error('flush explosion');
@@ -274,7 +279,9 @@ describe('FR-031 + no-throw invariant: reconfigure never propagates exceptions t
   it('a previous transport whose shutdown() throws does not propagate', async () => {
     const flaky: Transport = {
       name: 'flaky-shutdown',
-      send() { /* no-op */ },
+      send() {
+        /* no-op */
+      },
       async shutdown() {
         throw new Error('shutdown explosion');
       },

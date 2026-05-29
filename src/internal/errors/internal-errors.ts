@@ -41,7 +41,11 @@ export class PackageError extends Error {
   // the current `lib` setting in tsconfig.
   declare cause?: unknown;
 
-  constructor(code: PackageErrorCode, message: string, options: PackageErrorOptions = {}) {
+  constructor(
+    code: PackageErrorCode,
+    message: string,
+    options: PackageErrorOptions = {},
+  ) {
     super(message);
     this.name = 'PackageError';
     this.code = code;
