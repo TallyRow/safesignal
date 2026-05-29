@@ -37,9 +37,9 @@ runtime change beyond the one-time mechanical format baseline.
 **Goal**: every MR + `main` push is scanned for secrets and dependency advisories.
 **Independent test**: a planted secret + a planted vulnerable dep are caught; a clean MR + the existing fake fixtures produce zero findings.
 
-- [ ] T007 [P] [US1] Create `.gitlab/secret-detection-ruleset.toml` allowlisting known-benign fakes: `src/testing/secret-fixtures.ts`, the security/secret test files, `AKIAIOSFODNN7EXAMPLE`, and the synthetic private-range IPs in the URL-scrubber tests (maps FR-002, SC-002)
-- [ ] T008 [US1] Extend `.gitlab-ci.yml`: `include:` the pinned GitLab **Secret-Detection** template; ensure it runs under MR + default-branch rules and consumes the T007 ruleset; `glab ci lint` after editing (maps FR-001)
-- [ ] T009 [US1] Extend `.gitlab-ci.yml`: `include:` the pinned GitLab **Dependency-Scanning** template against `package-lock.json`; runs under MR + default-branch rules; `glab ci lint` (maps FR-003, FR-004)
+- [X] T007 [P] [US1] Create `.gitleaks.toml` allowlisting known-benign fakes: `src/testing/secret-fixtures.ts`, the security/secret test files, `tests/helpers/`, `AKIAIOSFODNN7EXAMPLE`, and the spec/docs paths (maps FR-002, SC-002). **(Pivot: GitLab-native Secret Detection doesn't gate on free tier → use gitleaks OSS.)**
+- [X] T008 [US1] Extend `.gitlab-ci.yml`: add a pinned **`secret-scan` (gitleaks)** job under MR + default-branch rules that fails on any non-allowlisted finding, using `.gitleaks.toml`; `glab ci lint` after editing (maps FR-001)
+- [ ] T009 [US1] **DEFERRED** — add a pinned **`dependency-scan` (osv-scanner)** job against `package-lock.json`. Deferred until Renovate (US4) drives the dev-toolchain major upgrades (happy-dom 15→20, vitest →4) that are the only fixes for the current dev-only advisories (1 critical + 6 moderate, none affecting the zero-runtime-dep shipped package). osv-scanner fails on *any* vuln, so adding it now would force risky mid-feature upgrades or throwaway ignores. Add against a clean tree post-Renovate (maps FR-003, FR-004). **(Pivot: GitLab-native Dependency Scanning is Ultimate-only.)**
 - [ ] T010 [US1] **Maintainer/verify**: on a dogfood MR, confirm both scanners run on the free tier, the allowlist yields **zero** false positives on the committed tree, and a deliberately-planted secret + vulnerable dependency are each reported. Record outcomes in `baselines.md` (maps SC-001, SC-002)
 
 ---
@@ -73,8 +73,8 @@ runtime change beyond the one-time mechanical format baseline.
 **Goal**: weekly dependency-update MRs, batched. Independent of US1–US3, US5.
 **Independent test**: the scheduled pipeline opens batched/major MRs (or a clean no-op), each running the full quality gate.
 
-- [ ] T019 [US4] Create `renovate.json`: extend a base preset; weekly `schedule`; group minor/patch into one MR, isolate each major; target `main`; enable auto-rebase + lockfile maintenance (maps FR-012)
-- [ ] T020 [US4] Add the Renovate runner to CI gated on `$CI_PIPELINE_SOURCE == "schedule"` (separate `include` or job, off the per-MR critical path); `glab ci lint` (maps FR-013)
+- [X] T019 [US4] Create `renovate.json`: extend a base preset; weekly `schedule`; group minor/patch into one MR, isolate each major; target `main`; enable auto-rebase + lockfile maintenance (maps FR-012)
+- [X] T020 [US4] Add the Renovate runner to CI gated on `$CI_PIPELINE_SOURCE == "schedule"` (separate `include` or job, off the per-MR critical path); `glab ci lint` (maps FR-013)
 - [ ] T021 [US4] **Maintainer**: create a `safesignal`-scoped GitLab Project Access Token (Developer role, `api` scope) and store it as the masked/protected CI variable `RENOVATE_TOKEN`. MUST NOT have npm publish rights (maps FR-014, FR-019)
 - [ ] T022 [US4] **Maintainer**: create the weekly **scheduled pipeline** (Settings → CI/CD → Pipeline schedules) targeting `main`
 - [ ] T023 [US4] Verify: run the scheduled pipeline manually; confirm Renovate opens correctly-batched MRs (minor/patch grouped, majors separate) and each runs the full quality gate; or a clean no-op when nothing is outdated (maps SC-005)

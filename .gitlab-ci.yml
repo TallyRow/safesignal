@@ -171,6 +171,27 @@ coverage:
   script:
     - npm run test:coverage
 
+# Secret scanning (Feature 006, US1). GitLab-native Secret Detection does not
+# gate on the free tier, so we use pinned gitleaks (OSS) for a real gate that
+# fails on any non-allowlisted finding. Uses its own image (no Node), so
+# override before_script/cache and run with needs: [].
+#
+# NOTE: dependency scanning (osv-scanner) is deferred until Renovate (US4) has
+# driven the dev-toolchain major upgrades (happy-dom 20, vitest 4) — the only
+# fixes for the current dev-only advisories. It will be added against a clean
+# tree afterward. See specs/006-developer-ergonomics/tasks.md T009.
+secret-scan:
+  stage: audit
+  extends: .quality_gate_rules
+  needs: []
+  image:
+    name: zricethezav/gitleaks:v8.18.2
+    entrypoint: [""]
+  before_script: []
+  cache: {}
+  script:
+    - gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner --verbose
+
 # ----------------------------------------------------------------
 # Release pipeline jobs (signed-tag triggered)
 # ----------------------------------------------------------------
@@ -311,3 +332,31 @@ provenance-verify:
     - publish
   script:
     - scripts/ci/provenance-verify.sh "$CI_COMMIT_TAG"
+
+# ----------------------------------------------------------------
+# Scheduled dependency-update automation (Feature 006, US4)
+# ----------------------------------------------------------------
+#
+# Runs ONLY on scheduled pipelines (Settings → CI/CD → Pipeline schedules,
+# weekly, target main). Opens dependency-update MRs per renovate.json
+# (minor/patch grouped, majors isolated). Requires the masked CI variable
+# RENOVATE_TOKEN = a `safesignal`-scoped Project Access Token (Developer,
+# api scope, non-publish) — a maintainer-side one-time setup.
+renovate:
+  stage: build
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  image:
+    name: renovate/renovate:39
+    entrypoint: [""]
+  before_script: []
+  cache: {}
+  variables:
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: https://gitlab.com/api/v4
+    RENOVATE_AUTODISCOVER: "false"
+    RENOVATE_REPOSITORIES: tallyrow/safesignal
+    RENOVATE_TOKEN: $RENOVATE_TOKEN
+  script:
+    - renovate
