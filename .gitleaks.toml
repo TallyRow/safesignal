@@ -1,0 +1,29 @@
+# gitleaks configuration for SafeSignal secret detection (Feature 006, US1).
+# Runs as the `secret-scan` CI job (fails on any non-allowlisted finding).
+# GitLab-native Secret Detection does not gate on the free tier, so we use
+# gitleaks (OSS) for a real, deterministic gate.
+
+title = "SafeSignal gitleaks config"
+
+[extend]
+# Start from gitleaks' built-in ruleset.
+useDefault = true
+
+[allowlist]
+description = "Known-benign fakes: intentional test fixtures + doc example values that are deliberately secret-shaped but not real."
+paths = [
+  # The shipped fake-secret fixtures (the /testing export's whole purpose).
+  '''src/testing/secret-fixtures\.ts''',
+  # Security + secret-sweep tests that embed the fake fixtures.
+  '''tests/security/.*''',
+  '''tests/integration/secret-sweep\.integration\.test\.ts''',
+  '''tests/integration/federated-context\.test\.ts''',
+  '''tests/helpers/.*''',
+  # Spec/docs that quote example secrets (e.g. the AWS doc key).
+  '''specs/.*''',
+  '''docs/.*''',
+]
+regexes = [
+  # AWS's canonical documentation example access key.
+  '''AKIAIOSFODNN7EXAMPLE''',
+]

@@ -35,6 +35,7 @@ F005 and are explicitly out of scope here.
 - Q: Scope of the initial lint/format cleanup on the never-linted codebase? → A: Full baseline now — auto-fix + format the entire codebase in one mechanical baseline commit; bundle-invariance + test suite prove behavior is unchanged.
 - Q: How does the Renovate bot authenticate to open MRs given the OIDC-only / no-long-lived-publish-token posture? → A: A GitLab Project Access Token scoped to `safesignal` only (Developer role, `api` scope), stored as a masked/protected CI variable used solely by the Renovate scheduled pipeline; non-publish, repo-scoped — a bounded, documented exception. npm publish stays OIDC-only.
 - Q: (implementation) Formatting `src/` shifts the non-minified bundle by a few bytes, so the spec's original "byte-identical" bundle requirement is unachievable. Re-baseline, or exclude `src/` from formatting? → A: Format everything incl. `src/` and re-baseline — the shift (~+4/+5/0 B gz) is within the bundle-invariance gate's ±1 KiB tolerance (behavior identical); FR-008/SC-007 reworded from "byte-identical" to "within ±1 KiB", new sizes recorded in `baselines.md`.
+- Q: (implementation, US1) GitLab-native Dependency Scanning is Ultimate-only (unavailable on the free tier) and Secret Detection does not gate on free tier — so the spec's "GitLab Dependency Scanning + Secret Detection" is unachievable as a gate. What instead? → A: Use pinned **OSS scanners as gating CI jobs**: **gitleaks** for secret detection (with a `.gitleaks.toml` allowlist) and **osv-scanner** for dependency scanning (against `package-lock.json`). Both fail the job on findings — a real, free, deterministic gate. FR-001/FR-003 reworded from "GitLab Secret Detection/Dependency Scanning" to "a gating secret scanner / dependency scanner"; tool identities recorded here.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -241,13 +242,17 @@ holds or improves coverage passes.
 
 **Supply-chain scanning (US1)**
 
-- **FR-001**: CI MUST run Secret Detection on every merge request and every
-  `main` push, surfacing any detected secret to reviewers.
+- **FR-001**: CI MUST run a **gating secret scanner** (gitleaks) on every merge
+  request and every `main` push; a non-allowlisted finding MUST fail the job.
+  (GitLab-native Secret Detection does not fail the pipeline on the free tier,
+  so an OSS scanner is used for a real gate.)
 - **FR-002**: Secret Detection MUST allowlist the repository's known-benign fake
   patterns (test fixtures, the AWS doc example key, synthetic IPs) so it produces
   zero false positives on the committed tree.
-- **FR-003**: CI MUST run Dependency Scanning on every merge request and `main`
-  push, reporting known advisories in dependencies with severity.
+- **FR-003**: CI MUST run a **gating dependency scanner** (osv-scanner against
+  `package-lock.json`) on every merge request and `main` push; a known
+  advisory MUST fail the job. (GitLab-native Dependency Scanning is Ultimate-only
+  and unavailable on the free tier, so an OSS scanner is used.)
 - **FR-004**: Scanner tool/image versions MUST be pinned for reproducibility, and
   a scanner failure or outage MUST fail the job (fail-loud, not silent-pass).
 
