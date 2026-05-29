@@ -1,30 +1,51 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 -> 1.2.0
+- Version change: 1.2.0 -> 1.3.0
 - Modified principles:
-  - None renamed; Principles I–VI preserved verbatim.
+  - V. Testable, Minimal, Maintainable Package Design — name unchanged; new
+    clause added requiring test code (and any test-bearing path) to meet the
+    same TypeScript typing, lint, build, and import-resolution standards as
+    production code, with any tolerated exception carrying a written, named,
+    time-bound removal condition.
 - Added sections:
-  - VII. Lightweight Logger Instances & Federated Runtime Discipline (new principle)
-  - Package Architecture Standards: new clause on shared runtime resources and
-    federated host/module ownership of configuration
-  - Delivery Workflow & Quality Gates: new clause "Lightweight Logger & Federated
-    Runtime Tests" requiring multi-instance and duplicate-package-copy coverage
+  - VIII. Reproducible Quality Verification (new principle): a single,
+    authoritative answer to "does this branch pass our quality checks?".
+    Local and CI runs of the same check MUST produce the same outcome;
+    divergence between resolvers, runners, or environments is a defect to
+    fix in the package's own configuration, not a "works on my machine"
+    tolerance.
+  - IX. Mechanical Enforcement of Documented Contracts (new principle):
+    every quality gate the project documents — invariants, bundle budgets,
+    security clauses, dependency pin sets, sign-off rules, performance
+    targets — MUST have a machine-executable enforcement path. Documented
+    gates without enforcement are exceptions that require a named,
+    time-bound remediation task.
+  - Delivery Workflow & Quality Gates: two new clauses, "Reproducible
+    Verification" and "Mechanical Enforcement of Documented Contracts",
+    operationalize Principles VIII and IX inside the per-feature workflow.
 - Removed sections:
   - None
 - Templates requiring updates:
-  - ✅ updated .specify/templates/plan-template.md (Constitution Check gains a
-       "Lightweight Logger Instances & Federated Runtime" gate covering
-       per-instance cost, shared runtime resources, and host/module ownership)
+  - ✅ updated .specify/templates/plan-template.md (Constitution Check adds
+       "Reproducible Verification" and "Mechanical Enforcement of Documented
+       Contracts" gates)
   - ✅ updated .specify/templates/spec-template.md (Consumer Impact adds a
-       "Runtime Scale & Federated Deployment Impact" bullet; FR-011 added for
-       lightweight `Logger` creation and explicit host/module ownership)
-  - ✅ updated .specify/templates/tasks-template.md (Foundational phase gains
-       T009b for lightweight-logger and federated-runtime guardrails; Polish
-       phase adds an explicit multi-instance / federated validation pass)
+       "Verification & Enforcement" bullet; FR-012 added for mechanical
+       enforcement of documented quality gates)
+  - ✅ updated .specify/templates/tasks-template.md (Polish phase adds an
+       enforcement-coverage validation pass requiring every documented
+       quality gate from the feature to be reproducible and machine-checked)
+- Dependent docs updated in this change set:
+  - ✅ GOVERNANCE.md (principle count 7 → 9; constitution reference
+       v1.2.0 → v1.3.0; Principles VIII + IX added to the enumerated list)
+  - ✅ CONTRIBUTING.md (principle count 7 → 9; Principles VIII + IX added
+       to the numbered list with one-line summaries)
 - Follow-up TODOs:
-  - None deferred. Per-feature decisions on duplicate-package-copy strategy
-    (isolated / shared / explicitly unsupported) are intentionally routed to
-    feature plans, not the constitution.
+  - None deferred. The first concrete remediation the new Principle V
+    clause requires — the pre-existing test-code typecheck debt surfaced
+    when Feature 005's CI pipeline ran its first typecheck stage — is a
+    feature-scoping decision (it belongs in a Developer Ergonomics feature),
+    not a constitutional one.
 -->
 # SafeSignal Constitution
 
@@ -128,9 +149,24 @@ patterns, where they must be discussed at all, MUST be marked as exceptional and
 accompanied by mitigation guidance. Product-specific business logic, message
 catalogs, and application semantics MUST NOT be embedded in the package.
 
+**Test code is held to the same engineering standard as production code.** Code
+under `tests/` — and any other test-bearing path — MUST satisfy the same TypeScript
+typing, lint, build, and import-resolution rules that apply to `src/`. A quality
+check that passes against `src/` but is skipped, weakened, or routed through a
+different resolver for `tests/` is a documentation gap masquerading as a quality
+gate. Tolerated exceptions — `skip`, `xfail`, `todo`, `@ts-ignore` /
+`@ts-expect-error` comments, temporarily disabled test files, per-path tsconfig
+relaxations, or any other carve-out — MUST carry a written, named, time-bound
+removal condition stored alongside the exception (in the source itself or in the
+owning feature's task list), and MUST be tracked as remediation debt rather than
+treated as steady state.
+
 Rationale: Reusable packages succeed through predictable behavior, low maintenance
 cost, and high consumer trust in both code and documentation; documentation that
-models unsafe behavior is itself a security defect.
+models unsafe behavior is itself a security defect. Test code is the project's own
+evidence that those behaviors hold — letting it drift from the production standard
+makes the evidence unreliable and lets latent defects accumulate behind a green
+local prompt.
 
 ### VI. Log Integrity & Monitoring Suitability
 Log data emitted by this package may be security-relevant and MUST be suitable for
@@ -220,6 +256,84 @@ browser performance, keeps the public contract honest about who owns
 configuration, and makes federated deployment a first-class scalability concern
 rather than an afterthought.
 
+### VIII. Reproducible Quality Verification
+There MUST be a single, authoritative answer to the question "does this branch pass
+our quality checks?" — and that answer MUST be the same whether the checks run on a
+contributor's machine, in CI, or on a release runner. Two test runners, two module
+resolvers, two TypeScript invocations, or two environments are not allowed to
+disagree on whether the codebase is healthy.
+
+The package MUST:
+- Make every documented quality check (typecheck, test, build, bundle-size,
+  dependency-pins, security, integrity, performance) runnable through a single,
+  documented `npm` script (or equivalent published entrypoint) that produces the
+  same exit code locally and in CI for the same source state.
+- Eliminate environment-dependent verification outcomes. If a check passes locally
+  and fails in CI (or vice versa), the underlying tooling divergence — different
+  module resolvers, different TypeScript programs, different fixture or mocking
+  discipline, missing build artifacts, implicit global state, undeclared
+  prerequisites — MUST be removed or reconciled in the package's own configuration,
+  not papered over with per-environment skips, ad-hoc CI shims, or "works on my
+  machine" tolerance.
+- Be honest about prerequisites. A check that requires `dist/` to exist, a service
+  to be running, a network endpoint to respond, fixture data to be generated, or
+  any other side setup MUST either bring up that prerequisite in its own setup
+  phase or fail loudly with an actionable message when the prerequisite is absent.
+  Tests MUST NOT silently pass because a precondition was skipped.
+- Reconcile coexisting runners. Where two runners must coexist (for example,
+  Vitest's Vite resolver alongside `tsc --noEmit`'s strict resolver), their
+  behavior on the same input MUST be reconciled — shared tsconfig, shared
+  resolution mode, shared mocks, shared fixtures — so they cannot reach
+  contradictory conclusions about the same source. Divergence between runners is
+  a defect in the project's tooling configuration, not a fact of life.
+
+Rationale: A project whose local "all green" and CI "all green" mean different
+things has no green at all — it has two unreliable signals that each create false
+confidence. Reproducible verification is what makes the other quality principles
+enforceable in practice; without it, a passing check is a coincidence rather than
+a guarantee, and latent defects accumulate behind whichever runner happens to be
+the most permissive.
+
+### IX. Mechanical Enforcement of Documented Contracts
+Every quality gate this project documents — in the constitution, in
+`CONTRIBUTING.md`, in `GOVERNANCE.md`, in a feature's `plan.md`, `spec.md`, or
+`tasks.md`, or in any `contracts/` artifact — MUST have a machine-executable
+enforcement path. If a rule is worth writing down as binding, it is worth checking
+automatically. Documentation alone is not a quality gate; it is a description of
+one.
+
+The package MUST:
+- Pair every published invariant with an automated check. Bundle-size budgets,
+  dependency pin sets, redactor fail-closed behavior, transport security clauses
+  (T-S1..T-S5), DCO sign-off requirements, signed-tag requirements,
+  publish-provenance attestation, structured-event shape and bounded depth,
+  level-filter defaults, the `exports` map shape, and any future invariant added
+  by an amendment MUST each be guarded by a test, a lint rule, a CI job, a
+  publish-time hook, or another automated check that fails closed when the
+  invariant is violated.
+- Treat undocumented enforcement as an exception. A documented gate that has no
+  automated check MUST be filed as a named, time-bound remediation task in the
+  same change set that introduces the gate. The documenting change is not
+  approved until either the check exists or the remediation task is explicitly
+  accepted with a stated deadline.
+- Treat enforcement removal the same as principle relaxation. Removing or
+  disabling the automated check that enforces a documented gate MUST go through
+  the same review and amendment process as relaxing the underlying contract —
+  including a documented justification, a re-review at each subsequent release,
+  and (for security, privacy, integrity, or scalability guarantees) a named,
+  time-bound remediation plan.
+- Keep the enforcement path discoverable. Each documented gate SHOULD reference
+  its enforcement mechanism (test file path, CI job name, lint rule identifier,
+  contract test ID) so contributors can trace a rule from its statement to its
+  check.
+
+Rationale: A documented quality gate without enforcement is two failure modes
+wearing a costume — the rule will be quietly broken by contributors who never
+knew it existed, and the project will discover the breakage as a production
+incident or a shipped vulnerability rather than as a failed CI job. Mechanical
+enforcement converts intent into protection; it is the discipline that makes the
+rest of the constitution operate as a binding standard instead of as advice.
+
 ## Package Architecture Standards
 
 - The package MUST target reusable browser package distribution rather than a single
@@ -250,7 +364,8 @@ rather than an afterthought.
 - Every plan, spec, and task list MUST show how the work preserves API stability,
   browser resilience, framework neutrality, secure-by-default logging, privacy-safe
   data handling, log integrity, lightweight logger creation, federated runtime
-  discipline, and package maintainability.
+  discipline, package maintainability, reproducible verification, and mechanical
+  enforcement of documented contracts.
 - New or changed public API behavior MUST include contract tests and migration notes
   when consumer-visible behavior changes.
 - Runtime failure modes, log level behavior, metadata handling, redaction,
@@ -273,14 +388,39 @@ rather than an afterthought.
   (b) federated module loggers do not accidentally replace or re-initialize the
   host's configured runtime; and (c) the duplicate-package-copy behavior matches
   the documented classification (isolated / shared / explicitly unsupported).
+- **Reproducible Verification**: Every quality check this feature defines
+  (typecheck, test, build, bundle-size, dependency-pins, security, integrity,
+  performance, and any new check added by the feature) MUST be invokable through a
+  single documented entrypoint (`npm` script or equivalent) and MUST produce
+  identical pass/fail outcomes locally and in CI for the same source state.
+  Divergence between local and CI outcomes — because of resolver differences,
+  missing build artifacts, undeclared environment variables, undocumented
+  prerequisites, or coexisting runners reaching different conclusions on the same
+  input — MUST be eliminated in the package's own configuration rather than
+  absorbed with per-environment skips or ad-hoc CI shims. Test code under `tests/`
+  MUST be held to the same typing, lint, build, and import-resolution standards as
+  `src/` (Principle V); any tolerated relaxation MUST carry a written, named,
+  time-bound removal condition in the feature's task list.
+- **Mechanical Enforcement of Documented Contracts**: Every quality gate this
+  feature documents — invariants, bundle budgets, security clauses, dependency pin
+  sets, sign-off rules, performance targets, the `exports` map shape, and any
+  other rule whose violation should fail a build — MUST be paired with an
+  automated check (test, CI job, lint rule, or publish-time hook) before the
+  documenting change is approved. A documented gate without an enforcement path
+  MUST be filed as a named, time-bound remediation task in the same change set.
+  Each gate SHOULD reference its enforcement mechanism (test file path, CI job
+  name, lint rule identifier, contract test ID) so contributors can trace a rule
+  from its statement to its check. Removing or disabling the enforcement of a
+  previously-enforced gate goes through the same amendment and re-review process
+  as relaxing the underlying principle (Principle IX).
 - Documentation, examples, and integration guidance for single-app and
   federated/module-based usage MUST be updated when behavior or setup expectations
   change, and MUST continue to model safe logging behavior and document the
   host/module configuration ownership contract.
 - Any proposal that adds significant abstraction, dependency weight, vendor
-  coupling, or that relaxes a security, integrity, or scalability guarantee MUST
-  document why a simpler package-centric and contract-preserving approach is
-  insufficient.
+  coupling, or that relaxes a security, integrity, scalability, verification, or
+  enforcement guarantee MUST document why a simpler package-centric and
+  contract-preserving approach is insufficient.
 
 ## Governance
 
@@ -300,8 +440,8 @@ Compliance review is mandatory for every spec, plan, task list, and implementati
 review. Work that violates these principles MUST not be approved without an explicit,
 documented exception and a remediation plan. Consumer-facing breaking changes require
 documented justification, migration guidance, and versioning aligned with the package
-release policy. Exceptions that relax a security, privacy, integrity, or scalability
-guarantee require an explicit, named, time-bound remediation plan and MUST be
-re-reviewed at each subsequent release.
+release policy. Exceptions that relax a security, privacy, integrity, scalability,
+verification, or enforcement guarantee require an explicit, named, time-bound
+remediation plan and MUST be re-reviewed at each subsequent release.
 
-**Version**: 1.2.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-27
+**Version**: 1.3.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-28

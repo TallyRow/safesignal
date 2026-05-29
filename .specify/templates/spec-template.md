@@ -111,6 +111,13 @@ fully tested by [specific action] and delivers [specific value]"]
   configuration responsibility, and duplicate-package-copy behavior
   (isolated / shared / explicitly unsupported). State explicitly when there is
   no impact.]
+- **Verification & Enforcement**: [How every quality requirement, invariant, or
+  contract this feature adds will be verified identically in CI and locally
+  through a single documented `npm` script (no environment-dependent
+  outcomes), and which automated enforcement mechanism (test file path, CI job
+  name, lint rule identifier, or publish-time hook) guards each documented
+  gate. State explicitly when this feature adds no new quality requirement or
+  contract.]
 
 ## Requirements *(mandatory)*
 
@@ -149,6 +156,16 @@ fully tested by [specific action] and delivers [specific value]"]
   explicit so federated modules do not accidentally replace host configuration.
   The duplicate-package-copy behavior MUST be documented as one of: isolated,
   shared, or explicitly unsupported.
+- **FR-012**: System MUST pair every quality gate this feature documents
+  (invariants, bundle budgets, security clauses, dependency pin sets, sign-off
+  rules, performance targets, `exports` map shape, and any other rule whose
+  violation should fail a build) with a machine-executable enforcement
+  mechanism — test, CI job, lint rule, or publish-time hook — that fails closed
+  when the gate is violated, AND MUST keep verification outcomes identical
+  between CI and local invocations for the same source state. Test code under
+  `tests/` MUST be held to the same typing, lint, build, and import-resolution
+  standards as `src/`; any tolerated relaxation MUST carry a written, named,
+  time-bound removal condition in this feature's task list.
 
 *Example of marking unclear requirements:*
 

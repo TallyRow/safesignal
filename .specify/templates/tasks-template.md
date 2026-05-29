@@ -194,6 +194,17 @@ independently
   module ownership test (a federated module cannot accidentally replace the
   host's configured runtime); duplicate-package-copy contract verified against
   its documented classification (isolated / shared / explicitly unsupported)
+- [ ] TXXX Reproducible Verification & Mechanical Enforcement validation pass:
+  enumerate every quality gate this feature documents (in spec.md, plan.md,
+  contracts/, or this tasks list); confirm each runs through a single
+  documented `npm` script (or equivalent) with identical pass/fail behavior
+  locally and in CI for the same source state; confirm each is guarded by a
+  named automated check (test file path, CI job name, lint rule identifier,
+  or publish-time hook) that fails closed when the gate is violated; confirm
+  test code under `tests/` is held to the same typing, lint, build, and
+  import-resolution standards as `src/`, with any tolerated relaxation
+  carrying a written, named, time-bound removal condition; file a remediation
+  task for any documented gate that lacks an enforcement path
 - [ ] TXXX Validate consumer migration notes and package API docs
 - [ ] TXXX Run quickstart.md validation
 

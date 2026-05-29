@@ -23,7 +23,7 @@ path).
 The constitution at
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md)
 is the **binding technical standard** for package decisions. Its
-seven principles are non-negotiable in their current form:
+nine principles are non-negotiable in their current form:
 
 1. Stable Consumer API & Clear Boundaries
 2. Browser-First Runtime Resilience
@@ -33,6 +33,8 @@ seven principles are non-negotiable in their current form:
 5. Testable, Minimal, Maintainable Package Design
 6. Log Integrity & Monitoring Suitability
 7. Lightweight Logger Instances & Federated Runtime Discipline
+8. Reproducible Quality Verification
+9. Mechanical Enforcement of Documented Contracts
 
 Work that violates a principle requires either:
 
@@ -180,5 +182,5 @@ appeal process, etc.).
   2.1
 - [`LICENSE`](LICENSE) — MIT License
 - [`.specify/memory/constitution.md`](.specify/memory/constitution.md)
-  — binding technical standard (v1.2.0)
+  — binding technical standard (v1.3.0)
 - [`CHANGELOG.md`](CHANGELOG.md) — version-by-version release notes

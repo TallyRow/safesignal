@@ -22,7 +22,7 @@ private channel described in `CODE_OF_CONDUCT.md`.
 The binding technical standard for **what** SafeSignal must do and
 **how** its code must behave is the constitution at
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
-The constitution defines seven non-negotiable principles:
+The constitution defines nine non-negotiable principles:
 
 1. **Stable Consumer API & Clear Boundaries** — public API stays
    small, stable, and isolated from internal details.
@@ -37,13 +37,20 @@ The constitution defines seven non-negotiable principles:
    them. Fail-closed redaction.
 5. **Testable, Minimal, Maintainable Package Design** — small public
    surface, deliberate dependencies, internals that future
-   contributors can understand.
+   contributors can understand. Test code is held to the same
+   typing, lint, build, and import-resolution standards as `src/`.
 6. **Log Integrity & Monitoring Suitability** — events are
    structured, attributable, and downstream-monitorable. Any
    drop/sample/batch/transform behavior is documented.
 7. **Lightweight Logger Instances & Federated Runtime Discipline** —
    creating a `Logger` is constant-cost; expensive runtime resources
    are configured once and shared.
+8. **Reproducible Quality Verification** — every quality check
+   produces the same pass/fail outcome locally and in CI for the
+   same source state, through a single documented entrypoint.
+9. **Mechanical Enforcement of Documented Contracts** — every
+   documented quality gate has a machine-executable enforcement
+   path (test, CI job, lint rule, or publish-time hook).
 
 This document is the **human-facing process** layer; the constitution
 is the **machine-evaluable standard** layer. The
