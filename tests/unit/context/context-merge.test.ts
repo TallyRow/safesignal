@@ -52,7 +52,13 @@ describe('mergeContexts: trivial cases', () => {
   });
 
   it('does not write properties whose value is undefined (exactOptionalPropertyTypes)', () => {
-    const out = mergeContexts({ application: undefined, module: undefined });
+    // Intentionally pass explicit `undefined` values — which
+    // exactOptionalPropertyTypes forbids at the type level — to assert the
+    // runtime drops them. The cast is the point of the test.
+    const out = mergeContexts({
+      application: undefined,
+      module: undefined,
+    } as unknown as Partial<LogContext>);
     expect('application' in out).toBe(false);
     expect('module' in out).toBe(false);
   });
@@ -91,7 +97,9 @@ describe('shallow replace for application / module / environment', () => {
     const out = mergeContexts(
       { application: { name: 'host' } },
       {},
-      { application: undefined },
+      // Explicit `undefined` (forbidden by exactOptionalPropertyTypes) to
+      // prove a later undefined does not clobber an earlier defined value.
+      { application: undefined } as unknown as Partial<LogContext>,
     );
     expect(out.application).toEqual({ name: 'host' });
   });

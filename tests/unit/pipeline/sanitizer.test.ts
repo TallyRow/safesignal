@@ -44,7 +44,7 @@ function sanitizeAttrs(
   config = defaultConfig,
 ): Record<string, unknown> {
   const event = makeLogEvent({ attributes: attrs as LogEvent['attributes'] });
-  const out = sanitize(event, config);
+  const out = sanitize(event, config)!;
   return out.attributes;
 }
 
@@ -519,7 +519,7 @@ describe('S-9: string length limit truncates with "...[truncated]" suffix', () =
   it('truncates the event message itself', () => {
     const cfg = configWithLimits({ maxStringLength: 64 });
     const event = makeLogEvent({ message: 'x'.repeat(200) });
-    const out = sanitize(event, cfg);
+    const out = sanitize(event, cfg)!;
     expect(out.message).toBe('x'.repeat(64) + '...[truncated]');
   });
 
@@ -532,7 +532,7 @@ describe('S-9: string length limit truncates with "...[truncated]" suffix', () =
         stack: 'z'.repeat(100),
       },
     });
-    const out = sanitize(event, cfg);
+    const out = sanitize(event, cfg)!;
     expect(out.error?.name).toBe('x'.repeat(64) + '...[truncated]');
     expect(out.error?.message).toBe('y'.repeat(64) + '...[truncated]');
     expect(out.error?.stack).toBe('z'.repeat(64) + '...[truncated]');
@@ -554,7 +554,7 @@ describe('event-shape passes (top-level fields)', () => {
     const event = makeLogEvent({
       context: { application: { name: 'a' } }, // no attributes
     });
-    const out = sanitize(event, defaultConfig);
+    const out = sanitize(event, defaultConfig)!;
     expect(out.context).toEqual({ application: { name: 'a' } });
   });
 
@@ -565,7 +565,7 @@ describe('event-shape passes (top-level fields)', () => {
         attributes: { token: 'kept-by-sanitizer-only' },
       },
     });
-    const out = sanitize(event, defaultConfig);
+    const out = sanitize(event, defaultConfig)!;
     expect(out.context.attributes).toEqual({ token: 'kept-by-sanitizer-only' });
   });
 
@@ -573,7 +573,7 @@ describe('event-shape passes (top-level fields)', () => {
     const event = makeLogEvent({
       error: { name: 'E', message: 'short' },
     });
-    const out = sanitize(event, defaultConfig);
+    const out = sanitize(event, defaultConfig)!;
     expect(out.error?.name).toBe('E');
     expect(out.error?.message).toBe('short');
     expect(out.error).not.toHaveProperty('stack');
@@ -582,13 +582,13 @@ describe('event-shape passes (top-level fields)', () => {
   it('returns {} attributes when the top-level attributes value is malformed', () => {
     // Forced via type cast; runtime should defensively coerce.
     const event = makeLogEvent({ attributes: null as never });
-    const out = sanitize(event, defaultConfig);
+    const out = sanitize(event, defaultConfig)!;
     expect(out.attributes).toEqual({});
   });
 
   it('returns {} attributes when the top-level attributes value is an array', () => {
     const event = makeLogEvent({ attributes: [] as never });
-    const out = sanitize(event, defaultConfig);
+    const out = sanitize(event, defaultConfig)!;
     expect(out.attributes).toEqual({});
   });
 });

@@ -2,13 +2,21 @@
 #
 # Two logical pipelines defined by job rules:
 #   1. Quality-gate pipeline — every MR + every default-branch push.
-#      Stages: typecheck, test, build, audit (bundle-invariance,
+#      Stages: build, typecheck, test, audit (bundle-invariance,
 #      dependency-pins, dco-check).
 #   2. Release pipeline — push of a signed `v*.*.*` git tag.
-#      Stages: typecheck (verify-tag-signed), test, build, audit
+#      Stages: build, typecheck (+ verify-tag-signed), test, audit
 #      (bundle-invariance, dependency-pins, changelog-validate),
 #      publish (npm publish --provenance via GitLab OIDC trusted-
 #      publisher), publish (provenance-verify).
+#
+# build runs FIRST and publishes dist/ as an artifact: the public-API
+# contract + quickstart tests import the package by name
+# (`@tallyrow/safesignal[/subpath]`), which only resolves through the
+# package `exports` map to `dist/` — so typecheck and test both consume
+# the build artifact. (Without this, CI starts dist-less and those
+# package-name imports fail to resolve even though they pass locally,
+# where a stale dist/ is present.)
 #
 # Spec:      specs/005-cicd-pipeline/spec.md
 # Plan:      specs/005-cicd-pipeline/plan.md
@@ -32,9 +40,9 @@ default:
     - npm ci --prefer-offline --no-audit --no-fund
 
 stages:
+  - build
   - typecheck
   - test
-  - build
   - audit
   - publish
 
@@ -69,18 +77,6 @@ stages:
 # Quality-gate jobs (MR + default-branch pipelines)
 # ----------------------------------------------------------------
 
-typecheck:
-  stage: typecheck
-  extends: [.node_matrix, .quality_gate_rules]
-  script:
-    - npm run typecheck
-
-test:
-  stage: test
-  extends: [.node_matrix, .quality_gate_rules]
-  script:
-    - npm test
-
 build:
   stage: build
   extends: [.node_matrix, .quality_gate_rules]
@@ -90,6 +86,34 @@ build:
     paths:
       - dist/
     expire_in: 1 day
+
+typecheck:
+  stage: typecheck
+  extends: [.node_matrix, .quality_gate_rules]
+  # Consume the Node-22 dist/ build so package-name imports
+  # (`@tallyrow/safesignal[/subpath]`) in the contract + quickstart
+  # tests resolve via the exports map. dist is version-independent JS,
+  # so one build artifact serves both Node-matrix typecheck jobs.
+  needs:
+    - job: build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - npm run typecheck
+
+test:
+  stage: test
+  extends: [.node_matrix, .quality_gate_rules]
+  needs:
+    - job: build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - npm test
 
 bundle-invariance:
   stage: audit
@@ -121,8 +145,9 @@ dco-check:
 # ----------------------------------------------------------------
 
 verify-tag-signed:
-  stage: typecheck   # fail-fast - earliest stage
+  stage: typecheck   # fail-fast - runs immediately via needs: []
   extends: .release_only
+  needs: []          # start at once (build is now the first stage)
   before_script: []  # skip default - no npm install needed
   image: alpine:latest
   script:
@@ -138,18 +163,6 @@ verify-tag-signed:
     - 'echo "Tag $CI_COMMIT_TAG verified - signed and on $CI_DEFAULT_BRANCH"'
 
 # Release-pipeline matrix jobs (typecheck/test/build × 2 Node versions)
-release-typecheck:
-  stage: typecheck
-  extends: [.node_matrix, .release_only]
-  script:
-    - npm run typecheck
-
-release-test:
-  stage: test
-  extends: [.node_matrix, .release_only]
-  script:
-    - npm test
-
 release-build:
   stage: build
   extends: [.node_matrix, .release_only]
@@ -159,6 +172,30 @@ release-build:
     paths:
       - dist/
     expire_in: 1 day
+
+release-typecheck:
+  stage: typecheck
+  extends: [.node_matrix, .release_only]
+  needs:
+    - job: release-build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - npm run typecheck
+
+release-test:
+  stage: test
+  extends: [.node_matrix, .release_only]
+  needs:
+    - job: release-build
+      artifacts: true
+      parallel:
+        matrix:
+          - NODE_VERSION: "22"
+  script:
+    - npm test
 
 release-bundle-invariance:
   stage: audit
