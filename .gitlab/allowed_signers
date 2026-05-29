@@ -1,0 +1,5 @@
+# Authorized release-tag signers for @tallyrow/safesignal.
+# Used by the CI verify-tag-signed job: `git tag -v` checks the tag's
+# SSH signature against these keys. Public keys only — safe to commit.
+# Format: <principal-email> <ssh-key-type> <key> [comment]
+johngoure@protonmail.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO0pyvYoZNzEKo1OMTxjYNX7EJm4EktemlxKnxPjJ9n/ johng@Home
