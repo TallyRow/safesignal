@@ -112,17 +112,36 @@ all fixed in the US2-enablement MR:
 4. **dist-tag** detection switched from bash `[[ ]]` to POSIX `case`
    (alpine `sh`).
 
-## US2 dogfood release (T017) — planned
+## US2 dogfood release (T017) — PASS (2026-05-29)
 
-Dogfood version: **v1.0.1-rc.2** (→ `next`, low blast radius for the
-first OIDC run). After the US2-enablement MR merges, cut
-`git tag -s v1.0.1-rc.2` on `main` and push. To record once run:
+First OIDC + provenance release, dogfooded on **v1.0.1-rc.2** (→ `next`).
+
+- npm: `@tallyrow/safesignal@1.0.1-rc.2`, dist-tag `next`
+- Provenance: `attestations.provenance.predicateType =
+  https://slsa.dev/provenance/v0.2`; `npm audit signatures` on a clean
+  install → "1 verified registry signature + 1 verified attestation"
+- All release-pipeline jobs green: verify-tag-signed (SSH
+  `allowed_signers`), release build/typecheck/test ×2,
+  release-bundle-invariance, release-dependency-pins, changelog-validate,
+  publish (OIDC), provenance-verify
+- Verdict: **PASS**
+
+Reaching green required fixing five latent release-pipeline issues +
+two npm platform requirements (first publish can't be OIDC → manual
+rc.1 bootstrap; provenance requires a public repo + public parent
+group). Full detail in the `npm-oidc-release-gotchas` note and the
+`1.0.1-rc.2` CHANGELOG entry. The `tallyrow` group + `safesignal`
+project were made public on 2026-05-29 (`opsdeck` remains private).
+
+## Stable release (T029) — v1.0.1
+
+Bumped to `1.0.1` + `[1.0.1]` CHANGELOG entry in this MR. After merge,
+cut `git tag -s v1.0.1` on `main` → OIDC publishes `1.0.1` under
+`latest` (moving `latest` off the rc.1 bootstrap). To record once run:
 
 - Pipeline URL:
-- Wall-clock duration:
-- npm package URL + dist-tag:
-- `npm audit signatures` output:
-- Provenance attestation visible on npmjs.com: yes / no
+- npm `latest` → version:
+- Provenance verified: yes / no
 - Verdict: PASS / FAIL
 
 ## Branch protection verification (T020)

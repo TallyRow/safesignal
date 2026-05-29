@@ -1,6 +1,6 @@
 {
   "name": "@tallyrow/safesignal",
-  "version": "1.0.1-rc.2",
+  "version": "1.0.1",
   "publishConfig": {
     "access": "public"
   },
