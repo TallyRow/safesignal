@@ -6,17 +6,44 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1-rc.2] — 2026-05-29
+
+### Release candidate — first OIDC-published artifact (real F005 release-pipeline dogfood)
+
+v1.0.1-rc.2 is the first version published by the **GitLab CI
+release pipeline via OIDC trusted publishing with provenance**
+(under the `next` dist-tag). It dogfoods the Feature 005 release
+pipeline end-to-end. Once the RC soaks, a `v1.0.1` stable release
+publishes under `latest`.
+
+### Release-pipeline fixes (Feature 005 — surfaced by dogfooding)
+
+- **Tag verification**: CI verifies the tag's SSH signature against
+  a committed `.gitlab/allowed_signers` allowlist via `git tag -v`,
+  instead of an empty runner keyring. Release tags are SSH-signed.
+- **OIDC audience** corrected to `npm:registry.npmjs.org` (npm
+  rejects the registry-URL form).
+- **Auth**: removed the manual `_authToken` step — npm ≥ 11.5.1
+  auto-detects the `NPM_ID_TOKEN` id_token; the publish job upgrades
+  npm first (node:22 ships npm 10.x).
+- **Pipeline order**: `build` runs before `typecheck`/`test` so the
+  public-API/quickstart tests resolve `@tallyrow/safesignal` via the
+  built `dist/`.
+
+No consumer-visible API change.
+
 ## [1.0.1-rc.1] — 2026-05-28
 
-### Release candidate — dogfoods the F005 release pipeline
+### Release candidate — bootstraps the npm package
 
 **First npm artifact published for `@tallyrow/safesignal`.** v1.0.0
 was an in-repo milestone (see note on the v1.0.0 entry below) but
-never shipped to npm. v1.0.1-rc.1 is the first installable
-version on the npm registry, published under the `next` dist-tag
-via the new release pipeline introduced in Feature 005 (CI/CD
-pipeline + release workflow). Once the RC has soaked, a `v1.0.1`
-stable release will publish under `latest`.
+never shipped to npm. v1.0.1-rc.1 is the first installable version
+on the npm registry, published under the `next` dist-tag via a
+**manual bootstrap publish** — npm trusted publishing cannot create
+a brand-new package, so the first publish used an interactive
+2FA-authenticated token to claim the name. OIDC/provenance
+publishing from CI takes over from v1.0.1-rc.2 onward.
 
 ### Operational hardening (Feature 005)
 

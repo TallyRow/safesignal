@@ -80,14 +80,47 @@ dogfood (its quality-gate pipeline = the acceptance gate).
   Also corrected the CI to build-first so package-name imports
   resolve dist-less.
 
-## US2 dogfood release (T017)
+## npm publish setup (T005 / T006 / A2) — 2026-05-29
 
-(To be recorded after T015 + T016 commits push and the maintainer
-cuts the v1.0.1-rc.1 signed tag.)
+- **A2 bootstrap publish**: `@tallyrow/safesignal@1.0.1-rc.1` published
+  manually (`npm publish --access public --tag next`) by `jgpls`. npm
+  trusted publishing cannot create a brand-new package, so the first
+  publish must use an interactive token — OIDC takes over afterward.
+  (First publish also seeded `latest` → rc.1; corrects when stable
+  v1.0.1 ships.)
+- **T006 Trusted Publisher**: configured on npmjs.com — GitLab CI/CD,
+  namespace `tallyrow`, project `safesignal`, CI file `.gitlab-ci.yml`,
+  allowed action `npm publish` only.
+- **T005 2FA**: package set to "Require 2FA and disallow tokens" (OIDC
+  trusted publishing remains permitted; long-lived tokens disallowed).
+
+## Release-pipeline fixes — surfaced by T017 pre-flight (2026-05-29)
+
+The release half had never run; dogfood prep found four breakages,
+all fixed in the US2-enablement MR:
+
+1. **verify-tag-signed** verified against an empty keyring. Now tags
+   are SSH-signed and verified via `git tag -v` against a committed
+   `.gitlab/allowed_signers` allowlist (public key only; no token).
+   (GitLab's tag signature API exposes no `verification_status` for
+   SSH tags on gitlab.com 19.1, so in-runner crypto verification is
+   used instead.)
+2. **OIDC `aud`** was `https://registry.npmjs.org`; npm requires
+   `npm:registry.npmjs.org`.
+3. **Manual `_authToken`** step removed — npm ≥ 11.5.1 auto-detects
+   `NPM_ID_TOKEN`; publish job upgrades npm (node:22 ships 10.x).
+4. **dist-tag** detection switched from bash `[[ ]]` to POSIX `case`
+   (alpine `sh`).
+
+## US2 dogfood release (T017) — planned
+
+Dogfood version: **v1.0.1-rc.2** (→ `next`, low blast radius for the
+first OIDC run). After the US2-enablement MR merges, cut
+`git tag -s v1.0.1-rc.2` on `main` and push. To record once run:
 
 - Pipeline URL:
 - Wall-clock duration:
-- npm package URL:
+- npm package URL + dist-tag:
 - `npm audit signatures` output:
 - Provenance attestation visible on npmjs.com: yes / no
 - Verdict: PASS / FAIL

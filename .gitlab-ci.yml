@@ -152,15 +152,22 @@ verify-tag-signed:
   image: alpine:latest
   script:
     # Each step exits non-zero on failure - GitLab CI auto-fails the job.
-    # git tag -v emits its own diagnostic on signature failure.
+    # Tags are SSH-signed; git tag -v verifies the signature against the
+    # committed .gitlab/allowed_signers allowlist (public keys only). This
+    # is self-contained - no token, no key import from CI variables. The
+    # GitLab tag signature API does not expose verification_status for SSH
+    # tags, so we verify cryptographically in-runner instead.
     # git merge-base --is-ancestor exits 1 if the commit isn't an ancestor.
-    - apk add --no-cache git gnupg
-    - 'echo "Verifying tag $CI_COMMIT_TAG signature..."'
+    - apk add --no-cache git openssh-keygen
+    - git config gpg.format ssh
+    - git config gpg.ssh.allowedSignersFile .gitlab/allowed_signers
+    - 'echo "Verifying SSH signature on tag $CI_COMMIT_TAG against .gitlab/allowed_signers..."'
+    - git fetch --no-tags origin "refs/tags/$CI_COMMIT_TAG:refs/tags/$CI_COMMIT_TAG" 2>/dev/null || true
     - git tag -v "$CI_COMMIT_TAG"
     - 'echo "Verifying tagged commit is on $CI_DEFAULT_BRANCH..."'
     - git fetch --depth=100 origin "$CI_DEFAULT_BRANCH"
     - git merge-base --is-ancestor "$CI_COMMIT_SHA" "origin/$CI_DEFAULT_BRANCH"
-    - 'echo "Tag $CI_COMMIT_TAG verified - signed and on $CI_DEFAULT_BRANCH"'
+    - 'echo "Tag $CI_COMMIT_TAG verified - signed by an allowed signer and on $CI_DEFAULT_BRANCH"'
 
 # Release-pipeline matrix jobs (typecheck/test/build × 2 Node versions)
 release-build:
@@ -238,22 +245,26 @@ publish:
     - changelog-validate
   id_tokens:
     NPM_ID_TOKEN:
-      aud: https://registry.npmjs.org
+      # npm requires this exact audience for OIDC trusted publishing on
+      # GitLab — NOT the registry URL. With the wrong aud the token
+      # exchange fails at publish time.
+      aud: "npm:registry.npmjs.org"
   script:
-    # Derive dist-tag from the version string:
-    #   v1.0.1     → latest (stable release)
-    #   v1.0.1-rc.1 → next (pre-release)
+    # Derive dist-tag from the version string (POSIX case — alpine's
+    # /bin/sh has no `[[ ]]`):
+    #   v1.0.1      → latest (stable release)
+    #   v1.0.1-rc.1 → next (pre-release; any version with a `-` suffix)
     - |
-      if [[ "$CI_COMMIT_TAG" == *-* ]]; then
-        DIST_TAG="next"
-      else
-        DIST_TAG="latest"
-      fi
+      case "$CI_COMMIT_TAG" in
+        *-*) DIST_TAG="next" ;;
+        *)   DIST_TAG="latest" ;;
+      esac
       echo "Publishing $CI_COMMIT_TAG under dist-tag '$DIST_TAG'"
-    # Authenticate with npm via OIDC trusted-publisher
-    # (no long-lived NPM_TOKEN in CI variables; GitLab issues a
-    # short-lived OIDC token that npm exchanges for publish auth).
-    - npm config set //registry.npmjs.org/:_authToken "$NPM_ID_TOKEN"
+    # OIDC trusted publishing: npm >= 11.5.1 auto-detects the GitLab
+    # NPM_ID_TOKEN id_token and exchanges it for a short-lived publish
+    # token — no long-lived NPM_TOKEN, no manual _authToken. node:22
+    # ships npm 10.x, so upgrade to a version with OIDC support first.
+    - npm install -g npm@latest
     - npm publish --provenance --tag "$DIST_TAG"
 
 provenance-verify:
