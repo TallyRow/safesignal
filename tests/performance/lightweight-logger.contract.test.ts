@@ -18,6 +18,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
+
+// A spy of any signature. `vi.spyOn`'s default return type narrows to
+// `(this: unknown, ...args: unknown[]) => unknown`, which the concretely
+// typed globals (setTimeout, fetch, sendBeacon, …) are not assignable to.
+// These spies are only ever asserted with `.toHaveBeenCalled()`, so the
+// precise call signature is irrelevant.
+type AnySpy = MockInstance<(...args: any[]) => any>;
 
 import { configureLogging, createLogger, getRootLogger } from '../../src/index.js';
 import type { LogEvent, Transport, TransportFactory } from '../../src/api/types.js';
@@ -37,18 +45,18 @@ afterEach(() => {
 });
 
 interface SpyBag {
-  readonly addEventListener: ReturnType<typeof vi.spyOn>;
-  readonly setTimeout: ReturnType<typeof vi.spyOn>;
-  readonly setInterval: ReturnType<typeof vi.spyOn>;
-  readonly queueMicrotask: ReturnType<typeof vi.spyOn>;
-  readonly requestAnimationFrame: ReturnType<typeof vi.spyOn> | undefined;
-  readonly consoleLog: ReturnType<typeof vi.spyOn>;
-  readonly consoleInfo: ReturnType<typeof vi.spyOn>;
-  readonly consoleWarn: ReturnType<typeof vi.spyOn>;
-  readonly consoleError: ReturnType<typeof vi.spyOn>;
-  readonly consoleDebug: ReturnType<typeof vi.spyOn>;
-  readonly fetch: ReturnType<typeof vi.spyOn> | undefined;
-  readonly sendBeacon: ReturnType<typeof vi.spyOn> | undefined;
+  readonly addEventListener: AnySpy;
+  readonly setTimeout: AnySpy;
+  readonly setInterval: AnySpy;
+  readonly queueMicrotask: AnySpy;
+  readonly requestAnimationFrame: AnySpy | undefined;
+  readonly consoleLog: AnySpy;
+  readonly consoleInfo: AnySpy;
+  readonly consoleWarn: AnySpy;
+  readonly consoleError: AnySpy;
+  readonly consoleDebug: AnySpy;
+  readonly fetch: AnySpy | undefined;
+  readonly sendBeacon: AnySpy | undefined;
   restoreAll(): void;
 }
 

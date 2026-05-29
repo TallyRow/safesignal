@@ -201,9 +201,6 @@ describe('tryFetchKeepalive — async primitive', () => {
 // ---------------------------------------------------------------------------
 
 import { createBeaconTransport } from '../../../src/transport-beacon/index.js';
-import {
-  installSendBeaconUnavailable,
-} from '../../helpers/beacon-network.js';
 
 type AnyLogEvent = {
   timestamp: string;

@@ -262,6 +262,8 @@ package copies", and "Vendor neutrality".
 
 ## Project resources
 
+[![pipeline status](https://gitlab.com/tallyrow/safesignal/badges/main/pipeline.svg)](https://gitlab.com/tallyrow/safesignal/-/commits/main)
+
 Community and legal:
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to file issues, send MRs, sign commits (DCO)

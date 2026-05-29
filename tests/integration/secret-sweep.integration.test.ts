@@ -53,7 +53,7 @@ import {
   configureLogging,
   createLogger,
 } from '../../src/index.js';
-import type { LogEvent, Transport } from '../../src/api/types.js';
+import type { Attributes, LogEvent, Transport } from '../../src/api/types.js';
 import { FIXTURE_VALUES, makeSecretFixture } from '../../src/testing/secret-fixtures.js';
 import { makeCapturingTransport } from '../helpers/failing-transport.js';
 
@@ -216,9 +216,9 @@ describe('every fixture value in every documented location is masked end-to-end'
   type Placement = {
     readonly label: string;
     readonly place: (
-      fixture: Record<string, string>,
-      attrs: Record<string, unknown>,
-    ) => Record<string, unknown>;
+      fixture: ReturnType<typeof makeSecretFixture>,
+      attrs: Attributes,
+    ) => Attributes;
   };
 
   const PLACEMENTS: ReadonlyArray<Placement> = [

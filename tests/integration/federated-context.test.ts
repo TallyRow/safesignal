@@ -107,7 +107,7 @@ describe('Host + module loggers share one configureLogging() call', () => {
     // Interleave emissions to simulate concurrent module activity.
     for (let i = 0; i < 10; i++) {
       for (let m = 0; m < loggers.length; m++) {
-        loggers[m]!.info(`evt-${String(i)}`, { from: modules[m] });
+        loggers[m]!.info(`evt-${String(i)}`, { from: modules[m]! });
       }
     }
 

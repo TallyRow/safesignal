@@ -15,12 +15,47 @@
  */
 
 /**
+ * Concrete shape of {@link makeSecretFixture}'s return value. Named
+ * `string` fields (rather than `Record<string, string>`) so callers get
+ * `string` — not `string | undefined` — per-field under the package's
+ * `noUncheckedIndexedAccess` setting. Not part of the public `/testing`
+ * surface; it only types the helper's return.
+ *
+ * Declared as a `type` (not an `interface`) on purpose: a type alias
+ * whose properties are all `string` gets an *implicit* index signature,
+ * so the fixture stays assignable to `Record<string, string>` / OTel
+ * `Attributes` — while `keyof SecretFixture` remains the precise named-key
+ * union, keeping dynamic `fixture[someKey]` access typed `string`.
+ */
+type SecretFixture = {
+  readonly password: string;
+  readonly passwd: string;
+  readonly token: string;
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly bearerToken: string;
+  readonly authorization: string;
+  readonly auth: string;
+  readonly cookie: string;
+  readonly setCookie: string;
+  readonly secret: string;
+  readonly apiKey: string;
+  readonly sessionId: string;
+  readonly sid: string;
+  readonly ssn: string;
+  readonly creditCard: string;
+  readonly cardNumber: string;
+  readonly cvv: string;
+  readonly jwt: string;
+};
+
+/**
  * Return a stable record of secret-looking values keyed by category.
  * Values are deterministic across calls so tests can assert against
  * exact strings. Never mutate the returned object across tests — call
  * `makeSecretFixture()` again to get a fresh copy.
  */
-export function makeSecretFixture(): Record<string, string> {
+export function makeSecretFixture(): SecretFixture {
   return {
     password: 'p4ssw0rd-correct-horse-battery-staple',
     passwd: 'p4ssw0rd-shadow-file-style',

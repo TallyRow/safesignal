@@ -228,6 +228,165 @@ The example projects under `examples/host-app/` and
 `npm run typecheck` (run from each subdirectory). They link to the
 top-level package via `file:../..`.
 
+If you cloned before the `master`→`main` default-branch rename
+(Feature 005), update your local clone with:
+
+```bash
+git fetch origin
+git branch -m master main
+git branch -u origin/main main
+git remote set-head origin -a
+```
+
+## Cutting a release
+
+Only maintainers cut releases. The release pipeline (Feature 005)
+publishes `@tallyrow/safesignal` to npm with provenance via GitLab
+OIDC trusted-publisher — no long-lived `NPM_TOKEN` involved.
+
+### 1. Decide the version number (SemVer)
+
+| Change type | SemVer level | Example |
+|---|---|---|
+| Breaking consumer call-site change (import string change, exported symbol renamed or removed, behavior change consumers will notice) | **Major** | `v1.0.1` → `v2.0.0` |
+| Additive feature (new exported symbol, new optional config, new transport subpath) | **Minor** | `v1.0.1` → `v1.1.0` |
+| Bug fix, security patch, doc-only or build-only change | **Patch** | `v1.0.1` → `v1.0.2` |
+| Pre-release of any of the above | suffix `-rc.N` / `-beta.N` / `-alpha.N` | `v1.1.0-rc.1`, `v2.0.0-beta.2` |
+
+Per the constitution's Principle I, breaking changes require an
+explicit justification, migration plan, and a `## Migration
+history` entry in `README.md`. Don't ship a major bump silently.
+
+### 2. Write the CHANGELOG entry FIRST
+
+Open [`CHANGELOG.md`](CHANGELOG.md) and add a new section at the
+top, above the previous release:
+
+```markdown
+## [1.0.2] — 2026-MM-DD
+
+### Fixed
+
+- Bug X (issue #N)
+
+### Changed
+
+- ...
+
+### Preserved
+
+- (Optional: constitution-relevant invariants — bundle size,
+  test count, API surface — that this release deliberately
+  preserves. See F003/F004 entries for the pattern.)
+```
+
+Follow the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
+convention. The release pipeline's `changelog-validate` stage
+will **fail the publish** if the tagged version has no matching
+`## [vX.Y.Z]` (or `## [X.Y.Z]`) heading in `CHANGELOG.md`. This
+is intentional — it prevents shipping a release with no
+documented notes.
+
+Commit the CHANGELOG entry on a release branch (e.g.,
+`release/v1.0.2`), open a merge request, wait for CI green, and
+self-merge into `main`.
+
+### 3. Create and push the signed tag
+
+After the CHANGELOG entry is on `main`:
+
+```bash
+git checkout main
+git pull --ff-only
+
+# Verify your GPG/SSH signing key is configured:
+git config user.signingkey
+# If empty: git config --global user.signingkey <your-key-id>
+
+# Create the signed annotated tag:
+git tag -s v1.0.2 -m "Release v1.0.2 — bug fix for X"
+
+# Verify the signature locally before pushing:
+git tag -v v1.0.2
+# Expect: "Good signature from ..."
+
+# Push the tag to trigger the release pipeline:
+git push origin v1.0.2
+```
+
+### 4. Watch the release pipeline
+
+Open GitLab → CI/CD → Pipelines and filter by your tag. The
+release pipeline runs:
+
+1. **verify-tag-signed** (~10 sec) — fail-fast: rejects if the
+   tag isn't signed or doesn't point at a commit on `main`.
+2. **typecheck × 2 Node versions** (~30 sec each, parallel).
+3. **test × 2 Node versions** (~30 sec each, parallel).
+4. **build × 2 Node versions** (~30 sec each, parallel).
+5. **bundle-invariance** (~90 sec — includes building the
+   merge-base for comparison).
+6. **dependency-pins** (~5 sec).
+7. **changelog-validate** (~1 sec) — fails if no `## [X.Y.Z]`
+   entry exists for the tagged version.
+8. **publish** (~30-60 sec) — runs `npm publish --provenance`
+   via GitLab OIDC trusted-publisher.
+9. **provenance-verify** (~45 sec — includes a 30-second sleep
+   for npm registry propagation).
+
+Total wall-clock: ~8-12 minutes on shared runners.
+
+If any stage fails, the publish does NOT execute. Common failure
+modes:
+- **CHANGELOG missing entry** → add the entry, merge, delete +
+  re-create the tag.
+- **OIDC publish rejected** → npm Trusted Publishers binding
+  misconfigured; check the npm package's "Trusted Publishers"
+  page and confirm the subject-claim pattern matches GitLab's
+  `sub` claim.
+- **Tag not signed** → `git tag -s` was forgotten; delete + re-tag
+  with `-s`.
+
+### 5. Verify the publish
+
+After the pipeline reports green:
+
+```bash
+# Confirm the version exists on npm:
+npm view @tallyrow/safesignal versions --json | tail -5
+
+# Verify provenance attestation:
+npm audit signatures --pkg=@tallyrow/safesignal@1.0.2
+# Expect: "1 package has a verified registry signature"
+```
+
+Or visit `https://www.npmjs.com/package/@tallyrow/safesignal` and
+look for the new version in the Versions list, with a Provenance
+attestation linking back to the GitLab pipeline run.
+
+### Rollback (if the publish goes wrong)
+
+npm **does not allow republishing the same version**. If `v1.0.2`
+publishes but contains a bug:
+
+1. **Do NOT delete the tag** — that breaks provenance attestation's
+   source link.
+2. **Do NOT `npm unpublish`** unless within 72 hours AND the
+   package has very few downloads.
+3. **Cut `v1.0.3` with the fix** — write a CHANGELOG entry that
+   notes the fix and references the v1.0.2 bug; follow Steps 1-5
+   again.
+
+For a security issue where v1.0.2 must be discouraged:
+
+```bash
+npm deprecate @tallyrow/safesignal@1.0.2 "v1.0.2 has known issue X; upgrade to v1.0.3"
+```
+
+This adds a deprecation warning shown during `npm install` for
+that version. Also update `SECURITY.md` with the disclosure
+details.
+
 ## Where to ask questions
 
 - Bug or behavior question: GitLab issue with the **Bug** template.
