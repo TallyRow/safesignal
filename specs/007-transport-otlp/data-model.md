@@ -13,7 +13,7 @@ The consumer-facing configuration passed to `createOtlpTransport(options)`.
 | `endpoint` | `string` | ✅ | — | Full OTLP logs URL (e.g. `https://otlp.example.com/v1/logs`). Validated at construction (D8). |
 | `headers` | `Record<string, string>` | — | `{}` | Static request headers (e.g. auth). Sent only on the wire; never serialized into events/records/diagnostics (FR-009). |
 | `batching` | `{ maxBatchSize: number; maxBatchAgeMs?: number }` | — | `{ maxBatchSize: 20, maxBatchAgeMs: 5000 }` | Flush triggers (D7). |
-| `maxBufferedEvents` | `number` | — | `1000` | Hard cap; events over the cap are dropped (`buffer_overflow` notice). |
+| `maxBufferedEvents` | `number` | — | `1000` | Hard cap on **undelivered** events (buffered in the batcher + in flight); events over the cap are dropped (`buffer_overflow` notice). Must be ≥ `maxBatchSize`. |
 | `maxRecordBytes` | `number` | — | `65536` (64 KiB) | Per-record size guard: a single event whose serialized OTLP `LogRecord` exceeds this is dropped (`oversized_event` notice), never sent. Mirrors beacon's 64 KiB payload guard. |
 | `name` | `string` | — | `'otlp'` | Stable diagnostic identifier (`Transport.name`). |
 | `allowInsecureLoopback` | `boolean` | — | `false` | Permits `http://` only for localhost/127.0.0.1/[::1] (D8). |
@@ -41,6 +41,8 @@ OtlpTransportState {
   pagehideUninstall: (() => void) | null
   shutdownComplete: boolean
   notified: Record<OtlpFailureCode, boolean>            // one notice per class/session
+  inFlight: Set<Promise<void>>                          // in-flight deliveries (awaited by flush/shutdown)
+  pending: number                                       // undelivered = buffered + in-flight; capped at maxBufferedEvents
 }
 ```
 
@@ -54,7 +56,7 @@ Rate-limited diagnostic classes (one notice per class per instance per session):
 | Code | Trigger |
 |------|---------|
 | `oversized_event` | A single event's serialized OTLP `LogRecord` exceeds `maxRecordBytes` (default 64 KiB); the event is dropped, never sent. |
-| `buffer_overflow` | Buffer at `maxBufferedEvents`; incoming event dropped. |
+| `buffer_overflow` | Undelivered (buffered + in-flight) events at `maxBufferedEvents`; incoming event dropped. |
 | `delivery_unavailable` | `fetch` is not available in the runtime. |
 | `send_failed` | non-2xx response, or `fetch` threw/rejected (carries `.cause`). |
 | `partial_rejection` | 2xx with OTLP `partialSuccess.rejectedLogRecords > 0`. |
@@ -96,17 +98,16 @@ AnyValue =
 
 ### Resource attribute construction (D3)
 
-Emit only present fields:
+Emit only present runtime-global fields (`module.*` is per-record, see below):
 - `service.name` ← `context.application.name`
 - `service.version` ← `context.application.version`
 - `deployment.environment` ← `context.environment`
-- `module.name` ← `context.module.name`
-- `module.version` ← `context.module.version`
 
 ### LogRecord attribute construction (D4/D5)
 
 - Each `event.attributes[k]` → `KeyValue{ key: k, value: AnyValue }`.
 - Each `event.context.attributes[k]` → `KeyValue{ key: 'context.'+k, value }`.
+- `module.name` / `module.version` (if present) — per-record origin identity.
 - If `event.error`: add `exception.type` (name), `exception.message`,
   `exception.stacktrace` (stack, if present).
 

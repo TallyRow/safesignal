@@ -32,18 +32,23 @@ POST body is a single JSON object:
 
 ## OP-2 — Resource attributes (identity)
 
-`resource.attributes` is a `KeyValue[]` containing only the present identity
-fields, mapped as:
+`resource.attributes` is a `KeyValue[]` containing only the present
+**runtime-global** identity fields, mapped as:
 
 | Source (`LogEvent.context`) | `key` | `value` |
 |------------------|-------|---------|
 | `application.name` | `service.name` | `{ "stringValue": … }` |
 | `application.version` | `service.version` | `{ "stringValue": … }` |
 | `environment` | `deployment.environment` | `{ "stringValue": … }` |
-| `module.name` | `module.name` | `{ "stringValue": … }` |
-| `module.version` | `module.version` | `{ "stringValue": … }` |
 
-Absent fields MUST be omitted (no empty-string or `null` keys).
+Absent fields MUST be omitted (no empty-string or `null` keys). The Resource is
+derived from the batch's first event (these fields are constant across a batch
+from one configured transport).
+
+**Note (implementation refinement)**: `module.name` / `module.version` are
+**per-logger** (they can differ between events in the same batch via
+`withContext`), so they are attributed **per-`LogRecord`** (OP-4), not on the
+shared Resource — preserving correct origin attribution (Principle VI).
 
 ## OP-3 — LogRecord
 
@@ -66,7 +71,9 @@ If `event.timestamp` is unparseable, fall back to a single resolved emit time
 `attributes` concatenates, in order:
 1. `event.attributes`: each entry `→ { key, value: AnyValue }`.
 2. `event.context.attributes`: each entry `→ { key: "context." + k, value }`.
-3. If `event.error` present:
+3. Per-logger module identity (if present): `module.name`, `module.version`
+   as `{ stringValue }` (per-record, not on the Resource — see OP-2 note).
+4. If `event.error` present:
    - `{ key: "exception.type", value: { stringValue: error.name } }`
    - `{ key: "exception.message", value: { stringValue: error.message } }`
    - `{ key: "exception.stacktrace", value: { stringValue: error.stack } }` (only if `stack` present)

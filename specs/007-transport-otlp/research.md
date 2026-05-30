@@ -76,10 +76,16 @@ the four-level mapping is unambiguous).
 | `context.application.name` | `service.name` |
 | `context.application.version` | `service.version` |
 | `context.environment` | `deployment.environment` |
-| `context.module.name` | `module.name` (custom) |
-| `context.module.version` | `module.version` (custom) |
+| `context.module.name` | `module.name` (custom, **per-LogRecord**) |
+| `context.module.version` | `module.version` (custom, **per-LogRecord**) |
 
 Only present fields are emitted (omit absent ones; no `undefined`/empty keys).
+
+**Refinement (implementation)**: `service.*` / `deployment.environment` are
+runtime-global and live on the shared batch `Resource`; `module.*` is
+per-logger (can vary within a batch via `withContext`), so it is attributed
+**per-`LogRecord`** rather than on the Resource — correct OTLP origin
+attribution (Principle VI) for federated modules sharing one transport.
 
 **Rationale**: `service.name`/`service.version`/`deployment.environment` are
 standard OTel semantic-convention resource attributes that every OTLP backend

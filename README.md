@@ -43,8 +43,9 @@ log.info('checkout opened', { cartItems: 3 });
 
 - Ship an HTTP/beacon transport in the default entry — use the
   `./transport-beacon` subpath for the first-party body-only HTTPS
-  transport, or implement `Transport` yourself for a custom
-  delivery primitive.
+  transport, the `./transport-otlp` subpath to ship OTLP/HTTP+JSON
+  to any OTLP backend, or implement `Transport` yourself for a
+  custom delivery primitive.
 - Read `process.env.NODE_ENV`, `import.meta.env`, `location`, or
   `document.cookie` — pass `environment` explicitly.
 - Install global listeners or singletons (RUM-style automatic
@@ -103,6 +104,58 @@ The transport:
   `beacon_batch_drop`, `beacon_unavailable`,
   `transport_shutdown_failed`. Wire the hook to **both** layers
   above for full coverage.
+
+## Ship logs to OTLP — `./transport-otlp` subpath
+
+To deliver SafeSignal's events to **any OTLP-compatible backend**
+(Datadog, Honeycomb, Grafana, an OpenTelemetry Collector,
+ClickHouse, …), import `createOtlpTransport` from the
+`./transport-otlp` subpath. It emits standard **OTLP/HTTP+JSON**
+logs — vendor-neutral, with zero new runtime dependencies and no
+`@opentelemetry/*` in the bundle.
+
+```ts
+import { configureLogging, getRootLogger } from '@tallyrow/safesignal';
+import { createOtlpTransport } from '@tallyrow/safesignal/transport-otlp';
+
+configureLogging({
+  application: { name: 'checkout-web', version: '4.2.0' },
+  environment: 'production',
+  transports: [
+    createOtlpTransport({
+      endpoint: 'https://otlp.example.com/v1/logs', // full OTLP logs URL, HTTPS
+      headers: { 'x-api-key': process.env.OTLP_API_KEY! }, // sent only on the wire
+      batching: { maxBatchSize: 20, maxBatchAgeMs: 5000 },
+    }),
+  ],
+});
+
+getRootLogger().info('checkout.started', { cartId: 'c_123', itemCount: 3 });
+```
+
+What it guarantees:
+
+- **OTLP/HTTP+JSON** `LogRecord`s with your application/module/
+  environment identity mapped to the OTLP `Resource`
+  (`service.name`, `service.version`, `deployment.environment`;
+  `module.*` per-record). Levels map to OTLP severity
+  (`debug`→5, `info`→9, `warn`→13, `error`→17).
+- **Fail-safe**: `fetch` with `keepalive` delivery, **no retry** —
+  a down/slow/erroring backend never throws into your code and
+  never breaks the page. Failed batches are dropped with one
+  rate-limited `onInternalError` notice per failure class
+  (`oversized_event`, `buffer_overflow`, `delivery_unavailable`,
+  `send_failed`, `partial_rejection`, `serialize_failed`,
+  `shutdown_failed`).
+- **Secure**: events are already redacted before the transport
+  sees them; auth headers are sent only on the request and never
+  appear in payloads, diagnostics, or the bundle. HTTPS-only
+  (loopback `http://` requires explicit `allowInsecureLoopback`).
+- **Lightweight & federated**: the transport is configured once at
+  the runtime level; the host owns it, federated modules do not
+  replace it, and duplicate package copies are **isolated**. Local
+  collectors: `endpoint: 'http://localhost:4318/v1/logs'` with
+  `allowInsecureLoopback: true`.
 
 ## Level configuration
 
@@ -293,9 +346,11 @@ The following are forward-looking items (not shipping today):
 
 - **Trace-context propagation** — W3C Trace Context (`traceparent`,
   `tracestate`) for correlating frontend logs with backend traces.
-- **`./transport-otlp` subpath** — OTel-formatted events; ships to
-  any OTLP-compatible backend (Datadog, Honeycomb, Grafana
-  Tempo + Loki, self-hosted ClickHouse, etc.).
+- **OTLP/HTTP+protobuf encoding** for the
+  [`./transport-otlp`](#ship-logs-to-otlp--transport-otlp-subpath)
+  subpath — the subpath ships **JSON** today behind an internal
+  encoding seam; a protobuf encoder is an additive follow-up (no
+  public-API change).
 - **RUM features** — Web Vitals, automatic error capture, view
   tracking, network instrumentation (planned as opt-in subpaths
   under `./rum-*`).

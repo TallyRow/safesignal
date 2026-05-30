@@ -28,7 +28,7 @@ fi
 echo "Bundle-invariance check: comparing HEAD against base ${BASE}"
 
 # Verify current build artifacts exist.
-for f in dist/index.mjs dist/transport-beacon.mjs; do
+for f in dist/index.mjs dist/transport-beacon.mjs dist/transport-otlp.mjs; do
   if [[ ! -f "${f}" ]]; then
     echo "FAIL: required artifact missing: ${f}"
     echo "      (the build stage should have produced it)"
@@ -56,7 +56,15 @@ echo "Building base commit..."
 FAIL=0
 printf "%-32s %8s %8s %8s   %s\n" "bundle" "pre (B)" "post (B)" "delta" "verdict"
 printf "%-32s %8s %8s %8s   %s\n" "------" "-------" "--------" "-----" "-------"
-for bundle in index transport-beacon; do
+for bundle in index transport-beacon transport-otlp; do
+  # A bundle that does not exist in the base build is NEW on this branch
+  # (e.g. a freshly-added subpath) — it has no prior size to compare, so
+  # skip it here. Its absolute size budget is enforced by its own
+  # bundle-shape security test instead.
+  if [[ ! -f "${WORKTREE}/dist/${bundle}.mjs" ]]; then
+    printf "%-32s %8s %8s %8s   %s\n" "dist/${bundle}.mjs" "-" "$(gzip -c "dist/${bundle}.mjs" | wc -c)" "-" "SKIP (new bundle, no base)"
+    continue
+  fi
   POST=$(gzip -c "dist/${bundle}.mjs" | wc -c)
   PRE=$(gzip -c "${WORKTREE}/dist/${bundle}.mjs" | wc -c)
   DELTA=$(( POST - PRE ))

@@ -6,6 +6,34 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — Unreleased
+
+### Added — `./transport-otlp` subpath (Feature 007)
+
+A new, additive `./transport-otlp` subpath exporting `createOtlpTransport`
+(+ the `OtlpTransportOptions` type). It delivers SafeSignal's events to any
+OTLP-compatible backend (Datadog, Honeycomb, Grafana, an OpenTelemetry
+Collector, ClickHouse, …) as **OTLP/HTTP+JSON** logs.
+
+- **Vendor-neutral & zero-dependency**: the OTLP-JSON payload is
+  hand-serialized — no `@opentelemetry/*` runtime import, nothing
+  vendor-specific in the bundle (gated by a bundle-shape security test).
+- **Identity → OTLP Resource**: `service.name` / `service.version` /
+  `deployment.environment`; `module.*` per `LogRecord`. Levels map to OTLP
+  severity (5/9/13/17).
+- **Fail-safe, no retry**: `fetch` + `keepalive` delivery; failed batches are
+  dropped with one rate-limited `onInternalError` notice per failure class;
+  bounded memory (buffered + in-flight cap). Never throws into the caller.
+- **Secure**: auth headers are sent only on the wire — never in payloads,
+  diagnostics, or the bundle. HTTPS-only (loopback `http://` requires explicit
+  `allowInsecureLoopback`).
+- **Lightweight & federated**: configured once at the runtime level; host owns
+  it; duplicate package copies are isolated.
+
+No change to the default entry, `./testing`, or `./transport-beacon` — fully
+backward compatible. OTLP/HTTP+protobuf encoding is a roadmap follow-up behind
+an internal encoding seam (no future public-API change).
+
 ## [1.0.1] — 2026-05-29
 
 ### Operational hardening (Feature 005) — first stable OIDC/provenance release

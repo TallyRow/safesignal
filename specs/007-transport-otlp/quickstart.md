@@ -9,7 +9,7 @@ Grafana, an OpenTelemetry Collector, ClickHouse, …) as OTLP/HTTP+JSON logs.
 ## Configure at the runtime level (once)
 
 ```ts
-import { configureLogging, getLogger } from '@tallyrow/safesignal';
+import { configureLogging, getRootLogger } from '@tallyrow/safesignal';
 import { createOtlpTransport } from '@tallyrow/safesignal/transport-otlp';
 
 configureLogging({
@@ -25,7 +25,7 @@ configureLogging({
 });
 
 // Loggers are cheap handles over the shared runtime — create freely.
-const log = getLogger();
+const log = getRootLogger();
 log.info('checkout.started', { cartId: 'c_123', itemCount: 3 });
 ```
 
@@ -63,10 +63,11 @@ call `configureLogging` (the host owns the runtime). The module's identity rides
 the merged context:
 
 ```ts
-import { getLogger } from '@tallyrow/safesignal';
-const log = getLogger().withContext({ module: { name: 'recommendations', version: '1.1.0' } });
+import { getRootLogger } from '@tallyrow/safesignal';
+const log = getRootLogger().withContext({ module: { name: 'recommendations', version: '1.1.0' } });
 log.warn('reco.fallback_used', { reason: 'cache_miss' });
-// → module.name / module.version added to the OTLP Resource
+// → module.name / module.version attributed per-LogRecord (service.* /
+//   environment ride the shared OTLP Resource)
 ```
 
 Duplicate-package-copy behavior: **isolated** — each configured transport

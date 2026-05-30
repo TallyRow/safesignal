@@ -44,6 +44,11 @@
       "types": "./dist/transport-beacon.d.ts",
       "import": "./dist/transport-beacon.mjs",
       "require": "./dist/transport-beacon.cjs"
+    },
+    "./transport-otlp": {
+      "types": "./dist/transport-otlp.d.ts",
+      "import": "./dist/transport-otlp.mjs",
+      "require": "./dist/transport-otlp.cjs"
     }
   },
   "main": "./dist/index.cjs",
