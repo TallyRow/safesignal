@@ -425,6 +425,26 @@ Or visit `https://www.npmjs.com/package/@tallyrow/safesignal` and
 look for the new version in the Versions list, with a Provenance
 attestation linking back to the GitLab pipeline run.
 
+### 6. Prune the `next` dist-tag when an `-rc` line ships stable
+
+The publish job derives the dist-tag from the version string
+(`-rc.N`/`-beta.N`/`-alpha.N` → `next`, otherwise → `latest`) and
+only ever **adds** tags — it never retires `next`. So when a
+pre-release line graduates to a stable release, `next` is left
+orphaned pointing at the old `-rc` (older than `latest`). After
+shipping the stable version, retire (or advance) `next` manually —
+this needs npm auth, not the OIDC pipeline:
+
+```bash
+npm dist-tag ls @tallyrow/safesignal        # check what next points at
+npm dist-tag rm @tallyrow/safesignal next   # no active pre-release → remove it
+# …or, if a newer pre-release is live, move next onto it:
+# npm dist-tag add @tallyrow/safesignal@<next-rc> next
+```
+
+Never park `next` on a stable version, and never let it lag
+`latest`.
+
 ### Rollback (if the publish goes wrong)
 
 npm **does not allow republishing the same version**. If `v1.0.2`
