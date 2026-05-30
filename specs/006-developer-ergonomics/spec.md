@@ -296,12 +296,15 @@ holds or improves coverage passes.
   scheduled cadence that opens merge requests, batching minor/patch updates into
   a single MR and isolating each major update into its own MR.
 - **FR-013**: Each update MR MUST run the full standard quality-gate pipeline.
-- **FR-014**: The bot MUST authenticate via a GitLab **Project Access Token
-  scoped to `safesignal` only** (Developer role, `api` scope), stored as a
-  masked/protected CI variable and used solely by the Renovate scheduled
-  pipeline. The token MUST NOT carry npm publish rights and MUST NOT be a
-  long-lived npm token; it is a bounded, documented exception for MR creation
-  only (npm publish remains OIDC-only).
+- **FR-014**: The bot MUST authenticate via a least-privilege GitLab token used
+  solely by the Renovate scheduled pipeline, stored as a masked/protected CI
+  variable, that can only act on `safesignal` and MUST NOT carry npm publish
+  rights (npm publish remains OIDC-only). **Implementation**: GitLab Project
+  Access Tokens require Premium ($29/user/mo), not justified for a solo OSS
+  project, so least-privilege is achieved with a **dedicated bot account**
+  (`safesignal-bot`) invited to **only** the `safesignal` project as Developer;
+  its personal `api` PAT therefore can only touch this one repo. Stored as the
+  masked + protected CI variable `RENOVATE_TOKEN`.
 
 **Coverage gating (US5)**
 
