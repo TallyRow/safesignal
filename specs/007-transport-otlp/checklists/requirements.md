@@ -32,11 +32,12 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`.
-- Three decisions are intentionally **deferred to `/speckit-clarify`** (OTLP
-  encoding, batching/retry policy, delivery mechanism). These are NOT
-  `[NEEDS CLARIFICATION]` blockers: each carries a documented working assumption
-  in the Assumptions section so the spec is fully testable as written, and the
-  "Deferred Decisions" section flags them for resolution before `/speckit-plan`.
+- The three formerly-deferred decisions were **resolved in the 2026-05-29
+  `/speckit-clarify` session** (see spec → Clarifications): (1) encoding =
+  OTLP/HTTP+JSON behind a seam, protobuf on the README roadmap; (2) no retry —
+  fire-and-forget like `./transport-beacon`; (3) delivery = `fetch` with
+  `keepalive: true` (no `sendBeacon`). No `[NEEDS CLARIFICATION]` markers
+  remain.
 - "OTLP", "LogRecord", "Resource", `Transport`, `assertTransportContract`,
   `./transport-beacon`, and `@opentelemetry/*` are retained as domain/contract
   terms (the established protocol and existing in-repo contracts this feature

@@ -28,25 +28,45 @@ without a backend-specific code path.
 conformant backend consumes; it MUST NOT contain any `safesignal-server`-
 preferential path.
 
-## Deferred Decisions (resolve in `/speckit-clarify`)
+## Clarifications
 
-The following three decisions are intentionally **not** pinned in this spec.
-Each has a documented working assumption (see Assumptions) so the spec is
-testable, but the final choice is a `/speckit-clarify` decision and may change
-the relevant requirements before `/speckit-plan`:
+### Session 2026-05-29
 
-1. **OTLP encoding** — OTLP/HTTP+JSON vs OTLP/HTTP+protobuf. JSON is
-   browser-native and dependency-free; protobuf is the more universally
-   accepted OTLP encoding but adds an encoder dependency and bundle weight.
-   (OTLP/gRPC is out of scope: no native browser gRPC.)
-2. **Batching & retry policy** — flush triggers (size / age), bounded
-   retry/backoff behaviour for retryable responses, and whether to reuse the
-   `./transport-beacon` batching/delivery machinery or implement a dedicated
-   one.
-3. **Delivery mechanism** — `fetch(keepalive)` vs `navigator.sendBeacon`.
-   `sendBeacon` cannot set the custom request headers most OTLP backends
-   require for authentication, which strongly implies `fetch`, but this is to
-   be confirmed.
+- Q: Which OTLP encoding should `./transport-otlp` emit? → A: OTLP/HTTP+JSON for
+  v1, behind a documented internal encoding seam so a protobuf encoding can be
+  added later without breaking the public surface; protobuf is added to the
+  README roadmap (not implemented in this feature).
+- Q: Should the OTLP transport retry failed deliveries, or match beacon's
+  no-retry drop-on-failure model? → A: No retry — fire-and-forget like
+  `./transport-beacon`: attempt once per batch, drop the batch and emit one
+  rate-limited diagnostic notice on failure. No retry buffer, no backoff timers,
+  no duplicate delivery.
+- Q: What primitive should the OTLP transport use to deliver batches? → A:
+  `fetch` with `keepalive: true` — POST the OTLP JSON body with explicit
+  `Content-Type` + configured auth headers; `keepalive` covers page unload; drop
+  safely (single notice) when `fetch` is unavailable. `navigator.sendBeacon` is
+  not used (it cannot set the auth headers OTLP backends require).
+
+## Deferred Decisions (resolved in `/speckit-clarify`)
+
+All three decisions below were resolved in the 2026-05-29 clarification session
+(see Clarifications). They are retained here for traceability:
+
+1. ~~**OTLP encoding**~~ — **RESOLVED (2026-05-29)**: OTLP/HTTP+**JSON** for v1,
+   behind a documented internal encoding seam. Protobuf is deferred to a
+   follow-up (README roadmap) and must be addable without a breaking public-API
+   change. (OTLP/gRPC remains out of scope: no native browser gRPC.)
+2. ~~**Batching & retry policy**~~ — **RESOLVED (2026-05-29)**: **No retry** —
+   fire-and-forget like `./transport-beacon` (attempt once per batch, drop +
+   one rate-limited notice on failure; no retry buffer/backoff/duplicates).
+   Batching follows the beacon shape (max batch size / max batch age); exact
+   default thresholds and whether to physically reuse the beacon batcher/
+   delivery code vs. a dedicated copy are a `/speckit-plan` detail.
+3. ~~**Delivery mechanism**~~ — **RESOLVED (2026-05-29)**: **`fetch` with
+   `keepalive: true`** (POST OTLP JSON + explicit `Content-Type` + configured
+   auth headers; `keepalive` covers unload; drop safely when `fetch` is
+   unavailable). `navigator.sendBeacon` is not used — it cannot set the auth
+   headers OTLP backends require.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -93,10 +113,10 @@ SafeSignal context.
 ### User Story 2 - Failures never break the page (Priority: P1)
 
 When the OTLP backend is unreachable, slow, returns an error, or the browser is
-mid-unload, the transport degrades silently: it drops or retries within bounded
-limits, never throws or rejects into the calling code, and never blocks or
-breaks the host page. A misconfigured or down telemetry backend can never take
-down the application that depends on SafeSignal.
+mid-unload, the transport degrades silently: it attempts delivery once and drops
+on failure (no retry), never throws or rejects into the calling code, and never
+blocks or breaks the host page. A misconfigured or down telemetry backend can
+never take down the application that depends on SafeSignal.
 
 **Why this priority**: Fail-safe browser behaviour is a non-negotiable
 constitutional invariant (Principle II). A telemetry transport that can surface
@@ -105,20 +125,20 @@ shippable — so this is co-equal P1 with the happy path.
 
 **Independent Test**: Drive the transport against endpoints that reject, return
 5xx, time out, and are entirely absent (no `fetch`/network), and assert that no
-call into the transport ever throws or rejects to the caller, that retries are
-bounded, and that events are dropped (not infinitely buffered) once limits are
-reached. Run `assertTransportContract` against the transport and confirm it
-passes.
+call into the transport ever throws or rejects to the caller, that failed
+batches are dropped (not retried, not infinitely buffered), and that buffered
+events are bounded. Run `assertTransportContract` against the transport and
+confirm it passes.
 
 **Acceptance Scenarios**:
 
-1. **Given** the OTLP endpoint returns a non-retryable error, **When** an event
+1. **Given** the OTLP endpoint returns an error response, **When** an event
    is delivered, **Then** the event is dropped, the caller's `send()` does not
    throw or reject, and at most one diagnostic notice per failure class is
    surfaced via the configured internal-error channel.
-2. **Given** the OTLP endpoint returns a retryable response, **When** delivery
-   is attempted, **Then** the transport retries within a bounded limit and
-   stops (dropping the batch) rather than retrying unboundedly.
+2. **Given** the OTLP endpoint returns any failure response (including 429/5xx),
+   **When** delivery is attempted, **Then** the transport does not retry: it
+   drops the batch and emits one rate-limited diagnostic notice.
 3. **Given** the delivery transport (network primitive) is unavailable, **When**
    an event is logged, **Then** the event is dropped safely with a single
    diagnostic notice and no throw.
@@ -247,9 +267,10 @@ behaviour match observed behaviour.
   losslessly with respect to severity, message/body, timestamp, attributes, and
   SafeSignal identity (mapped to the OTLP Resource). Batching groups records but
   does not reorder within a backend-visible guarantee beyond what OTLP defines;
-  any drop (oversized, over-limit, retry-exhausted, partial-success rejection)
-  is documented and surfaced via a rate-limited diagnostic notice. Records
-  remain machine-parseable and origin-attributable.
+  any drop (oversized, over-limit, delivery failure, partial-success rejection)
+  is documented and surfaced via a rate-limited diagnostic notice. Failed
+  deliveries are not retried. Records remain machine-parseable and
+  origin-attributable.
 - **Runtime Scale & Federated Deployment Impact**: `Logger` creation/derivation
   stays lightweight and side-effect-free — no per-`Logger` socket, timer,
   listener, global patch, network work, or ambient read. Batching state,
@@ -285,14 +306,22 @@ behaviour match observed behaviour.
   a valid OpenTelemetry Logs `LogRecord`, populating at minimum severity
   number/text, body (message), observed timestamp, and event attributes, by
   building on the existing internal OTel event seam rather than inventing a new
-  event model.
+  event model. The wire encoding MUST be OTLP/HTTP+**JSON**
+  (`Content-Type: application/json`) for this feature.
+- **FR-015**: The encoding MUST sit behind a documented internal seam so that a
+  future OTLP/HTTP+protobuf encoding can be added without a breaking change to
+  the `./transport-otlp` public surface; protobuf support MUST be listed on the
+  README roadmap and is explicitly out of scope to implement in this feature.
 - **FR-003**: The transport MUST carry SafeSignal identity context (application
   name/version, module name/version, environment) on the OTLP `Resource` of the
   emitted payload using standard resource attribute naming, rather than
   duplicating it onto every LogRecord.
 - **FR-004**: The transport MUST batch multiple events into a single OTLP logs
   request under a documented flush policy, and MUST deliver to a
-  consumer-configured OTLP logs endpoint URL.
+  consumer-configured OTLP logs endpoint URL via `fetch` with `keepalive: true`
+  (POST, explicit `Content-Type`, plus any configured auth headers). When
+  `fetch` is unavailable, the batch MUST be dropped safely with a single
+  diagnostic notice. `navigator.sendBeacon` MUST NOT be used.
 - **FR-005**: The transport MUST accept the endpoint as required configuration
   and reject a missing/malformed/non-HTTPS endpoint at construction time (at the
   consumer's call site), never from the emit hot path; any insecure-loopback
@@ -320,9 +349,10 @@ behaviour match observed behaviour.
   tokens).
 - **FR-010**: The transport MUST preserve log integrity and monitoring
   suitability: emitted records remain structured, machine-parseable, and
-  origin-attributable, and any drop/sample/batch/retry-exhaustion/partial-
-  rejection behaviour is documented and surfaced via a rate-limited diagnostic
-  notice (one per failure class per instance per session).
+  origin-attributable, and any drop/batch/partial-rejection behaviour is
+  documented and surfaced via a rate-limited diagnostic notice (one per failure
+  class per instance per session). The transport MUST NOT retry failed
+  deliveries.
 - **FR-011**: The package MUST keep `Logger` instance creation lightweight and
   side-effect-free (no per-instance backend init, socket/transport open, timer,
   global listener, console patch, network work, or ambient browser read), MUST
@@ -344,9 +374,9 @@ behaviour match observed behaviour.
   build, and import-resolution standards as `src/`; any tolerated relaxation
   MUST carry a written, named, time-bound removal condition in this feature's
   task list.
-- **FR-013**: The transport MUST bound its memory and retry behaviour: events/
-  batches MUST be dropped (not buffered or retried unboundedly) once documented
-  size, buffer, or retry limits are reached.
+- **FR-013**: The transport MUST bound its memory: pending events/batches MUST
+  be dropped (not buffered unboundedly) once documented size or buffer limits
+  are reached. There is no retry path, so no retry buffer exists.
 - **FR-014**: The feature MUST NOT change the runtime behaviour of the default
   entry, `./testing`, or `./transport-beacon`, and MUST keep their published
   bundles within the ±1 KiB bundle-invariance gate (current baselines:
@@ -369,9 +399,9 @@ behaviour match observed behaviour.
 - **Resource (OTLP)**: Identity attributes (application/module/environment)
   shared across the batch's records.
 - **Diagnostic Notice**: A rate-limited internal-error signal for each failure
-  class (oversized, delivery-unavailable, send-failed, retry-exhausted,
-  partial-rejection, shutdown-failed), surfaced via the configured callback and
-  containing no secret/header values.
+  class (oversized, delivery-unavailable, send-failed, partial-rejection,
+  shutdown-failed), surfaced via the configured callback and containing no
+  secret/header values.
 
 ## Success Criteria *(mandatory)*
 
@@ -381,9 +411,9 @@ behaviour match observed behaviour.
   (plus optional auth headers) and see SafeSignal logs arrive in any conformant
   OTLP logs backend with correct severity, message, timestamp, attributes, and
   identity — no bespoke ingestion endpoint or translator required.
-- **SC-002**: 100% of delivery failure modes (non-retryable error, retryable
-  error, timeout, transport unavailable, page-unload, oversized payload) result
-  in zero throws/rejections to the caller and zero unbounded memory or retry
+- **SC-002**: 100% of delivery failure modes (error response incl. 429/5xx,
+  timeout, transport unavailable, page-unload, oversized payload) result in zero
+  throws/rejections to the caller, zero retries, and zero unbounded memory
   growth, verified by automated tests.
 - **SC-003**: A configured auth-header secret appears in 0 captured request
   bodies, 0 LogRecord fields, 0 diagnostic/error messages, and 0 bytes of the
@@ -405,20 +435,23 @@ behaviour match observed behaviour.
 
 ## Assumptions
 
-- **Encoding (deferred to `/speckit-clarify`)**: Working assumption is
-  OTLP/HTTP with **JSON** encoding (browser-native, dependency-light, leaner
-  bundle). Protobuf remains an option if broader backend acceptance outweighs
-  the added encoder dependency and bundle cost. OTLP/gRPC is excluded (no native
-  browser gRPC).
-- **Delivery mechanism (deferred to `/speckit-clarify`)**: Working assumption is
-  `fetch` (with `keepalive` for unload resilience), because OTLP backends
-  require custom auth headers that `navigator.sendBeacon` cannot set. The
-  beacon transport's `fetch`-keepalive path is the reference.
-- **Batching & retry (deferred to `/speckit-clarify`)**: Working assumption is
-  to reuse the `./transport-beacon` batching shape (max batch size / max batch
-  age) plus a small bounded retry with backoff for retryable status codes
-  (e.g. 429/5xx), dropping after a fixed retry ceiling. Exact triggers and
-  bounds are a clarify/plan decision.
+- **Encoding (RESOLVED 2026-05-29)**: OTLP/HTTP with **JSON** encoding for v1
+  (browser-native, dependency-light, leaner bundle), behind a documented
+  internal encoding seam. Protobuf is a README-roadmap follow-up, addable
+  without a breaking public-API change. OTLP/gRPC is excluded (no native browser
+  gRPC).
+- **Delivery mechanism (RESOLVED 2026-05-29)**: `fetch` with `keepalive: true`
+  (POST OTLP JSON + explicit `Content-Type` + configured auth headers; unload
+  resilience via `keepalive`; drop safely when `fetch` is unavailable).
+  `navigator.sendBeacon` is not used because OTLP backends require custom auth
+  headers it cannot set. The beacon transport's `fetch`-keepalive path is the
+  reference implementation.
+- **Batching & retry (RESOLVED 2026-05-29)**: Batching follows the
+  `./transport-beacon` shape (max batch size / max batch age). **No retry** —
+  fire-and-forget: each batch is attempted once and dropped on failure with one
+  rate-limited notice (no retry buffer, backoff, or duplicate delivery). Exact
+  default batch thresholds and whether to physically reuse the beacon batcher/
+  delivery code are a `/speckit-plan` detail.
 - **Signal scope**: OTLP **Logs** only (`/v1/logs` semantics). Traces, metrics,
   and W3C trace-context propagation are separate future features and are out of
   scope here.
@@ -452,5 +485,7 @@ behaviour match observed behaviour.
 - RUM / Web-Vitals capture.
 - The `safesignal-server` backend itself (separate repository).
 - OTLP/gRPC transport.
+- OTLP/HTTP+protobuf encoding (README-roadmap follow-up; this feature ships JSON
+  only, behind a seam that keeps protobuf additive — see FR-015).
 - Any change to the runtime behaviour or public API of the default entry,
   `./testing`, or `./transport-beacon`.
