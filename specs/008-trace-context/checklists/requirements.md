@@ -31,12 +31,14 @@
 
 ## Notes
 
-- Four decisions are intentionally **deferred to `/speckit-clarify`** (ingestion
-  API shape, carry-only vs. generation, exact field model + OTLP mapping detail,
-  outbound `traceparent` injection). These are NOT `[NEEDS CLARIFICATION]`
-  blockers: each carries a documented working assumption in the Assumptions
-  section so the spec is fully testable as written, and the "Deferred Decisions"
-  section flags them for resolution before `/speckit-plan`.
+- The three highest-impact decisions were **resolved in the 2026-05-30
+  `/speckit-clarify` session** (see spec → Clarifications): (1) ingestion via the
+  existing context path (`configureLogging`/`withContext()`/`correlation()`) +
+  a `parseTraceparent` helper, no ambient reads; (2) a dedicated `context.trace`
+  field (hex strings) → OTLP top-level trace fields (lowercase-hex on the JSON
+  wire); (3) **carry-only**, no id generation. Decision #4 (outbound
+  `traceparent` injection) stays **out of scope** per its working assumption.
+  No `[NEEDS CLARIFICATION]` markers remain.
 - "W3C Trace Context", `traceparent`/`tracestate`, `trace_id`/`span_id`, OTLP
   `LogRecord` trace fields, and `@opentelemetry/*` are retained as
   domain/standard/contract terms (the protocol and the existing in-repo bundle

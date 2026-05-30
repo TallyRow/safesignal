@@ -27,33 +27,59 @@ the app provides — it is **not** a tracer (no span creation, timing, or
 sampling). The format is vendor-neutral **W3C Trace Context**, working with any
 tracer that emits it. There is no `safesignal-server`-preferential path.
 
+## Clarifications
+
+### Session 2026-05-30
+
+- Q: How does the app supply trace context to SafeSignal? → A: Through the
+  existing context-merge path — root config / `withContext()` / the per-emit
+  `correlation()` hook — plus a pure `parseTraceparent(string)` (+`tracestate`)
+  helper that turns the header string into the structured shape. No new ambient
+  reads and no dedicated `setTraceContext()`-style runtime API.
+- Q: Where does trace context live on the event model — a dedicated field or
+  reserved attribute keys? → A: A dedicated, first-class structured field
+  `context.trace = { traceId, spanId, traceFlags?, traceState? }` (hex strings),
+  an additive optional field on `LogContext`. It maps to the OTLP `LogRecord`'s
+  standard top-level trace fields; on the OTLP/HTTP+JSON wire, `traceId`/`spanId`
+  are lowercase-hex strings and `traceFlags` a number (per the OTLP/JSON spec).
+  `traceState` has no standard OTLP `LogRecord` field — its OTLP placement
+  (attribute vs. omit) is a `/speckit-plan` detail.
+- Q: Does SafeSignal ever generate a trace/span id, or strictly carry what it is
+  given? → A: **Carry-only** — SafeSignal never mints trace or span ids. When no
+  trace context is supplied, events simply have no trace fields. Session-style
+  correlation ids are out of scope (a distinct future concern), keeping the
+  "not a tracer" framing honest.
+
 > **Dependency**: this feature extends the `./transport-otlp` serializer
 > delivered by **Feature 007** (currently in review, MR !23). It is sequenced
 > after 007 and assumes 007's vendor-neutral bundle gate (no `@opentelemetry/*`
 > in the subpath) continues to hold.
 
-## Deferred Decisions (resolve in `/speckit-clarify`)
+## Deferred Decisions (resolved in `/speckit-clarify`)
 
-These are intentionally **not** pinned here. Each has a documented working
-assumption (see Assumptions) so the spec is testable, but the final choice is a
-`/speckit-clarify` decision that may change the relevant requirements before
-`/speckit-plan`:
+Decisions #1–#3 were resolved in the 2026-05-30 clarification session (see
+Clarifications); #4 stays out of scope per its working assumption. Retained for
+traceability:
 
-1. **Ingestion API shape** — how the app supplies trace context: via the
-   existing `correlation()` hook return value, a dedicated per-logger option /
-   `withTraceContext()`-style API, and/or a `parseTraceparent(string)` helper.
-   Also: is any ambient source ever read (default expectation: **no**, per
-   Principle VII)?
-2. **Generation vs. carry-only** — does SafeSignal ever generate an id (e.g. a
-   page-session/root id when none is supplied), or strictly carry what it is
-   given?
-3. **Field model + OTLP mapping detail** — the structured shape (likely
-   `context.trace = { traceId, spanId, traceFlags?, traceState? }`, hex
-   strings) and how it maps onto the OTLP `LogRecord` (hex-string vs. bytes on
-   the wire; where/whether `tracestate` lands).
+1. ~~**Ingestion API shape**~~ — **RESOLVED (2026-05-30)**: app supplies trace
+   context through the existing context-merge path (root config / `withContext()`
+   / `correlation()`), plus a pure `parseTraceparent(string)` (+`tracestate`)
+   helper. No new ambient reads; no dedicated `setTraceContext()` runtime API.
+2. ~~**Generation vs. carry-only**~~ — **RESOLVED (2026-05-30)**: **carry-only**
+   — SafeSignal never mints trace/span ids; absent trace context means no trace
+   fields. Session-style correlation ids are out of scope (a distinct future
+   concern).
+3. ~~**Field model + OTLP mapping detail**~~ — **RESOLVED (2026-05-30)**:
+   dedicated `context.trace = { traceId, spanId, traceFlags?, traceState? }`
+   (hex strings); OTLP/JSON `LogRecord` carries `traceId`/`spanId` as
+   lowercase-hex strings + `traceFlags` as a number (per OTLP/JSON spec). Only
+   `traceState`'s OTLP placement (attribute vs. omit) remains a `/speckit-plan`
+   detail.
 4. **Outbound `traceparent` header injection** — whether the transports inject a
-   `traceparent` request header on delivery is in scope here or a follow-up
-   (working assumption: **deferred / out of scope** for this feature).
+   `traceparent` request header on delivery. **Not asked this session**; the
+   working assumption stands: **out of scope** for this feature (a candidate
+   follow-up), as listed under Out of Scope. Revisit only if a concrete need
+   surfaces during `/speckit-plan`.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -245,12 +271,15 @@ precedence is honored and no per-`Logger` trace work occurs.
 
 ### Functional Requirements
 
-- **FR-001**: The event `context` model MUST support an optional structured
-  trace context (W3C Trace Context: `trace_id`, `span_id`, optional trace flags
-  and `tracestate`) that, when present, appears on every emitted `LogEvent`.
+- **FR-001**: The event `context` model MUST support an optional, dedicated
+  structured trace field `context.trace = { traceId, spanId, traceFlags?,
+  traceState? }` (W3C Trace Context; hex-string ids) — a first-class field on
+  `LogContext`, distinct from `context.attributes` — that, when present, appears
+  on every emitted `LogEvent`.
 - **FR-002**: The system MUST accept trace context supplied by the host
-  application (consume/propagate) and MUST NOT generate spans, timing, or
-  sampling decisions — SafeSignal is not a tracer.
+  application (consume/propagate) and MUST be **carry-only**: it MUST NOT mint
+  trace ids, span ids, spans, timing, or sampling decisions. When no trace
+  context is supplied, no trace fields are emitted — SafeSignal is not a tracer.
 - **FR-003**: When an event carrying trace context is delivered via
   `./transport-otlp`, the system MUST populate the OTLP `LogRecord`'s standard
   `traceId` / `spanId` / `traceFlags` fields from that context; when no trace
@@ -303,10 +332,10 @@ precedence is honored and no per-`Logger` trace work occurs.
 
 ### Key Entities *(include if feature involves data)*
 
-- **TraceContext** (structured): `trace_id` (32-hex), `span_id` (16-hex),
-  optional trace flags (e.g. sampled), optional `tracestate`. Carried on
-  `LogEvent.context` when present. (Exact field names finalized in
-  `/speckit-clarify` + `/speckit-plan`.)
+- **TraceContext** (structured): a dedicated optional `context.trace` field —
+  `traceId` (32-hex), `spanId` (16-hex), optional `traceFlags`, optional
+  `traceState` — carried on `LogEvent.context` when present and distinct from
+  the arbitrary `context.attributes` bag.
 - **Traceparent (W3C string)**: the `00-<trace-id>-<span-id>-<flags>` header
   form a host supplies; parsed into `TraceContext` by the helper.
 - **OTLP LogRecord trace fields**: the standard `traceId` / `spanId` /
@@ -342,17 +371,21 @@ precedence is honored and no per-`Logger` trace work occurs.
 
 ## Assumptions
 
-- **Ingestion API (deferred to `/speckit-clarify`)**: Working assumption —
-  trace context is **app-supplied** through the existing context-merge path
-  (root config / `withContext()` / `correlation()` return value), plus a
-  `parseTraceparent(string)` helper for the common header-string case. No
-  ambient global source is read by default (Principle VII).
-- **Generation (deferred)**: Working assumption — **carry-only** for v1
-  (SafeSignal does not mint trace/span ids); any page-session id generation is a
-  clarify decision.
-- **Field model (deferred)**: Working assumption — `context.trace =
-  { traceId, spanId, traceFlags?, traceState? }` as hex strings, mapped to the
-  OTLP `LogRecord` standard trace fields. Finalized in clarify/plan.
+- **Ingestion API (RESOLVED 2026-05-30)**: trace context is **app-supplied**
+  through the existing context-merge path (root config / `withContext()` /
+  `correlation()` return value), plus a pure `parseTraceparent(string)`
+  (+`tracestate`) helper for the common header-string case. No ambient global
+  source is read, and no dedicated `setTraceContext()`-style runtime API is
+  added (Principle VII; reuses the tested merge precedence).
+- **Generation (RESOLVED 2026-05-30)**: **carry-only** — SafeSignal never mints
+  trace/span ids; absent trace context means no trace fields on the event or its
+  OTLP record. Session-style correlation ids are out of scope (a distinct future
+  feature).
+- **Field model (RESOLVED 2026-05-30)**: a dedicated, first-class
+  `context.trace = { traceId, spanId, traceFlags?, traceState? }` (hex strings)
+  on `LogContext`, mapped to the OTLP `LogRecord` standard top-level trace
+  fields (`traceId`/`spanId` as lowercase-hex strings, `traceFlags` a number,
+  per OTLP/JSON). Only `traceState`'s OTLP placement remains a plan detail.
 - **Outbound header injection (deferred)**: Working assumption — **out of
   scope** for this feature; injecting a `traceparent` request header on
   transport delivery is a candidate follow-up.
@@ -372,6 +405,8 @@ precedence is honored and no per-`Logger` trace work occurs.
 
 - Becoming a tracer: span creation, span timing, span lifecycle, or sampling
   decisions.
+- Generating any trace/span id or a page-session correlation id (carry-only; a
+  session-id feature is a distinct future concern).
 - Traces or metrics as OTLP signals (this feature only enriches **logs** with
   trace context).
 - Auto-instrumentation of `fetch`/XHR or automatic trace-context discovery (RUM
