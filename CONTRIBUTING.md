@@ -256,9 +256,16 @@ npm run test:coverage # vitest --coverage; enforces the per-package thresholds
 ### Quality checks (lint, format, coverage)
 
 The project uses **Biome** for linting and formatting. CI gates every merge
-request on `npm run lint`, `npm run format:check`, and `npm run test:coverage`
-(plus Secret Detection and Dependency Scanning). Run `npm run format` to
-auto-fix formatting before committing.
+request on `npm run lint`, `npm run format:check`, and `npm run test:coverage`,
+plus a gating **secret scan** (gitleaks). Run `npm run format` to auto-fix
+formatting before committing.
+
+**Coverage thresholds** are defined in `vitest.config.ts` (90% global; 100% on
+the four pipeline-security files: sanitizer, redactor, url-scrubber,
+control-char-guard) and enforced by the `coverage` CI job. They ratchet **up**
+freely. **Lowering** a threshold requires an MR that states the reason in the
+description and links the follow-up that will restore it — a relaxation is a
+reviewed, time-bound exception, never a silent edit (constitution Principle IX).
 
 ### Local commit hooks (recommended)
 
