@@ -10,8 +10,10 @@
       "groupName": "minor & patch updates"
     },
     {
-      "matchUpdateTypes": ["major"],
-      "groupName": null
+      "description": "Isolate the @opentelemetry/* seam deps: they use 0.x versioning, so Renovate treats their (functionally breaking) bumps as 'minor' — keep them out of the grouped minor/patch MR and review deliberately.",
+      "matchPackageNames": ["@opentelemetry/**"],
+      "groupName": "opentelemetry",
+      "separateMinorPatch": true
     }
   ]
 }

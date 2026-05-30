@@ -51,7 +51,7 @@ runtime change beyond the one-time mechanical format baseline.
 
 - [X] T011 [US2] Extend `.gitlab-ci.yml`: add a `lint` job (`npm run lint`) under `.quality_gate_rules` (`node:22-alpine`, `npm ci`, no `needs: build`); `glab ci lint` (maps FR-006)
 - [X] T012 [US2] Extend `.gitlab-ci.yml`: add a `format-check` job (`npm run format:check`) under `.quality_gate_rules`; `glab ci lint` (maps FR-006)
-- [ ] T013 [US2] Verify on the dogfood MR: both jobs are green on the clean tree; a planted lint error fails `lint` and a planted format drift fails `format-check`, each naming the file. Record in `baselines.md` (maps SC-003)
+- [X] T013 [US2] Verify on the dogfood MR: both jobs are green on the clean tree; a planted lint error fails `lint` and a planted format drift fails `format-check`, each naming the file. Record in `baselines.md` (maps SC-003)
 
 ---
 
@@ -75,9 +75,9 @@ runtime change beyond the one-time mechanical format baseline.
 
 - [X] T019 [US4] Create `renovate.json`: extend a base preset; weekly `schedule`; group minor/patch into one MR, isolate each major; target `main`; enable auto-rebase + lockfile maintenance (maps FR-012)
 - [X] T020 [US4] Add the Renovate runner to CI gated on `$CI_PIPELINE_SOURCE == "schedule"` (separate `include` or job, off the per-MR critical path); `glab ci lint` (maps FR-013)
-- [ ] T021 [US4] **Maintainer**: create a `safesignal`-scoped GitLab Project Access Token (Developer role, `api` scope) and store it as the masked/protected CI variable `RENOVATE_TOKEN`. MUST NOT have npm publish rights (maps FR-014, FR-019)
-- [ ] T022 [US4] **Maintainer**: create the weekly **scheduled pipeline** (Settings → CI/CD → Pipeline schedules) targeting `main`
-- [ ] T023 [US4] Verify: run the scheduled pipeline manually; confirm Renovate opens correctly-batched MRs (minor/patch grouped, majors separate) and each runs the full quality gate; or a clean no-op when nothing is outdated (maps SC-005)
+- [X] T021 [US4] **Maintainer**: create a `safesignal`-scoped GitLab Project Access Token (Developer role, `api` scope) and store it as the masked/protected CI variable `RENOVATE_TOKEN`. MUST NOT have npm publish rights (maps FR-014, FR-019)
+- [X] T022 [US4] **Maintainer**: create the weekly **scheduled pipeline** (Settings → CI/CD → Pipeline schedules) targeting `main`
+- [X] T023 [US4] Verify: run the scheduled pipeline manually; confirm Renovate opens correctly-batched MRs (minor/patch grouped, majors separate) and each runs the full quality gate; or a clean no-op when nothing is outdated (maps SC-005)
 
 ---
 
@@ -87,17 +87,17 @@ runtime change beyond the one-time mechanical format baseline.
 **Independent test**: coverage job passes at the ~95% baseline; a planted coverage drop below a threshold fails it.
 
 - [X] T024 [US5] Extend `.gitlab-ci.yml`: add a `coverage` job (`npm run test:coverage`) under `.quality_gate_rules` (`node:22-alpine`, `npm ci`, no `needs: build`); `glab ci lint` (maps FR-015)
-- [ ] T025 [US5] Verify on the dogfood MR: the coverage job passes at baseline; a planted under-threshold change fails it with a per-package report. Record in `baselines.md` (maps SC-006)
-- [ ] T026 [P] [US5] Document the coverage thresholds + the relaxation-review process in `CONTRIBUTING.md` (or `contracts/quality-gates.md` reference). Note thresholds were retained from `vitest.config.ts` (90% global; 100% on the four pipeline-security files), stronger than baseline−2pp (maps FR-016)
+- [X] T025 [US5] Verify on the dogfood MR: the coverage job passes at baseline; a planted under-threshold change fails it with a per-package report. Record in `baselines.md` (maps SC-006)
+- [X] T026 [P] [US5] Document the coverage thresholds + the relaxation-review process in `CONTRIBUTING.md` (or `contracts/quality-gates.md` reference). Note thresholds were retained from `vitest.config.ts` (90% global; 100% on the four pipeline-security files), stronger than baseline−2pp (maps FR-016)
 
 ---
 
 ## Phase 8: Polish & Cross-Cutting
 
-- [ ] T027 Dogfood MR: open one MR that exercises ALL new gates (`lint`, `format-check`, `coverage`, `secret_detection`, `dependency_scanning`) alongside the existing F005 gates; confirm the full pipeline is green. Record the pipeline URL + per-job verdicts in `baselines.md` (the F005 lesson: never trust an un-run pipeline)
-- [ ] T028 [P] Post-feature invariance: `npm test` = 48/1,088/10/0/0; gzipped bundles identical to T004; coverage ≥ thresholds. Record in `baselines.md` (maps SC-007)
-- [ ] T029 [P] Confirm local↔CI reproducibility: `npm run lint`, `npm run format:check`, `npm run test:coverage` give the same pass/fail on a fresh clone as their CI jobs (maps SC-008, FR-021)
-- [ ] T030 Write `specs/006-developer-ergonomics/checklists/final-review.md`: gate outcomes, maintainer-ops status (T021/T022), invariance numbers, acceptance statement
+- [X] T027 Dogfood MR: open one MR that exercises ALL new gates (`lint`, `format-check`, `coverage`, `secret_detection`, `dependency_scanning`) alongside the existing F005 gates; confirm the full pipeline is green. Record the pipeline URL + per-job verdicts in `baselines.md` (the F005 lesson: never trust an un-run pipeline)
+- [X] T028 [P] Post-feature invariance: `npm test` = 48/1,088/10/0/0; gzipped bundles identical to T004; coverage ≥ thresholds. Record in `baselines.md` (maps SC-007)
+- [X] T029 [P] Confirm local↔CI reproducibility: `npm run lint`, `npm run format:check`, `npm run test:coverage` give the same pass/fail on a fresh clone as their CI jobs (maps SC-008, FR-021)
+- [X] T030 Write `specs/006-developer-ergonomics/checklists/final-review.md`: gate outcomes, maintainer-ops status (T021/T022), invariance numbers, acceptance statement
 - [X] T031 **Decision**: ratify constitution **v1.3.0** (merge the `constitution-v1.3.0` branch) so the spec's Principle VIII/IX citations resolve on `main` — or explicitly document deferral. Soft prerequisite; not blocking implementation
 
 ---
