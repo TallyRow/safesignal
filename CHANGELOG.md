@@ -6,7 +6,11 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] — Unreleased
+## [1.2.0] — 2026-05-30
+
+This release bundles everything since `1.0.1`. The `1.1.0` version number was
+internal-only and never published to npm; the `./transport-otlp` subpath it
+introduced (Feature 007) ships here alongside W3C trace-context (Feature 008).
 
 ### Added — W3C trace-context propagation (Feature 008)
 
@@ -33,8 +37,6 @@ populates the OTLP `LogRecord`'s standard `traceId` / `spanId` / `flags` fields.
   no per-`Logger` cost.
 
 No change for events without trace context. Additive; backward compatible.
-
-## [1.1.0] — Unreleased
 
 ### Added — `./transport-otlp` subpath (Feature 007)
 
