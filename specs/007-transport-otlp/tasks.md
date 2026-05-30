@@ -76,7 +76,7 @@ timestamp, attributes) with a Resource derived from context.
 - [ ] T008 [P] [US1] Unit test `tests/unit/transport-otlp/attributes.test.ts`: `AttributeValue` → OTLP `AnyValue` for string/bool/int/double/null/array/nested-object, total + non-throwing (OP-5).
 - [ ] T009 [P] [US1] Unit test `tests/unit/transport-otlp/resource.test.ts`: `LogContext` identity → Resource attributes (`service.name`/`service.version`/`deployment.environment`/`module.name`/`module.version`), absent fields omitted (OP-2, D3).
 - [ ] T010 [P] [US1] Unit test `tests/unit/transport-otlp/otlp-serializer.test.ts`: a `LogEvent` batch → `OtlpLogsRequest` — one `resourceLogs`/`scopeLogs`, scope name `@tallyrow/safesignal`, severity map 5/9/13/17 + texts, `timeUnixNano` = ms×1e6 string, body stringValue, error→`exception.*`, context attrs under `context.` prefix, unparseable timestamp falls back without throwing, input event not mutated (OP-1/OP-3/OP-4/OP-6, D2/D4).
-- [ ] T011 [P] [US1] Contract test `tests/contract/transport-otlp.contract.test.ts`: build a transport against a captured `fetch`, assert one POST per batch, `Content-Type: application/json`, body parses as a conformant OTLP logs request; assert batching coalesces N events into one request (TO-3/TO-2, US1 scenarios 1–4).
+- [ ] T011 [P] [US1] Contract test `tests/contract/transport-otlp.contract.test.ts`: build a transport against a captured `fetch`, assert one POST per batch, `Content-Type: application/json`, body parses as a conformant OTLP logs request; assert batching coalesces N events into one request; **assert `navigator.sendBeacon` is stubbed and called 0 times** (FR-004 — delivery is `fetch`-only) (TO-3/TO-2, US1 scenarios 1–4).
 - [ ] T012 [P] [US1] Integration test `tests/integration/transport-otlp-host-module.integration.test.ts` (happy path slice): `configureLogging` + `createOtlpTransport` + `getLogger().info(...)` results in a captured OTLP request reaching the endpoint (quickstart scenario).
 - [ ] T013 [P] [US1] Bundle-shape security test `tests/security/transport-otlp-bundle-shape.security.test.ts` mirroring the beacon test: (a) source-import boundary over `src/transport-otlp/**` (only `./…` + type-only `../api/types.js`; forbid `../internal/`, `../runtime/`, `../pipeline/`, `../config/`, `../context/`, `../transport/`, `../internal/telemetry/otel/`, and any `@opentelemetry/*`); (b) `dist/transport-otlp.{mjs,cjs}` contains no `@opentelemetry/`/vendor identifier; (c) `dist/index.{mjs,cjs,d.ts}` contains no OTLP-subpath fingerprint; (d) `dist/transport-otlp.mjs` gz ≤ recorded budget (TO-7). Requires `npm run build`; `beforeAll` fails loudly if `dist/` is absent.
 
@@ -108,13 +108,13 @@ passes.
 ### Tests for User Story 2 ⚠️ (write first, ensure they FAIL)
 
 - [ ] T022 [P] [US2] Contract test additions in `tests/contract/transport-otlp.contract.test.ts`: run `assertTransportContract(createOtlpTransport({ endpoint:'https://…' }))` end-to-end (T-S1..T-S5), and assert `send`/`flush`/`shutdown` never throw/reject (TO-3/TO-4).
-- [ ] T023 [P] [US2] Failure-injection integration test `tests/integration/transport-otlp-failure-safety.integration.test.ts`: non-2xx → `send_failed` + drop; rejected `fetch` → `send_failed` (+`.cause`); `fetch` undefined → `delivery_unavailable`; 2xx+`partialSuccess.rejectedLogRecords>0` → `partial_rejection`; serializer throw → `serialize_failed` + batch drop; over-`maxBufferedEvents` → `buffer_overflow` drop; each notice rate-limited to one per class; NO retry observed (TO-4, D6/D7).
+- [ ] T023 [P] [US2] Failure-injection integration test `tests/integration/transport-otlp-failure-safety.integration.test.ts`: non-2xx → `send_failed` + drop; rejected `fetch` → `send_failed` (+`.cause`); `fetch` undefined → `delivery_unavailable`; 2xx+`partialSuccess.rejectedLogRecords>0` → `partial_rejection`; serializer throw → `serialize_failed` + batch drop; event whose serialized record exceeds `maxRecordBytes` (64 KiB) → `oversized_event` drop (never sent); over-`maxBufferedEvents` → `buffer_overflow` drop; each notice rate-limited to one per class; NO retry observed (TO-4, D6/D7).
 - [ ] T024 [P] [US2] Unit test `tests/unit/transport-otlp/errors.test.ts`: `notifyOnce` emits once per class per instance and carries no header/secret value (FR-010).
 
 ### Implementation for User Story 2
 
 - [ ] T025 [US2] Harden `src/transport-otlp/delivery.ts` failure mapping: map every non-2xx/reject/partial-success/absent-`fetch` outcome to the right `OtlpFailureCode` via `notifyOnce`; guarantee `deliver` never throws (TO-4, D6).
-- [ ] T026 [US2] Harden `src/transport-otlp/otlp-transport.ts` + `batcher.ts`: wrap serialize in try/catch (`serialize_failed`, fail-closed drop); enforce the `maxBufferedEvents` cap with `buffer_overflow` drop; make `flush()`/`shutdown()` idempotent (`shutdownComplete` guard); ensure `send` after shutdown is a safe no-op (TO-4/T-S5, D7).
+- [ ] T026 [US2] Harden `src/transport-otlp/otlp-transport.ts` + `batcher.ts`: wrap serialize in try/catch (`serialize_failed`, fail-closed drop); enforce the per-record `maxRecordBytes` guard (default 64 KiB) with an `oversized_event` drop before buffering; enforce the `maxBufferedEvents` cap with `buffer_overflow` drop; make `flush()`/`shutdown()` idempotent (`shutdownComplete` guard); ensure `send` after shutdown is a safe no-op (TO-4/T-S5, D7).
 - [ ] T027 [US2] Implement lazy `pagehide` best-effort flush in `src/transport-otlp/otlp-transport.ts`: install on first `send` only, `keepalive` flush on `pagehide`, uninstall on `shutdown`; never block unload; install path is idempotent (D7, US2 scenario 4; Principle VII — no work at `Logger` creation).
 
 **Checkpoint**: US1 + US2 — provably fail-safe, bounded, no-retry export.
@@ -176,9 +176,9 @@ duplicate copies don't cross-affect.
 - [ ] T040 Security & Privacy validation pass: confirm upstream redaction is preserved (transport never re-opens events), auth headers fail-closed isolated, no new secret-leak path (re-run T028 + secret-scan); record result.
 - [ ] T041 Log-integrity validation pass: confirm OTLP records are stable/machine-parseable/origin-attributable and that drop/batch/no-retry behavior is documented (spec §Log Integrity, OP contract).
 - [ ] T042 Lightweight-`Logger` & federated-runtime validation pass: re-run T032 + T033; confirm the isolated duplicate-copy contract matches documented behavior.
-- [ ] T043 Reproducible Verification & Mechanical Enforcement pass: walk the plan's gate→enforcement map; confirm each gate runs via `npm run build/typecheck/test/lint/format:check/test:coverage` identically locally and in CI, is guarded by the named test/job, and `tests/` meets `src/` standards. File a remediation task for any gate lacking enforcement (expected: none).
+- [ ] T043 Reproducible Verification & Mechanical Enforcement pass: walk the plan's gate→enforcement map; confirm each gate runs via `npm run build/typecheck/test/lint/format:check/test:coverage` identically locally and in CI, is guarded by the named test/job, and `tests/` meets `src/` standards. Note: FR-015's encoding-seam structure is a **design/review constraint** (verified by code review of the `encode()` indirection in T016), not a runtime gate — record this explicitly so it isn't mistaken for an unenforced machine gate. File a remediation task for any other gate lacking enforcement (expected: none).
 - [ ] T044 Run `quickstart.md` end-to-end against the built package (verify the captured OTLP payload matches the documented example) and fix any drift.
-- [ ] T045 Full-suite invariance check: `npm run build && npm run typecheck && npm test` on Node 20 + 22 — existing suite still 48 files / 1,088 passing / 10 todo / 0 failing (plus the new transport's tests); existing bundles within ±1 KiB; lint + format clean.
+- [ ] T045 Full-suite invariance check: `npm run build && npm run typecheck && npm test` on Node 20 + 22 — the pre-feature suite (48 files / 1,088 passing / 10 todo) has **0 regressions / 0 failing**, with the only deltas being this feature's added test files/cases; existing bundles (`index`, `transport-beacon`, `testing`) within ±1 KiB; lint + format clean.
 
 ---
 
@@ -186,20 +186,22 @@ duplicate copies don't cross-affect.
 
 ### Phase dependencies
 
-- **Setup (P1)** → no deps; start immediately.
-- **Foundational (P2)** → after Setup; BLOCKS all stories.
-- **US1 (P3)** → after Foundational. The MVP.
-- **US2 (P4)** → after US1 (hardens US1's delivery/transport/batcher files).
-- **US3 (P5)** → after US1 (extends delivery + transport wiring); independent of US2.
-- **US4 (P6)** → after US1 (verifies the instance-level state US1 builds); independent of US2/US3.
-- **Polish (P7)** → after all desired stories.
+(“Phase N” = the section number below; story priorities are P1–P3 from spec.md.)
+
+- **Phase 1 Setup** → no deps; start immediately.
+- **Phase 2 Foundational** → after Setup; BLOCKS all stories.
+- **Phase 3 — US1 (priority P1, MVP)** → after Foundational.
+- **Phase 4 — US2 (priority P1)** → after US1 (hardens US1's delivery/transport/batcher files).
+- **Phase 5 — US3 (priority P2)** → after US1 (extends delivery + transport wiring); independent of US2.
+- **Phase 6 — US4 (priority P3)** → after US1 (verifies the instance-level state US1 builds); independent of US2/US3.
+- **Phase 7 Polish** → after all desired stories.
 
 ### Story independence notes
 
 - US1 is independently shippable (the MVP). US2/US3/US4 each layer onto US1's
   files; they are independently *testable* but share `otlp-transport.ts` /
-  `delivery.ts`, so run them sequentially (P1→P2→P3) rather than in parallel to
-  avoid same-file conflicts.
+  `delivery.ts`, so run them sequentially (US1 → US2 → US3 → US4) rather than in
+  parallel to avoid same-file conflicts.
 
 ### Within each story
 

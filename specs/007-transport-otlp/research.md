@@ -156,8 +156,10 @@ events accumulate **or** `maxBatchAgeMs` elapses (defaults proposed in
 data-model; tunable via options). On flush, build one OTLP request for the
 batch. **No retry**: a failed flush drops that batch with one rate-limited
 notice. A `pagehide`/unload best-effort flush is installed lazily (first
-`send`), mirroring beacon, and uses `keepalive`. Buffer is hard-capped; events
-arriving over the cap are dropped (`oversized`/over-limit notice) rather than
+`send`), mirroring beacon, and uses `keepalive`. Buffer is hard-capped at
+`maxBufferedEvents` (default 1000) — events over the cap are dropped
+(`buffer_overflow`); a single event whose serialized record exceeds
+`maxRecordBytes` (default 64 KiB) is dropped (`oversized_event`) — rather than
 growing memory.
 
 **Rationale**: simplest provably-bounded fail-safe posture (clarify decision);
@@ -202,8 +204,9 @@ outcomes. No environment-specific behavior introduced.
 
 ## Open items deferred to /speckit-tasks (implementation detail, not ambiguity)
 
-- Exact default `maxBatchSize` / `maxBatchAgeMs` values and the hard buffer cap
-  (proposed in data-model; finalize in tasks).
+- Default `maxBatchSize` (20) / `maxBatchAgeMs` (5000) / `maxBufferedEvents`
+  (1000) / `maxRecordBytes` (64 KiB) are now pinned in data-model; revisit only
+  if implementation measurement shows a better default.
 - Whether `batcher.ts` physically reuses `src/transport-beacon/batcher.ts` (it
   cannot import across subpaths under the boundary rule, so it will be a
   parallel copy or a shared helper hoisted to an allowed location — decide in

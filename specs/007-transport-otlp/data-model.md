@@ -14,14 +14,16 @@ The consumer-facing configuration passed to `createOtlpTransport(options)`.
 | `headers` | `Record<string, string>` | — | `{}` | Static request headers (e.g. auth). Sent only on the wire; never serialized into events/records/diagnostics (FR-009). |
 | `batching` | `{ maxBatchSize: number; maxBatchAgeMs?: number }` | — | `{ maxBatchSize: 20, maxBatchAgeMs: 5000 }` | Flush triggers (D7). |
 | `maxBufferedEvents` | `number` | — | `1000` | Hard cap; events over the cap are dropped (`buffer_overflow` notice). |
+| `maxRecordBytes` | `number` | — | `65536` (64 KiB) | Per-record size guard: a single event whose serialized OTLP `LogRecord` exceeds this is dropped (`oversized_event` notice), never sent. Mirrors beacon's 64 KiB payload guard. |
 | `name` | `string` | — | `'otlp'` | Stable diagnostic identifier (`Transport.name`). |
 | `allowInsecureLoopback` | `boolean` | — | `false` | Permits `http://` only for localhost/127.0.0.1/[::1] (D8). |
 | `onInternalError` | `(err: Error) => void` | — | no-op | Receives rate-limited diagnostic notices (never carries header/secret values). |
 
 **Validation rules**: `endpoint` must parse as a URL and satisfy D8; `headers`
 keys/values must be strings; `batching.maxBatchSize` ≥ 1; `maxBufferedEvents`
-≥ `maxBatchSize`. All validation runs in the factory (construction time), throws
-a typed error to the consumer call site, and never affects the emit hot path.
+≥ `maxBatchSize`; `maxRecordBytes` ≥ 1. All validation runs in the factory
+(construction time), throws a typed error to the consumer call site, and never
+affects the emit hot path.
 
 ## OtlpTransportState (internal, per instance)
 
@@ -33,6 +35,7 @@ OtlpTransportState {
   readonly onInternalError: (err: Error) => void
   readonly batching: { maxBatchSize: number; maxBatchAgeMs: number }
   readonly maxBufferedEvents: number
+  readonly maxRecordBytes: number                       // per-record size guard (64 KiB default)
   batcher: Batcher                                      // bounded buffer + timer
   pagehideInstalled: boolean
   pagehideUninstall: (() => void) | null
@@ -50,7 +53,7 @@ Rate-limited diagnostic classes (one notice per class per instance per session):
 
 | Code | Trigger |
 |------|---------|
-| `oversized_event` | A single serialized record exceeds the per-record size guard. |
+| `oversized_event` | A single event's serialized OTLP `LogRecord` exceeds `maxRecordBytes` (default 64 KiB); the event is dropped, never sent. |
 | `buffer_overflow` | Buffer at `maxBufferedEvents`; incoming event dropped. |
 | `delivery_unavailable` | `fetch` is not available in the runtime. |
 | `send_failed` | non-2xx response, or `fetch` threw/rejected (carries `.cause`). |

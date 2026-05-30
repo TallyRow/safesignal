@@ -223,8 +223,10 @@ behaviour match observed behaviour.
   HTTPS? (Construction-time rejection at the consumer's call site — never a
   throw from the emit hot path; loopback/insecure allowance, if any, is opt-in.)
 - What happens when a single event or a batch exceeds a reasonable payload size
-  limit? (Bounded; oversized payloads are dropped with a single diagnostic
-  notice rather than sent or retried forever.)
+  limit? (Bounded: a single event whose serialized OTLP `LogRecord` exceeds the
+  `maxRecordBytes` guard — default 64 KiB — is dropped with one `oversized_event`
+  notice, never sent; the buffer is hard-capped at `maxBufferedEvents` with a
+  `buffer_overflow` drop.)
 - How does the transport handle a backend that returns 2xx but a partial-success
   OTLP response indicating some rejected records?
 - What happens when many events arrive while a delivery is already in flight or
@@ -304,10 +306,15 @@ behaviour match observed behaviour.
   shape, and nothing else, mirroring the `./transport-beacon` surface.
 - **FR-002**: The transport MUST translate each fully-processed `LogEvent` into
   a valid OpenTelemetry Logs `LogRecord`, populating at minimum severity
-  number/text, body (message), observed timestamp, and event attributes, by
-  building on the existing internal OTel event seam rather than inventing a new
-  event model. The wire encoding MUST be OTLP/HTTP+**JSON**
-  (`Content-Type: application/json`) for this feature.
+  number/text, body (message), observed timestamp, and event attributes. It MUST
+  reuse the SDK's canonical `LogEvent` model and the documented level→severity
+  mapping (conceptual reuse — see FR-008) rather than inventing a new event
+  model. It MUST **NOT** import the `@opentelemetry`-bearing internal seam
+  (`src/internal/telemetry/otel/**`) or any `@opentelemetry/*` package — doing so
+  would pull the OTel runtime into the subpath bundle and break vendor-neutrality
+  (see FR-007/FR-014 and the bundle-shape gate). The wire encoding MUST be
+  OTLP/HTTP+**JSON** (`Content-Type: application/json`) for this feature,
+  hand-serialized with zero runtime dependencies.
 - **FR-015**: The encoding MUST sit behind a documented internal seam so that a
   future OTLP/HTTP+protobuf encoding can be added without a breaking change to
   the `./transport-otlp` public surface; protobuf support MUST be listed on the
@@ -374,14 +381,22 @@ behaviour match observed behaviour.
   build, and import-resolution standards as `src/`; any tolerated relaxation
   MUST carry a written, named, time-bound removal condition in this feature's
   task list.
-- **FR-013**: The transport MUST bound its memory: pending events/batches MUST
-  be dropped (not buffered unboundedly) once documented size or buffer limits
-  are reached. There is no retry path, so no retry buffer exists.
+- **FR-013**: The transport MUST bound its memory: a single event whose
+  serialized record exceeds `maxRecordBytes` (default 64 KiB) MUST be dropped
+  (`oversized_event`), and pending events MUST be dropped once the
+  `maxBufferedEvents` cap (default 1000) is reached (`buffer_overflow`) rather
+  than buffered unboundedly. There is no retry path, so no retry buffer exists.
 - **FR-014**: The feature MUST NOT change the runtime behaviour of the default
   entry, `./testing`, or `./transport-beacon`, and MUST keep their published
   bundles within the ±1 KiB bundle-invariance gate (current baselines:
   `dist/index.mjs` ≈ 8,166 B gz, `dist/transport-beacon.mjs` ≈ 3,106 B gz,
   `dist/testing.mjs` ≈ 2,724 B gz).
+
+> **Note (intentional overlap)**: FR-006 (no throw/reject to caller), FR-010
+> (no retry; rate-limited integrity notice), and FR-013 (bounded memory) each
+> restate one facet of the fail-safe posture from a distinct constitutional
+> angle (Principle II / VI / VII). The repetition is deliberate for traceable
+> per-principle enforcement and MUST NOT be consolidated away.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -426,9 +441,10 @@ behaviour match observed behaviour.
   browser interactions, verified by failure-injection tests.
 - **SC-007**: Documentation/examples remain accurate for host-app and
   module-based integration paths, and the existing default / `./testing` /
-  `./transport-beacon` bundles stay within the ±1 KiB invariance gate (test
-  suite remains 48 files / 1,088 passing / 10 todo / 0 failing, plus the new
-  transport's tests).
+  `./transport-beacon` bundles stay within the ±1 KiB invariance gate. The
+  pre-feature suite (48 files / 1,088 passing / 10 todo) shows 0 regressions and
+  0 failing; the only suite deltas are this feature's newly added test
+  files/cases.
 - **SC-008**: A new `dist/transport-otlp.mjs` gzipped bundle baseline is
   recorded and gated; subsequent changes to it are caught by the
   bundle-invariance check.
@@ -455,10 +471,14 @@ behaviour match observed behaviour.
 - **Signal scope**: OTLP **Logs** only (`/v1/logs` semantics). Traces, metrics,
   and W3C trace-context propagation are separate future features and are out of
   scope here.
-- **OTel seam reuse**: The transport builds on the existing internal OTel event
-  seam (`src/internal/telemetry/otel/`, e.g. the `LogEvent`→`LogRecord`
-  mapping) and respects the existing `@opentelemetry/*` source-boundary rule
-  that restricts which files may import OTel APIs.
+- **OTel seam reuse (conceptual, not an import)**: The transport reuses the
+  canonical `LogEvent` model and the **same** level→severity mapping that the
+  internal seam (`src/internal/telemetry/otel/mapping.ts`) uses, but it does
+  **NOT** import that seam or any `@opentelemetry/*` package — both carry the
+  OTel runtime, which the `@opentelemetry/*` source-boundary rule confines to
+  `src/internal/telemetry/otel/**` and the subpath bundle-shape gate forbids in
+  `dist/transport-otlp.*`. The OTLP/HTTP+JSON shape is produced by a small,
+  dependency-free serializer (see `contracts/otlp-payload.md`).
 - **Transport contract reuse**: The Feature 002 `Transport` contract
   (T-S1..T-S5) and `assertTransportContract` testing helper apply unchanged; the
   internal `SafeTransport` wrapper continues to provide failure isolation.
