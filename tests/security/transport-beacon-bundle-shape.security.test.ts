@@ -319,9 +319,16 @@ describe('(d) dist/transport-beacon.mjs gzipped size budget', () => {
  * these constants down — the assertion uses ≤, so a smaller bundle
  * passes the upper bound but should be tightened to lock in the
  * win.
+ *
+ * Re-baselined in Feature 008 (W3C trace-context): the core gained the
+ * `context.trace` field handling, `mergeContexts` trace arm,
+ * `normalizeTraceContext`, and the `parseTraceparent` export (kept in
+ * core per research D6 — the +597 B mjs delta is within the ±1 KiB
+ * invariance gate). This is a legitimate core-feature growth, not
+ * beacon-subpath leakage (still guarded by groups (a)–(c) above).
  */
-const DEFAULT_ENTRY_MJS_GZ_MAX = 8200; // observed: 8162 B
-const DEFAULT_ENTRY_CJS_GZ_MAX = 8240; // observed: 8200 B
+const DEFAULT_ENTRY_MJS_GZ_MAX = 8800; // observed: 8763 B (F008)
+const DEFAULT_ENTRY_CJS_GZ_MAX = 8850; // observed: 8806 B (F008)
 
 describe('(e) dist/index.{mjs,cjs} default-entry size lock (SC-007)', () => {
   it(`dist/index.mjs is ≤ ${DEFAULT_ENTRY_MJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {

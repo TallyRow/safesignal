@@ -116,6 +116,41 @@ describe('TO-2 — OTLP/HTTP+JSON delivery shape', () => {
     expect(fetchDouble!.calls.length).toBeGreaterThan(0);
     expect(beaconDouble!.calls).toHaveLength(0);
   });
+
+  it('OT-1 — a LogRecord carries traceId/spanId/flags when context.trace is set', async () => {
+    const t = createOtlpTransport({
+      endpoint: ENDPOINT,
+      batching: { maxBatchSize: 1 },
+    });
+    t.send(
+      event({
+        context: {
+          application: { name: 'svc' },
+          trace: {
+            traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+            spanId: '00f067aa0ba902b7',
+            traceFlags: 1,
+          },
+        },
+      }),
+    );
+    await t.flush!();
+    const body = JSON.parse(fetchDouble!.calls[0]!.body ?? '') as {
+      resourceLogs: Array<{
+        scopeLogs: Array<{
+          logRecords: Array<{
+            traceId?: string;
+            spanId?: string;
+            flags?: number;
+          }>;
+        }>;
+      }>;
+    };
+    const rec = body.resourceLogs[0]!.scopeLogs[0]!.logRecords[0]!;
+    expect(rec.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
+    expect(rec.spanId).toBe('00f067aa0ba902b7');
+    expect(rec.flags).toBe(1);
+  });
 });
 
 describe('TO-4 — send/flush/shutdown never throw', () => {

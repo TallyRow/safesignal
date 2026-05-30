@@ -36,11 +36,13 @@ export type {
   Redactor,
   SanitizerLimits,
   ScrubUrlOptions,
+  TraceContext,
   Transport,
   TransportFactory,
 } from './api/types.js';
 export { createRedactor } from './pipeline/redactor.js';
 export { scrubUrl } from './pipeline/url-scrubber.js';
+export { parseTraceparent } from './trace/traceparent.js';
 // Built-in transport factories ---------------------------------------------
 export { ConsoleTransport } from './transport/console-transport.js';
 export { NoopTransport } from './transport/noop-transport.js';

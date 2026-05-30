@@ -157,6 +157,43 @@ What it guarantees:
   collectors: `endpoint: 'http://localhost:4318/v1/logs'` with
   `allowInsecureLoopback: true`.
 
+## Correlate logs with traces — W3C trace context
+
+Supply a **W3C Trace Context** and SafeSignal carries `trace_id` / `span_id`
+on every event; when shipped via `./transport-otlp`, they populate the OTLP
+`LogRecord`'s standard `traceId` / `spanId` / `flags` fields, so any backend
+joins each log to its trace. SafeSignal is **carry-only** — it never mints ids.
+
+```ts
+import { configureLogging, getRootLogger, parseTraceparent } from '@tallyrow/safesignal';
+
+// From a header string the app already holds (e.g. SSR-injected):
+const trace = parseTraceparent('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01');
+
+configureLogging({
+  application: { name: 'checkout-web' },
+  environment: 'production',
+  context: trace ? { trace } : {},
+  // …or dynamically, per emit, from your tracer's active span:
+  correlation: () => {
+    const s = myTracer.activeSpan();
+    return s ? { trace: { traceId: s.traceId, spanId: s.spanId, traceFlags: 1 } } : {};
+  },
+});
+
+getRootLogger().info('payment.authorized', { amount: 4200 });
+```
+
+- **Carry-only / fail-safe**: no supplied context ⇒ no trace fields; a malformed
+  `traceparent`, wrong-length/all-zero id, or oversized `tracestate` is dropped
+  fail-closed — the event still ships, no throw.
+- **Secure**: trace ids are identifiers, not secrets; `tracestate` is bounded;
+  existing redaction is unaffected.
+- **Vendor-neutral**: pure W3C — works with any tracer; the `./transport-otlp`
+  bundle stays `@opentelemetry`-free. Trace context layers through the same
+  context-merge precedence (root → logger chain → `correlation()`); host and
+  federated modules each contribute without per-`Logger` cost.
+
 ## Level configuration
 
 In `production`, `debug` and `info` are dropped by default. Raise the

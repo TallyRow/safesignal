@@ -76,6 +76,24 @@ export interface ModuleIdentity {
 }
 
 /**
+ * W3C Trace Context carried (consume/propagate only — SafeSignal is not a
+ * tracer and never mints ids) on a `LogEvent.context` when supplied. Ids are
+ * lowercase-hex strings. Present on an event only after fail-closed validation
+ * (`normalizeTraceContext`): both ids are required and well-formed, else the
+ * whole `trace` is dropped. See `specs/008-trace-context/`.
+ */
+export interface TraceContext {
+  /** 32 lowercase-hex chars, not all-zero. */
+  traceId: string;
+  /** 16 lowercase-hex chars, not all-zero. */
+  spanId: string;
+  /** W3C trace flags as an integer 0–255 (bit 0 = sampled). */
+  traceFlags?: number;
+  /** Raw W3C `tracestate`, length-bounded. */
+  traceState?: string;
+}
+
+/**
  * Merged context attached to every emitted `LogEvent`. Merge precedence
  * is documented in `contracts/logger-config.md` (LC-7) and
  * `data-model.md`: root config → per-logger options → logger chain
@@ -86,6 +104,8 @@ export interface LogContext {
   module?: ModuleIdentity;
   environment?: string;
   attributes?: Attributes;
+  /** Optional W3C Trace Context (additive); present only when valid. */
+  trace?: TraceContext;
 }
 
 // ---------------------------------------------------------------------------

@@ -40,6 +40,7 @@ export function mergeContexts(
     module?: LogContext['module'];
     environment?: string;
     attributes?: Attributes;
+    trace?: LogContext['trace'];
   } = {};
 
   for (const src of sources) {
@@ -60,6 +61,13 @@ export function mergeContexts(
         src.attributes,
       );
     }
+    // `trace` is an atomic identity unit — shallow-replace if defined (like
+    // application/module). Deep-merging could mix a traceId from one layer
+    // with a spanId from another, producing an incoherent record. Validation
+    // (normalizeTraceContext) happens once after merge, in the emit path.
+    if (src.trace !== undefined) {
+      merged.trace = src.trace;
+    }
   }
 
   // Build the final value without writing `undefined` properties (required
@@ -69,6 +77,7 @@ export function mergeContexts(
   if (merged.module !== undefined) out.module = merged.module;
   if (merged.environment !== undefined) out.environment = merged.environment;
   if (merged.attributes !== undefined) out.attributes = merged.attributes;
+  if (merged.trace !== undefined) out.trace = merged.trace;
   return out;
 }
 

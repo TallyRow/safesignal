@@ -36,6 +36,7 @@ import {
   shutdownRuntime,
 } from '../runtime/configured-runtime.js';
 import { getActiveRuntime, installRuntime } from '../runtime/runtime-ref.js';
+import { normalizeTraceContext } from '../trace/validate.js';
 import type {
   Attributes,
   CreateLoggerOptions,
@@ -191,6 +192,17 @@ function makeLogger(
       ...chainedContexts,
       correlation,
     );
+
+    // Fail-closed trace-context validation (once per emit, before sanitize/
+    // redact). Invalid/absent trace ⇒ no `trace` field; never throws.
+    if (context.trace !== undefined) {
+      const normalized = normalizeTraceContext(context.trace);
+      if (normalized === undefined) {
+        delete context.trace;
+      } else {
+        context.trace = normalized;
+      }
+    }
 
     const event = buildLogEvent({
       level,

@@ -90,6 +90,7 @@ describe('TB-2 — default-entry surface bit-identical to v1', () => {
       'createLogger',
       'createRedactor',
       'getRootLogger',
+      'parseTraceparent', // added in Feature 008 (W3C trace context)
       'scrubUrl',
     ].sort();
     expect(Object.keys(Pkg).sort()).toEqual(expected);

@@ -25,6 +25,7 @@ const ROOT_RUNTIME_EXPORTS = [
   'getRootLogger',
   'createRedactor',
   'scrubUrl',
+  'parseTraceparent',
   'ConsoleTransport',
   'NoopTransport',
 ] as const;

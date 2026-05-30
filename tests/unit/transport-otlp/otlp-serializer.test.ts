@@ -103,6 +103,47 @@ describe('toLogRecord', () => {
     toLogRecord(e, FALLBACK);
     expect(JSON.stringify(e)).toBe(before);
   });
+
+  it('maps context.trace to OTLP traceId/spanId/flags (OT-1)', () => {
+    const r = toLogRecord(
+      event({
+        context: {
+          trace: {
+            traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+            spanId: '00f067aa0ba902b7',
+            traceFlags: 1,
+          },
+        },
+      }),
+      FALLBACK,
+    );
+    expect(r.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
+    expect(r.spanId).toBe('00f067aa0ba902b7');
+    expect(r.flags).toBe(1);
+  });
+
+  it('omits trace fields when context.trace is absent (OT-2)', () => {
+    const r = toLogRecord(event(), FALLBACK);
+    expect(r.traceId).toBeUndefined();
+    expect(r.spanId).toBeUndefined();
+    expect(r.flags).toBeUndefined();
+  });
+
+  it('omits flags when traceFlags is absent but still maps ids', () => {
+    const r = toLogRecord(
+      event({
+        context: {
+          trace: {
+            traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+            spanId: '00f067aa0ba902b7',
+          },
+        },
+      }),
+      FALLBACK,
+    );
+    expect(r.traceId).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
+    expect(r.flags).toBeUndefined();
+  });
 });
 
 describe('serializeBatch', () => {
