@@ -357,6 +357,8 @@ renovate:
     RENOVATE_ENDPOINT: https://gitlab.com/api/v4
     RENOVATE_AUTODISCOVER: "false"
     RENOVATE_REPOSITORIES: tallyrow/safesignal
-    RENOVATE_TOKEN: $RENOVATE_TOKEN
+    # RENOVATE_TOKEN is injected from the masked/protected project CI variable
+    # automatically — do NOT redefine it here (a self-reference can pass through
+    # empty/literal → "Authentication failure").
   script:
     - renovate
