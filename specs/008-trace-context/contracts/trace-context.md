@@ -39,7 +39,8 @@ chain → `correlation()`), **shallow-replace if defined** — a later source's
 - require `traceId` = 32 lowercase-hex, non-zero AND `spanId` = 16 lowercase-hex,
   non-zero; if either is invalid, the whole `trace` is dropped (`undefined`).
 - coerce `traceFlags` to an integer 0–255 when present, else omit the flag.
-- keep `traceState` when within the documented length bound, else omit it.
+- keep `traceState` when non-empty and ≤ 512 chars (`MAX_TRACESTATE_LEN`, the
+  W3C cap), else omit it.
 - never throw; an invalid/absent trace yields `undefined`.
 
 A logging call with malformed trace input MUST still emit the event (without

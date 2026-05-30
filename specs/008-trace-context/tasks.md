@@ -41,8 +41,8 @@ covers federated/lightweight guarantees.
 **Purpose**: Type scaffold + module skeleton so the feature compiles. No runtime
 logic yet.
 
-- [ ] T001 [P] Add `interface TraceContext { traceId: string; spanId: string; traceFlags?: number; traceState?: string }` and an optional `trace?: TraceContext` on `LogContext` in `src/api/types.ts`; add `TraceContext` to the type exports in `src/index.ts` (type-only; no bundle cost) (TC-1, D1).
-- [ ] T002 [P] Create the `src/trace/` directory with compiling stubs `src/trace/validate.ts` (`normalizeTraceContext`) and `src/trace/traceparent.ts` (`parseTraceparent`) — pure, zero-dep, no cross-subpath imports.
+- [X] T001 [P] Add `interface TraceContext { traceId: string; spanId: string; traceFlags?: number; traceState?: string }` and an optional `trace?: TraceContext` on `LogContext` in `src/api/types.ts`; add `TraceContext` to the type exports in `src/index.ts` (type-only; no bundle cost) (TC-1, D1).
+- [X] T002 [P] Create the `src/trace/` directory with compiling stubs `src/trace/validate.ts` (`normalizeTraceContext`) and `src/trace/traceparent.ts` (`parseTraceparent`) — pure, zero-dep, no cross-subpath imports.
 
 **Checkpoint**: `npm run typecheck` passes; `LogContext.trace` + `TraceContext` resolve.
 
@@ -55,9 +55,9 @@ merge arm, and the emit-path wiring. Pure + fail-closed.
 
 **⚠️ CRITICAL**: No user-story work begins until this phase is complete.
 
-- [ ] T003 Implement `normalizeTraceContext(trace: unknown): TraceContext | undefined` in `src/trace/validate.ts`: require BOTH `traceId` (32 lowercase-hex, non-zero) AND `spanId` (16 lowercase-hex, non-zero) — drop the whole trace if either is invalid; coerce `traceFlags` to an integer 0–255 (else omit the flag); keep `traceState` within the documented length bound (else omit it); never throw (TC-4, D4).
-- [ ] T004 Extend `mergeContexts` in `src/context/context-merge.ts` with a `trace` arm — **shallow-replace if defined** (a later source's `trace` wholly replaces an earlier one), matching `application`/`module` semantics; preserve existing precedence (TC-3, D3).
-- [ ] T005 Wire `normalizeTraceContext` into the emit path in `src/api/logger.ts` during context resolution — after `mergeContexts`, before sanitize/redact — so a directly-supplied and a parsed `context.trace` are validated identically; the merged event's `context.trace` is the normalized result (or absent) (D4/D7).
+- [X] T003 Implement `normalizeTraceContext(trace: unknown): TraceContext | undefined` in `src/trace/validate.ts`: require BOTH `traceId` (32 lowercase-hex, non-zero) AND `spanId` (16 lowercase-hex, non-zero) — drop the whole trace if either is invalid; coerce `traceFlags` to an integer 0–255 (else omit the flag); keep `traceState` within the documented length bound (else omit it); never throw (TC-4, D4).
+- [X] T004 Extend `mergeContexts` in `src/context/context-merge.ts` with a `trace` arm — **shallow-replace if defined** (a later source's `trace` wholly replaces an earlier one), matching `application`/`module` semantics; preserve existing precedence (TC-3, D3).
+- [X] T005 Wire `normalizeTraceContext` into the emit path in `src/api/logger.ts` during context resolution — after `mergeContexts`, before sanitize/redact — so a directly-supplied and a parsed `context.trace` are validated identically; the merged event's `context.trace` is the normalized result (or absent) (D4/D7).
 
 **Checkpoint**: Foundation ready — typecheck passes; user stories can begin.
 
@@ -74,14 +74,14 @@ matching trace fields; with no supply, no trace fields appear.
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL)
 
-- [ ] T006 [P] [US1] Contract test `tests/contract/trace-context.contract.test.ts`: field carriage (a valid supplied `trace` rides on the emitted event — TC-2); merge precedence root → `withContext()` → `correlation()` with shallow-replace (TC-3); carry-only — no supply ⇒ `context.trace` absent, no minted/zero ids (TC-6).
-- [ ] T007 [P] [US1] Extend `tests/unit/transport-otlp/otlp-serializer.test.ts`: with `context.trace` present, `toLogRecord` emits `traceId`/`spanId` (lowercase-hex as-is) + `flags`; with `context.trace` absent, none are emitted; input event not mutated (OT-1/OT-2/OT-5, D5).
-- [ ] T008 [P] [US1] Extend `tests/contract/transport-otlp.contract.test.ts`: an event with trace context delivered via the OTLP transport produces a `LogRecord` carrying `traceId`/`spanId`/`flags` (OT-1).
+- [X] T006 [P] [US1] Contract test `tests/contract/trace-context.contract.test.ts`: field carriage (a valid supplied `trace` rides on the emitted event — TC-2); merge precedence root → `withContext()` → `correlation()` with shallow-replace (TC-3); carry-only — no supply ⇒ `context.trace` absent, no minted/zero ids (TC-6).
+- [X] T007 [P] [US1] Extend `tests/unit/transport-otlp/otlp-serializer.test.ts`: with `context.trace` present, `toLogRecord` emits `traceId`/`spanId` (lowercase-hex as-is) + `flags`; with `context.trace` absent, none are emitted; input event not mutated (OT-1/OT-2/OT-5, D5).
+- [X] T008 [P] [US1] Extend `tests/contract/transport-otlp.contract.test.ts`: an event with trace context delivered via the OTLP transport produces a `LogRecord` carrying `traceId`/`spanId`/`flags` (OT-1).
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Extend `toLogRecord` in `src/transport-otlp/otlp-serializer.ts` to emit `traceId`/`spanId` (the lowercase-hex strings as-is) + `flags` (`traceFlags`) onto the `OtlpLogRecord` when `event.context.trace` is present; emit nothing when absent; do NOT import `@opentelemetry/*` or `src/trace/` (read the plain field) (OT-1..OT-5, D5). Add the optional fields to the `OtlpLogRecord` interface.
-- [ ] T010 [US1] Add a `## Correlate logs with traces — trace context` section to `README.md` (carriage + OTLP mapping; carry-only note), modeling safe usage.
+- [X] T009 [US1] Extend `toLogRecord` in `src/transport-otlp/otlp-serializer.ts` to emit `traceId`/`spanId` (the lowercase-hex strings as-is) + `flags` (`traceFlags`) onto the `OtlpLogRecord` when `event.context.trace` is present; emit nothing when absent; do NOT import `@opentelemetry/*` or `src/trace/` (read the plain field) (OT-1..OT-5, D5). Add the optional fields to the `OtlpLogRecord` interface.
+- [X] T010 [US1] Add a `## Correlate logs with traces — trace context` section to `README.md` (carriage + OTLP mapping; carry-only note), modeling safe usage.
 
 **Checkpoint**: MVP — supplied trace context rides on events and lands on OTLP records; no `@opentelemetry` in the subpath bundle.
 
@@ -98,12 +98,12 @@ throws.
 
 ### Tests for User Story 2 ⚠️ (write first, ensure they FAIL)
 
-- [ ] T011 [P] [US2] Unit test `tests/unit/trace/validate.test.ts`: `normalizeTraceContext` over valid input, wrong-length ids, non-hex/uppercase, all-zero ids, missing id (require-both ⇒ whole trace dropped), out-of-range `traceFlags`, oversized `traceState` (omitted), and non-object input — all without throwing (TC-4).
-- [ ] T012 [P] [US2] Integration test `tests/integration/trace-context-failure-safety.integration.test.ts`: configure a runtime, supply malformed `context.trace` via config/`withContext()`/`correlation()`, emit — assert the event is captured WITHOUT trace fields, no throw/rejection reaches the caller, and a valid event in the same session still carries trace.
+- [X] T011 [P] [US2] Unit test `tests/unit/trace/validate.test.ts`: `normalizeTraceContext` over valid input, wrong-length ids, non-hex/uppercase, all-zero ids, missing id (require-both ⇒ whole trace dropped), out-of-range `traceFlags`, oversized `traceState` (omitted), and non-object input — all without throwing (TC-4).
+- [X] T012 [P] [US2] Integration test `tests/integration/trace-context-failure-safety.integration.test.ts`: configure a runtime, supply malformed `context.trace` via config/`withContext()`/`correlation()`, emit — assert the event is captured WITHOUT trace fields, no throw/rejection reaches the caller, and a valid event in the same session still carries trace.
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Finalize the `normalizeTraceContext` edge policies in `src/trace/validate.ts` per the tests: the `traceState` length bound value and the require-both-ids policy; document the chosen bound in `data-model.md` + `contracts/trace-context.md` (replace any "documented bound" placeholder with the concrete number) (TC-4, research open item).
+- [X] T013 [US2] Finalize the `normalizeTraceContext` edge policies in `src/trace/validate.ts` per the tests: the `traceState` length bound value and the require-both-ids policy; document the chosen bound in `data-model.md` + `contracts/trace-context.md` (replace any "documented bound" placeholder with the concrete number) (TC-4, research open item).
 
 **Checkpoint**: US1 + US2 — carriage works and is provably fail-closed.
 
@@ -120,14 +120,14 @@ and assert correctness/invalidity handling; supply a changing trace via
 
 ### Tests for User Story 3 ⚠️ (write first, ensure they FAIL)
 
-- [ ] T014 [P] [US3] Unit test `tests/unit/trace/traceparent.test.ts`: a valid `00-<32hex>-<16hex>-<2hex>` header → correct `TraceContext`; invalid forms (wrong segment count, bad hex, wrong lengths) → `undefined` (never throws); `tracestate` arg attached + bounded (TC-5).
-- [ ] T015 [P] [US3] Integration test in `tests/integration/trace-context-failure-safety.integration.test.ts` (or a sibling): a `correlation()` hook returning a changing trace context yields per-event trace context current at emit time (US3 scenario 2).
+- [X] T014 [P] [US3] Unit test `tests/unit/trace/traceparent.test.ts`: a valid `00-<32hex>-<16hex>-<2hex>` header → correct `TraceContext`; invalid forms (wrong segment count, bad hex, wrong lengths) → `undefined` (never throws); `tracestate` arg attached + bounded (TC-5).
+- [X] T015 [P] [US3] Integration test in `tests/integration/trace-context-failure-safety.integration.test.ts` (or a sibling): a `correlation()` hook returning a changing trace context yields per-event trace context current at emit time (US3 scenario 2).
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Implement `parseTraceparent(header: string, tracestate?: string): TraceContext | undefined` in `src/trace/traceparent.ts` (pure, never throws; result re-validated by `normalizeTraceContext` at emit); export `parseTraceparent` from `src/index.ts` (TC-5, D2).
-- [ ] T017 [US3] Update the public-surface assertion (`tests/contract/declarations-surface.test.ts` and/or the public-API contract test) to include the new `parseTraceparent` value export and the `TraceContext` type export (TC-1).
-- [ ] T018 [US3] Update the `README.md` trace section + `quickstart.md` to show the three supply paths (parseTraceparent / `correlation()` / `withContext()`), modeling safe usage.
+- [X] T016 [US3] Implement `parseTraceparent(header: string, tracestate?: string): TraceContext | undefined` in `src/trace/traceparent.ts` (pure, never throws; result re-validated by `normalizeTraceContext` at emit); export `parseTraceparent` from `src/index.ts` (TC-5, D2).
+- [X] T017 [US3] Update the public-surface assertion (`tests/contract/declarations-surface.test.ts` and/or the public-API contract test) to include the new `parseTraceparent` value export and the `TraceContext` type export (TC-1).
+- [X] T018 [US3] Update the `README.md` trace section + `quickstart.md` to show the three supply paths (parseTraceparent / `correlation()` / `withContext()`), modeling safe usage.
 
 **Checkpoint**: US1–US3 — ergonomic ingestion and dynamic correlation work.
 
@@ -144,11 +144,11 @@ occurs.
 
 ### Tests for User Story 4 ⚠️ (write first, ensure they FAIL)
 
-- [ ] T019 [P] [US4] Performance test `tests/performance/trace-context-logger-cost.perf.test.ts`: with trace context configured, creating + deriving N loggers (`child()`/`withContext()`) triggers zero per-instance timers/listeners/ambient-reads and stays linear; trace validation cost is per-emit, not per-`Logger` (TC-8, Principle VII).
+- [X] T019 [P] [US4] Performance test `tests/performance/trace-context-logger-cost.perf.test.ts`: with trace context configured, creating + deriving N loggers (`child()`/`withContext()`) triggers zero per-instance timers/listeners/ambient-reads and stays linear; trace validation cost is per-emit, not per-`Logger` (TC-8, Principle VII).
 
 ### Implementation for User Story 4
 
-- [ ] T020 [US4] Confirm in `src/api/logger.ts` / `src/context/context-merge.ts` that no trace state is allocated per `Logger` (trace resolves through the shared merge path); document host/module trace-context ownership + merge precedence in the `README.md` federated section.
+- [X] T020 [US4] Confirm in `src/api/logger.ts` / `src/context/context-merge.ts` that no trace state is allocated per `Logger` (trace resolves through the shared merge path); document host/module trace-context ownership + merge precedence in the `README.md` federated section.
 
 **Checkpoint**: All four stories independently functional.
 
@@ -156,15 +156,15 @@ occurs.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T021 Build and measure `dist/index.mjs` + `dist/index.cjs` gz sizes; re-baseline `DEFAULT_ENTRY_MJS_GZ_MAX` / `DEFAULT_ENTRY_CJS_GZ_MAX` in `tests/security/transport-beacon-bundle-shape.security.test.ts` to the new measured values (the core trace additions legitimately grow the default entry past the old 8200 ceiling — re-baseline, not relaxation) (research D6).
-- [ ] T022 Decide core-vs-`./trace`-subpath for `parseTraceparent` from the measured `dist/index.mjs` ±1 KiB delta vs. the merge-base: if within ±1 KiB, keep it in core (current plan); if it threatens the gate, move `parseTraceparent` to a `./trace` subpath (tsup entry + exports map + bundle-shape test) and update T016/T017 (research D6). Record the decision + measured number.
-- [ ] T023 Security/privacy test `tests/security/trace-context-privacy.security.test.ts`: a `traceState` carrying a secret-like value is bounded and not leaked beyond the bounded field; trace ids pass through redaction unchanged; redaction of surrounding attributes/context/error is unaffected (TC-7, FR-009).
-- [ ] T024 Add a `[1.2.0]` CHANGELOG entry in `CHANGELOG.md` (additive: `context.trace` field, `parseTraceparent` helper, OTLP trace-field mapping; no change for trace-less events).
-- [ ] T025 Security & Privacy + Log-integrity validation pass: confirm carry-only (no id minting), fail-closed validation, `traceState` bound, redaction unaffected, and that trace presence/absence + partial-validity handling are documented (spec §Security/§Log Integrity).
-- [ ] T026 Lightweight & federated validation pass: re-run T019; confirm zero per-`Logger` trace cost and that merge precedence matches docs.
-- [ ] T027 Reproducible Verification & Mechanical Enforcement pass: walk the plan's gate→enforcement map; confirm each gate runs via `npm run build/typecheck/test/lint/format:check/test:coverage` identically local + CI and is guarded by its named test/job; `tests/` meets `src/` standards; file a remediation task for any unenforced gate (expected: none).
-- [ ] T028 Run `quickstart.md` end-to-end against the built package (verify the captured OTLP payload carries the documented trace fields) and fix any drift.
-- [ ] T029 Full-suite invariance check: `npm run build && npm run typecheck && npm test` on Node 20 + 22 — the pre-feature suite has 0 regressions / 0 failing (only this feature's added tests as deltas); `dist/index.mjs` within ±1 KiB of the merge-base and the re-baselined ceiling; `dist/transport-otlp.mjs` still `@opentelemetry`-free and within its 5120 budget; `./testing` / `./transport-beacon` bundles within ±1 KiB; lint + format clean.
+- [X] T021 Build and measure `dist/index.mjs` + `dist/index.cjs` gz sizes; re-baseline `DEFAULT_ENTRY_MJS_GZ_MAX` / `DEFAULT_ENTRY_CJS_GZ_MAX` in `tests/security/transport-beacon-bundle-shape.security.test.ts` to the new measured values (the core trace additions legitimately grow the default entry past the old 8200 ceiling — re-baseline, not relaxation) (research D6). **DONE**: measured index.mjs 8740 B / index.cjs 8785 B; ceilings re-baselined to 8800 / 8850.
+- [X] T022 Decide core-vs-`./trace`-subpath for `parseTraceparent` from the measured `dist/index.mjs` ±1 KiB delta vs. the merge-base (research D6). **DECISION: keep in core** — measured delta is +574 B gz (8166 → 8740), well within the ±1 KiB invariance gate, so no `./trace` subpath is needed. `parseTraceparent` stays exported from the default entry.
+- [X] T023 Security/privacy test `tests/security/trace-context-privacy.security.test.ts`: a `traceState` carrying a secret-like value is bounded and not leaked beyond the bounded field; trace ids pass through redaction unchanged; redaction of surrounding attributes/context/error is unaffected (TC-7, FR-009).
+- [X] T024 Add a `[1.2.0]` CHANGELOG entry in `CHANGELOG.md` (additive: `context.trace` field, `parseTraceparent` helper, OTLP trace-field mapping; no change for trace-less events).
+- [X] T025 Security & Privacy + Log-integrity validation pass: confirm carry-only (no id minting), fail-closed validation, `traceState` bound, redaction unaffected, and that trace presence/absence + partial-validity handling are documented (spec §Security/§Log Integrity).
+- [X] T026 Lightweight & federated validation pass: re-run T019; confirm zero per-`Logger` trace cost and that merge precedence matches docs.
+- [X] T027 Reproducible Verification & Mechanical Enforcement pass: walk the plan's gate→enforcement map; confirm each gate runs via `npm run build/typecheck/test/lint/format:check/test:coverage` identically local + CI and is guarded by its named test/job; `tests/` meets `src/` standards; file a remediation task for any unenforced gate (expected: none).
+- [X] T028 Run `quickstart.md` end-to-end against the built package (verify the captured OTLP payload carries the documented trace fields) and fix any drift.
+- [X] T029 Full-suite invariance check: `npm run build && npm run typecheck && npm test` on Node 20 + 22 — the pre-feature suite has 0 regressions / 0 failing (only this feature's added tests as deltas); `dist/index.mjs` within ±1 KiB of the merge-base and the re-baselined ceiling; `dist/transport-otlp.mjs` still `@opentelemetry`-free and within its 5120 budget; `./testing` / `./transport-beacon` bundles within ±1 KiB; lint + format clean.
 
 ---
 

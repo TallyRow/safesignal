@@ -55,6 +55,10 @@ export interface OtlpLogRecord {
   severityText: string;
   body: AnyValue;
   attributes: KeyValue[];
+  /** W3C trace correlation — present only when `event.context.trace` is set. */
+  traceId?: string;
+  spanId?: string;
+  flags?: number;
 }
 
 export interface OtlpScopeLogs {
@@ -100,7 +104,7 @@ export function toLogRecord(
   pushModuleIdentity(attributes, context);
   pushException(attributes, event);
 
-  return {
+  const record: OtlpLogRecord = {
     timeUnixNano: nano,
     observedTimeUnixNano: nano,
     severityNumber: LEVEL_TO_SEVERITY_NUMBER[event.level],
@@ -108,6 +112,20 @@ export function toLogRecord(
     body: { stringValue: event.message },
     attributes,
   };
+
+  // W3C trace correlation → OTLP standard top-level fields (OP/OT contracts).
+  // The structured ids are already lowercase-hex (validated upstream), so they
+  // are the OTLP/JSON encoding as-is — no base64, no @opentelemetry import.
+  const trace = context.trace;
+  if (trace !== undefined) {
+    record.traceId = trace.traceId;
+    record.spanId = trace.spanId;
+    if (trace.traceFlags !== undefined) {
+      record.flags = trace.traceFlags;
+    }
+  }
+
+  return record;
 }
 
 /**

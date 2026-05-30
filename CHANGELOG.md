@@ -6,6 +6,34 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — Unreleased
+
+### Added — W3C trace-context propagation (Feature 008)
+
+Correlate frontend logs with backend traces. A new optional `context.trace`
+field (`{ traceId, spanId, traceFlags?, traceState? }`) carries host-supplied
+**W3C Trace Context** on every event, and the `./transport-otlp` serializer
+populates the OTLP `LogRecord`'s standard `traceId` / `spanId` / `flags` fields.
+
+- **`parseTraceparent(header, tracestate?)`** — a new pure helper (exported from
+  the default entry) that turns a W3C `traceparent` string into the structured
+  shape; returns `undefined` on invalid input (never throws).
+- **`TraceContext`** type exported from the default entry.
+- **Carry-only**: SafeSignal never mints trace/span ids — no supplied context
+  means no trace fields (no misleading correlation).
+- **Fail-closed**: malformed/invalid trace input (bad hex, wrong length,
+  all-zero id, oversized `tracestate`) is dropped; the event still ships and no
+  call throws. Both ids are required; an invalid optional part is omitted while
+  valid ids are kept.
+- **Secure & vendor-neutral**: trace ids pass through redaction unchanged,
+  `tracestate` is bounded (≤ 512 chars), and the `./transport-otlp` bundle stays
+  `@opentelemetry`-free.
+- Supply via the existing context path (`configureLogging` context /
+  `withContext()` / the per-emit `correlation()` hook) — no new ambient reads,
+  no per-`Logger` cost.
+
+No change for events without trace context. Additive; backward compatible.
+
 ## [1.1.0] — Unreleased
 
 ### Added — `./transport-otlp` subpath (Feature 007)

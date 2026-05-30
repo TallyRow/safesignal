@@ -23,7 +23,7 @@ an emitted `LogEvent.context` only when valid trace context was supplied.
 | `traceId` | `string` | ✅ (within `trace`) | 32 hex, lowercase, not all-zero |
 | `spanId` | `string` | ✅ (within `trace`) | 16 hex, lowercase, not all-zero |
 | `traceFlags` | `number` | — | integer 0–255; coerced/clamped, else omitted |
-| `traceState` | `string` | — | ≤ documented bound (e.g. 512 chars), else omitted |
+| `traceState` | `string` | — | non-empty and ≤ 512 chars (`MAX_TRACESTATE_LEN`, the W3C cap), else omitted |
 
 **Validation (`normalizeTraceContext`)**: returns a `TraceContext` only when
 **both** ids are valid; otherwise returns `undefined` (the whole trace is
