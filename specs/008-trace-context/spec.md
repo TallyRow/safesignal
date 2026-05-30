@@ -19,8 +19,9 @@ This feature lets a host application supply a **W3C Trace Context** (a
 `trace_id` / `span_id`, optional flags + `tracestate`) that SafeSignal carries,
 in structured form, on every emitted event. When those events are shipped via
 the `./transport-otlp` subpath (Feature 007), the trace context populates the
-OTLP `LogRecord`'s **standard** `traceId` / `spanId` / `traceFlags` fields, so
-any OTLP backend can join the log to its trace with no custom mapping.
+OTLP `LogRecord`'s **standard** `traceId` / `spanId` / `flags` fields (OTLP
+names the field `flags`), so any OTLP backend can join the log to its trace with
+no custom mapping.
 
 **Settled framing**: SafeSignal **consumes and propagates** trace context that
 the app provides — it is **not** a tracer (no span creation, timing, or
@@ -72,9 +73,9 @@ traceability:
 3. ~~**Field model + OTLP mapping detail**~~ — **RESOLVED (2026-05-30)**:
    dedicated `context.trace = { traceId, spanId, traceFlags?, traceState? }`
    (hex strings); OTLP/JSON `LogRecord` carries `traceId`/`spanId` as
-   lowercase-hex strings + `traceFlags` as a number (per OTLP/JSON spec). Only
-   `traceState`'s OTLP placement (attribute vs. omit) remains a `/speckit-plan`
-   detail.
+   lowercase-hex strings + the `flags` field (a number, from `traceFlags`) per
+   OTLP/JSON spec. Only `traceState`'s OTLP placement (attribute vs. omit)
+   remains a `/speckit-plan` detail.
 4. **Outbound `traceparent` header injection** — whether the transports inject a
    `traceparent` request header on delivery. **Not asked this session**; the
    working assumption stands: **out of scope** for this feature (a candidate
@@ -109,7 +110,7 @@ OTLP) the OTLP `LogRecord` carries the matching `traceId` / `spanId` /
    `trace_id` and `span_id`.
 2. **Given** an event with trace context is delivered via `./transport-otlp`,
    **When** the OTLP payload is produced, **Then** the `LogRecord` carries the
-   correct `traceId` / `spanId` / `traceFlags` in OTLP's standard fields.
+   correct `traceId` / `spanId` / `flags` in OTLP's standard fields.
 3. **Given** no trace context is supplied, **When** the app logs an event,
    **Then** the event and its OTLP `LogRecord` omit trace fields entirely (no
    empty/zero ids).
@@ -147,9 +148,12 @@ emitted, the invalid trace field is omitted, and no call throws or rejects.
    ships.
 3. **Given** an oversized `tracestate`, **When** the app logs, **Then** the
    `tracestate` is bounded or omitted per documented limits, with no throw.
-4. **Given** trace context that is valid only in part (e.g. valid `trace_id`,
-   invalid `span_id`), **When** the app logs, **Then** the valid portion is
-   kept and the invalid portion is omitted, documented deterministically.
+4. **Given** trace context with one invalid id (e.g. valid `trace_id`, invalid
+   `span_id`), **When** the app logs, **Then** the **whole `trace` is dropped**
+   fail-closed (both ids are required for a useful, non-misleading record) and
+   the event still ships without trace fields. An invalid *optional* part
+   (`traceFlags`/`traceState`) alone is individually omitted while the valid ids
+   are kept.
 
 ---
 
@@ -212,8 +216,9 @@ precedence is honored and no per-`Logger` trace work occurs.
 
 - What happens when the supplied `trace_id` is the all-zero invalid value, or
   not 32 hex chars? (Omit fail-closed; event still ships.)
-- What happens when `span_id` is missing but `trace_id` is valid (or vice
-  versa)? (Documented deterministic handling of the valid portion.)
+- What happens when `span_id` is missing/invalid but `trace_id` is valid (or
+  vice versa)? (Both ids are required — the whole `trace` is dropped fail-closed;
+  the event still ships without trace fields.)
 - How is `tracestate` bounded (max length / entry count), and what happens past
   the bound? (Bounded or omitted per documented limits; never unbounded.)
 - How does trace context interact with redaction/sanitization — are trace ids
@@ -263,7 +268,7 @@ precedence is honored and no per-`Logger` trace work occurs.
   for the trace-context field model + merge precedence; a failure-safety test
   for malformed input (fail-closed, no throw); a security test that surrounding
   redaction is unaffected and no secret leaks via `tracestate`; an OTLP
-  trace-mapping test asserting `LogRecord` `traceId`/`spanId`/`traceFlags`; and
+  trace-mapping test asserting `LogRecord` `traceId`/`spanId`/`flags`; and
   the existing `./transport-otlp` bundle-shape + invariance gates continue to
   hold (no `@opentelemetry/*`; sizes in budget).
 
@@ -282,12 +287,16 @@ precedence is honored and no per-`Logger` trace work occurs.
   context is supplied, no trace fields are emitted — SafeSignal is not a tracer.
 - **FR-003**: When an event carrying trace context is delivered via
   `./transport-otlp`, the system MUST populate the OTLP `LogRecord`'s standard
-  `traceId` / `spanId` / `traceFlags` fields from that context; when no trace
-  context is present, those fields MUST be omitted (no empty/all-zero ids).
+  `traceId` / `spanId` / `flags` fields (the OTLP field is `flags`, sourced from
+  `context.trace.traceFlags`) from that context; when no trace context is
+  present, those fields MUST be omitted (no empty/all-zero ids).
 - **FR-004**: The system MUST validate trace context against W3C Trace Context
-  rules (id lengths/hex, non-zero ids, `tracestate` bounds) and MUST drop
-  invalid or malformed parts **fail-closed**, keeping any valid portion, with
-  documented deterministic handling.
+  rules and MUST drop invalid trace data **fail-closed**: `traceId` (32-hex,
+  non-zero) AND `spanId` (16-hex, non-zero) are **both required** — if either is
+  invalid the whole `trace` is dropped; an invalid *optional* part (`traceFlags`
+  out of range, `traceState` over the bound) is individually omitted while the
+  valid ids are kept. Validation MUST NOT throw; an invalid trace yields no trace
+  fields.
 - **FR-005**: Supplying, parsing, validating, or attaching trace context MUST
   never throw or reject into the emit path; a logging call with bad trace input
   MUST still emit the event without trace fields.
@@ -338,8 +347,9 @@ precedence is honored and no per-`Logger` trace work occurs.
   the arbitrary `context.attributes` bag.
 - **Traceparent (W3C string)**: the `00-<trace-id>-<span-id>-<flags>` header
   form a host supplies; parsed into `TraceContext` by the helper.
-- **OTLP LogRecord trace fields**: the standard `traceId` / `spanId` /
-  `traceFlags` populated on the OTLP payload when trace context is present.
+- **OTLP LogRecord trace fields**: the standard `traceId` / `spanId` / `flags`
+  populated on the OTLP payload when trace context is present (`flags` sourced
+  from `context.trace.traceFlags`).
 
 ## Success Criteria *(mandatory)*
 
