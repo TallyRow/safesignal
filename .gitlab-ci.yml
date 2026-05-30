@@ -131,7 +131,7 @@ dependency-pins:
   stage: audit
   extends: .quality_gate_rules
   script:
-    - npm test -- tests/contract/dependency-pins.test.ts tests/security/bundle-shape.security.test.ts tests/security/transport-beacon-bundle-shape.security.test.ts
+    - npm test -- tests/contract/dependency-pins.test.ts tests/security/bundle-shape.security.test.ts tests/security/transport-beacon-bundle-shape.security.test.ts tests/security/transport-otlp-bundle-shape.security.test.ts
 
 dco-check:
   stage: audit
@@ -272,7 +272,7 @@ release-dependency-pins:
   stage: audit
   extends: .release_only
   script:
-    - npm test -- tests/contract/dependency-pins.test.ts tests/security/bundle-shape.security.test.ts tests/security/transport-beacon-bundle-shape.security.test.ts
+    - npm test -- tests/contract/dependency-pins.test.ts tests/security/bundle-shape.security.test.ts tests/security/transport-beacon-bundle-shape.security.test.ts tests/security/transport-otlp-bundle-shape.security.test.ts
 
 changelog-validate:
   stage: audit
