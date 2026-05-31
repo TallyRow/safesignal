@@ -218,3 +218,32 @@ jobs:
           docker run --rm -v "${PWD}:/repo" zricethezav/gitleaks:v8.18.2 \
             detect --no-git --source /repo --config /repo/.gitleaks.toml \
             --redact --no-banner --verbose
+
+  # Single aggregate gate. Require ONLY this check in branch protection: it is a
+  # stable name (immune to matrix changes) that still gates on every job above.
+  # `if: always()` runs it even when an upstream job is skipped (e.g. dco-check
+  # on push events); a *skipped* dependency is not a failure, so only real
+  # failures/cancellations fail the gate.
+  ci-success:
+    name: ci-success
+    if: always()
+    needs:
+      - build
+      - typecheck
+      - test
+      - lint
+      - format-check
+      - coverage
+      - bundle-invariance
+      - dependency-pins
+      - dco-check
+      - secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "One or more required CI jobs failed or were cancelled:"
+          echo '${{ toJSON(needs) }}'
+          exit 1
+      - run: echo "All required CI jobs passed."
