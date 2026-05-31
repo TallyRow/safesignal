@@ -6,6 +6,39 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — outbound `traceparent` header injection (Feature 009)
+
+Complete the logs-to-traces correlation at the transport layer. The
+`./transport-otlp` transport gains an optional `injectTraceparent?: boolean`
+(default `false`) on `OtlpTransportOptions`: when enabled, a delivery request
+whose flushed batch all shares one valid trace context carries a standard W3C
+`traceparent` (and, when uniform, `tracestate`) **request header**, so a backend
+or collector can join the ingest request to its trace.
+
+- **Homogeneous-only, fail-closed**: the header is set only when every event in
+  the batch shares one identical valid trace context; an empty, trace-less, or
+  multi-trace batch sets no header (no arbitrary "representative" event).
+  `tracestate` rides along only when identical across the batch and within the
+  512-char bound.
+- **Off by default & additive**: with the option unset/`false`, OTLP deliveries
+  are byte-identical to before — no request header, unchanged event payloads and
+  OTLP `LogRecord` output.
+- **Carry-only & fail-safe**: built from the events' existing `context.trace`;
+  no ids are minted, and header construction never throws into a logging call or
+  blocks delivery.
+- **Secure**: the header carries only trace identifiers + bounded `tracestate`;
+  it never overwrites, duplicates, or exposes a consumer `headers` auth/secret
+  value (a consumer-supplied `traceparent` wins).
+- **Scope**: `./transport-otlp` only — `navigator.sendBeacon` cannot set custom
+  request headers, so `./transport-beacon` is out of scope. The
+  `./transport-otlp` bundle stays `@opentelemetry`-free and within its size
+  budget.
+
+No new runtime export, subpath, or `exports`-map entry; no change to the
+default entry, `./testing`, or `./transport-beacon`. Backward compatible.
+
 ## [1.2.0] — 2026-05-30
 
 This release bundles everything since `1.0.1`. The `1.1.0` version number was

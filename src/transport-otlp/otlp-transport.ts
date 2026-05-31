@@ -46,6 +46,7 @@ import {
   type OtlpFailureCode,
 } from './errors.js';
 import { encode, serializeBatch, toLogRecord } from './otlp-serializer.js';
+import { buildRequestHeaders } from './traceparent-header.js';
 
 // ---------------------------------------------------------------------------
 // Public options shape (data-model.md § OtlpTransportOptions)
@@ -69,6 +70,15 @@ export interface OtlpTransportOptions {
   name?: string;
   /** Permit `http://` localhost/127.0.0.1/[::1] only. Default false. */
   allowInsecureLoopback?: boolean;
+  /**
+   * When `true`, set a W3C `traceparent` (and `tracestate`) request header on a
+   * delivery request whose batch all shares one valid trace context. Off by
+   * default; homogeneous-only and fail-closed — a mixed, trace-less, or empty
+   * batch sets no header, and the event payload is unchanged either way.
+   * Carry-only: built from each event's existing `context.trace`; no ids are
+   * minted. See `specs/009-traceparent-injection/`.
+   */
+  injectTraceparent?: boolean;
   /** Receives rate-limited diagnostic notices. Never carries header values. */
   onInternalError?: (err: Error) => void;
 }
@@ -84,6 +94,7 @@ interface OtlpTransportState extends NotifyContext {
   readonly onInternalError: (err: Error) => void;
   readonly maxBufferedEvents: number;
   readonly maxRecordBytes: number;
+  readonly injectTraceparent: boolean;
   readonly notified: Record<OtlpFailureCode, boolean>;
   batcher: Batcher;
   pagehideInstalled: boolean;
@@ -117,6 +128,13 @@ function validateOptions(options: OtlpTransportOptions): void {
     throw new TypeError('otlp transport: options must be a non-null object');
   }
   const { headers, batching, maxBufferedEvents, maxRecordBytes } = options;
+
+  if (
+    options.injectTraceparent !== undefined &&
+    typeof options.injectTraceparent !== 'boolean'
+  ) {
+    throw new TypeError('otlp transport: injectTraceparent must be a boolean');
+  }
 
   if (headers !== undefined) {
     if (typeof headers !== 'object' || headers === null) {
@@ -175,6 +193,7 @@ export function createOtlpTransport(options: OtlpTransportOptions): Transport {
     onInternalError: options.onInternalError ?? (() => undefined),
     maxBufferedEvents: options.maxBufferedEvents ?? DEFAULTS.maxBufferedEvents,
     maxRecordBytes: options.maxRecordBytes ?? DEFAULTS.maxRecordBytes,
+    injectTraceparent: options.injectTraceparent ?? false,
     notified: freshNotifiedLedger(),
     // Placeholder; real batcher assigned below once the flush closure exists.
     batcher: undefined as unknown as Batcher,
@@ -280,12 +299,23 @@ async function flushBatch(
     return;
   }
 
-  const promise = (async (): Promise<void> => {
-    const result: DeliveryResult = await deliver(
-      state.endpoint,
+  // Per-request header map. Best-effort `traceparent` injection (Feature 009)
+  // never blocks delivery: any failure falls back to the plain configured
+  // headers. Returns the same `state.headers` reference when disabled or the
+  // batch is not homogeneous, so the request stays byte-identical.
+  let headers: Readonly<Record<string, string>> = state.headers;
+  try {
+    headers = buildRequestHeaders(
       state.headers,
-      body,
+      events,
+      state.injectTraceparent,
     );
+  } catch {
+    headers = state.headers;
+  }
+
+  const promise = (async (): Promise<void> => {
+    const result: DeliveryResult = await deliver(state.endpoint, headers, body);
     mapResult(state, result);
   })().catch(() => {
     // Defensive: deliver() is contracted not to reject, but never let an

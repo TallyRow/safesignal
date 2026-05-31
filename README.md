@@ -194,6 +194,36 @@ getRootLogger().info('payment.authorized', { amount: 4200 });
   context-merge precedence (root → logger chain → `correlation()`); host and
   federated modules each contribute without per-`Logger` cost.
 
+### Tag the delivery request with `traceparent`
+
+Beyond the per-`LogRecord` trace fields above, the `./transport-otlp` transport
+can also set a W3C `traceparent` (and `tracestate`) **request header** on the
+delivery request itself, so a backend or collector can join the ingest request
+to its trace. It is **off by default** — opt in per transport:
+
+```ts
+const transport = createOtlpTransport({
+  endpoint: 'https://otlp.example.com/v1/logs',
+  headers: { authorization: `Bearer ${token}` }, // sent only on the wire
+  injectTraceparent: true, // ← opt in
+});
+```
+
+A delivery request carries the header **only when every event in the flushed
+batch shares one valid trace context** (the common case for a burst of logs in
+one span); a mixed-trace, trace-less, or empty batch sends no header — never an
+arbitrary "representative" one. `tracestate` rides along only when it is
+identical across the batch (and within the 512-char bound).
+
+- **Carry-only / fail-safe**: built from the events' existing `context.trace`;
+  no ids are minted, header construction never throws into a logging call or
+  blocks delivery, and the event payload is byte-identical either way.
+- **Secure**: the header carries only trace identifiers + bounded `tracestate`;
+  it never overwrites, duplicates, or exposes your auth/secret `headers`
+  (a consumer-supplied `traceparent` wins). Only `./transport-otlp` supports it
+  — `navigator.sendBeacon` cannot set custom request headers, so
+  `./transport-beacon` is out of scope.
+
 ## Level configuration
 
 In `production`, `debug` and `info` are dropped by default. Raise the
