@@ -381,8 +381,6 @@ Reference docs and design history:
 
 The following are forward-looking items (not shipping today):
 
-- **Trace-context propagation** — W3C Trace Context (`traceparent`,
-  `tracestate`) for correlating frontend logs with backend traces.
 - **OTLP/HTTP+protobuf encoding** for the
   [`./transport-otlp`](#ship-logs-to-otlp--transport-otlp-subpath)
   subpath — the subpath ships **JSON** today behind an internal
