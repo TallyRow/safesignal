@@ -61,6 +61,11 @@ jobs:
           git config gpg.format ssh
           git config gpg.ssh.allowedSignersFile .github/allowed_signers
           echo "Verifying SSH signature on tag ${GITHUB_REF_NAME}..."
+          # actions/checkout can leave refs/tags/<tag> pointing at the commit
+          # (dereferenced), so `git tag -v` reports "non-tag object of type
+          # commit". Force-fetch the annotated tag object itself before verify.
+          git fetch --force --no-tags origin \
+            "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
           git tag -v "${GITHUB_REF_NAME}"
 
       - name: Verify tagged commit is on main
