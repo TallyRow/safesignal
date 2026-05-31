@@ -95,6 +95,11 @@ fully tested by [specific action] and delivers [specific value]"]
   or state "No public API change"]
 - **Compatibility Impact**: [Backward compatible / additive / breaking with rationale]
 - **Migration Notes**: [Required only when consumer-visible behavior changes]
+- **Deprecation & Migration**: [If a published contract changes incompatibly, confirm
+  the replacement ships first with a documented migration path, the deprecation is
+  signaled where consumers see it (types, `@deprecated`, changelog), and the deprecated
+  contract survives at least one minor release before removal. State explicitly when no
+  contract is being deprecated or removed.]
 - **Host/Module Usage Impact**: [How host apps and federated or modular consumers are
   affected]
 - **Security & Privacy Considerations**: [Sensitive data risks, secure defaults,
@@ -111,6 +116,11 @@ fully tested by [specific action] and delivers [specific value]"]
   configuration responsibility, and duplicate-package-copy behavior
   (isolated / shared / explicitly unsupported). State explicitly when there is
   no impact.]
+- **Supply-Chain / Distribution Impact**: [Any change to the release pipeline,
+  publish path, dependency set, or the distributed surface (entry points, `exports`
+  map, packaged files). Confirm attested publishing, signed tags, DCO attribution,
+  pinned/screened dependencies, and parity between what ships and what is documented
+  remain intact. State explicitly when there is no impact.]
 - **Verification & Enforcement**: [How every quality requirement, invariant, or
   contract this feature adds will be verified identically in CI and locally
   through a single documented `npm` script (no environment-dependent

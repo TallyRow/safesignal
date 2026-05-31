@@ -9,7 +9,7 @@
  *     to the configured transports.
  *   - **Init failure** falls back to a `NoopBackend` (transports still
  *     receive every event) and reports the failure via `onInternalError`.
- *     This satisfies Principle II (no propagated throws) and the plan's
+ *     This satisfies Principle III (no propagated throws) and the plan's
  *     mitigation #4 for the experimental OTel Logs API.
  *   - **Runtime emission failure** routes the affected event through the
  *     same `NoopBackend` fallback, so a buggy OTel SDK update can't break

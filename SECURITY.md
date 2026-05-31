@@ -1,6 +1,6 @@
 # Security Policy
 
-SafeSignal's secure-by-default posture (Principle IV of the
+SafeSignal's secure-by-default posture (Principle V of the
 [constitution](.specify/memory/constitution.md)) is **non-negotiable**.
 This policy describes how to report a vulnerability privately, what
 response timeline to expect, and how disclosure is coordinated.

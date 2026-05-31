@@ -1,6 +1,6 @@
 /**
  * T032 [US4] — Lightweight-`Logger` & shared-runtime scale test for the
- * OTLP transport (Principle VII / TO-8).
+ * OTLP transport (Principle VIII / TO-8).
  *
  * With one OTLP transport configured at the runtime level, creating and
  * deriving many `Logger`s and emitting through them must NOT scale

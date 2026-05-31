@@ -41,11 +41,20 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
+- Spec-Driven Development (NON-NEGOTIABLE): Confirm this work originates from a spec
+  and that this plan precedes any production code. Confirm the Spec Kit lifecycle is
+  being followed (specify → clarify when ambiguous → plan → tasks → implement) and
+  that this plan's concrete source, stack, dependency, and scope choices are
+  justified before implementation begins.
 - API Stability: Identify every consumer-facing API, config, type, and behavior
   touched by this work. Document compatibility impact, migration needs, and how
   internal details remain hidden behind the package interface. Confirm the design
   keeps the safe path the easy path (defaults, examples, and ergonomic call
-  signatures favor safe, structured, minimal logging).
+  signatures favor safe, structured, minimal logging). For any contract that must
+  change incompatibly, confirm the deprecation discipline: the replacement ships
+  first with a documented migration path, the deprecation is signaled where
+  consumers see it (types, `@deprecated`, changelog), and the deprecated contract
+  survives at least one minor release before removal.
 - Browser Resilience & Failure Safety: Show how the design remains safe in browser
   runtimes and how failures in transports, ingestion endpoints, optional
   integrations, redaction, formatting, or serialization degrade without breaking
@@ -61,7 +70,11 @@
   metadata expectations, and production defaults. Confirm output is structured
   only (no raw object dumping or uncontrolled serialization) with documented
   shape, bounded depth, and bounded size. Explain how future transport or backend
-  changes avoid consumer call-site rewrites.
+  changes avoid consumer call-site rewrites. Where an open, published interchange
+  standard exists for a concern this work addresses (wire format, context
+  propagation, delivery primitive), confirm the design conforms to that standard
+  and documents the version it targets, rather than inventing a proprietary shape;
+  any proprietary format is additive and does not displace the standards-based path.
 - Secure Logging by Default & Sensitive Data Minimization: Confirm defaults do not
   expose secrets, credentials, tokens, session identifiers, authorization headers,
   cookies, or unnecessary personal data. Describe the redaction / omission /
@@ -111,6 +124,14 @@
   before the plan is approved. Removing or disabling the enforcement of a
   previously-enforced gate requires the same justification process as relaxing
   the underlying principle.
+- Supply-Chain Integrity & Provenance: If this work touches the release pipeline,
+  publish path, dependency set, or the distributed surface (entry points, `exports`
+  map, packaged files), confirm it preserves attested publishing (build provenance
+  via short-lived trusted-publisher credentials, not long-lived tokens), signed
+  release tags, DCO attribution, pinned and screened dependencies, and parity
+  between what ships and what is documented. Name the automated check that guards
+  each affected gate, or file a named, time-bound remediation task. State
+  explicitly when this work does not touch the supply chain.
 - Test & Documentation Coverage: List the contract, unit, integration, failure,
   and security-and-privacy tests required to prove compliance, plus any setup or
   integration docs that must change with the implementation. Confirm docs and

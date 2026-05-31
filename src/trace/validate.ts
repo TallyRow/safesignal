@@ -12,7 +12,7 @@
  *   - If either id is invalid, the WHOLE trace is dropped (returns
  *     `undefined`) — a real W3C `traceparent` always carries both, so partial
  *     validity is a malformed-input artifact, and a half-correlated record is
- *     misleading (Principle VI).
+ *     misleading (Principle VII).
  *   - `traceFlags` is kept only as an integer in [0, 255], else omitted.
  *   - `traceState` is kept only as a string within `MAX_TRACESTATE_LEN`, else
  *     omitted.
