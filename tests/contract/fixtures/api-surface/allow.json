@@ -1,0 +1,10 @@
+[
+  {
+    "entry": ".",
+    "name": "createLogger",
+    "from": "function createLogger(options?: Options): Logger;",
+    "to": "function createLogger(options?: Options, extra: number): Logger;",
+    "reason": "Added trailing parameter; existing call sites unaffected.",
+    "reviewedBy": "test-fixture"
+  }
+]

@@ -202,6 +202,38 @@ jobs:
           CI_COMMIT_TAG: ${{ github.ref_name }}
         run: bash scripts/ci/changelog-validate.sh
 
+  # Deprecate-before-remove baseline freshness (Feature 011 / issue #5):
+  # re-extract the surface from the tagged build and assert it equals the
+  # committed api/surface.json, so every published version refreshes the
+  # baseline (FR-007). Mirrors changelog-validate's "the entry must exist"
+  # discipline — see CONTRIBUTING.md § Cutting a release.
+  api-surface-freshness:
+    name: api-surface-freshness
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Assert api/surface.json is fresh for this release
+        run: |
+          npm run api:extract
+          if ! git diff --quiet -- api/surface.json; then
+            echo "api/surface.json is stale for this release tag."
+            echo "Run 'npm run api:extract', commit the refreshed baseline, and"
+            echo "reset api/surface-allow.json to [] before tagging."
+            git --no-pager diff -- api/surface.json
+            exit 1
+          fi
+          echo "api/surface.json matches the tagged build's public surface."
+
   # --------------------------------------------------------------------------
   # Publish with provenance via npm OIDC Trusted Publisher. No NPM_TOKEN: the
   # `id-token: write` permission lets the npm CLI (>= 11.5.1) perform the OIDC
@@ -216,6 +248,7 @@ jobs:
       - bundle-invariance
       - dependency-pins
       - changelog-validate
+      - api-surface-freshness
     runs-on: ubuntu-latest
     permissions:
       contents: read

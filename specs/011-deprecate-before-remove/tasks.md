@@ -29,8 +29,8 @@ new ships.
 
 **Purpose**: Create the directories and test fixtures the rest of the feature builds on.
 
-- [ ] T001 Create `api/` and `scripts/api/` directories; confirm `package.json` `files` stays `["dist"]` so `api/` is never published (record the check in the PR description).
-- [ ] T002 [P] Add gate test fixtures under `tests/contract/fixtures/api-surface/` — sample `baseline.json`, `current-removed.json`, `current-removed-deprecated.json`, `current-added.json`, `current-changed.json`, `allow.json`, plus edge-case fixtures for the spec's Edge Cases: `current-entrypoint-removed.json` (whole `exports` subpath gone → every symbol REMOVED), `current-add-then-removed.json` (symbol never in baseline, absent in current → no-op), and a missing-baseline scenario (no `baseline.json` → PASS) (per `contracts/api-surface-schema.md`).
+- [X] T001 Create `api/` and `scripts/api/` directories; confirm `package.json` `files` stays `["dist"]` so `api/` is never published (record the check in the PR description).
+- [X] T002 [P] Add gate test fixtures under `tests/contract/fixtures/api-surface/` — sample `baseline.json`, `current-removed.json`, `current-removed-deprecated.json`, `current-added.json`, `current-changed.json`, `allow.json`, plus edge-case fixtures for the spec's Edge Cases: `current-entrypoint-removed.json` (whole `exports` subpath gone → every symbol REMOVED), `current-add-then-removed.json` (symbol never in baseline, absent in current → no-op), and a missing-baseline scenario (no `baseline.json` → PASS) (per `contracts/api-surface-schema.md`).
 
 ---
 
@@ -41,8 +41,8 @@ surface representation and on `api/surface.json` existing.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Implement the surface extractor `scripts/api/extract-surface.mjs` (Node ESM): load the four built `dist/*.d.ts` entry points via the bundled `typescript` compiler API, enumerate exported symbols (`checker.getExportsOfModule`), and emit a deterministic `PublicSurface` JSON — per-symbol `{ entry, name, kind, signature, deprecated }`, sorted by `(entry,name)`, normalized signatures, `@deprecated` read from JSDoc tags, no absolute paths/secrets (per `research.md` R1/R3/R4/R6, `data-model.md`, `contracts/api-surface-schema.md`). Ship a sibling `scripts/api/extract-surface.d.mts` declaration so the TS tests import it typed (keeps `typecheck:tests` green without `allowJs`).
-- [ ] T004 Register `"api:extract": "node scripts/api/extract-surface.mjs"` in `package.json`; run `npm run build && npm run api:extract` to seed `api/surface.json` (the v1.3.0 surface) and create `api/surface-allow.json` = `[]`; verify a second `api:extract` re-run is byte-identical and `npm pack --dry-run` does **not** list `api/`.
+- [X] T003 Implement the surface extractor `scripts/api/extract-surface.mjs` (Node ESM): load the four built `dist/*.d.ts` entry points via the bundled `typescript` compiler API, enumerate exported symbols (`checker.getExportsOfModule`), and emit a deterministic `PublicSurface` JSON — per-symbol `{ entry, name, kind, signature, deprecated }`, sorted by `(entry,name)`, normalized signatures, `@deprecated` read from JSDoc tags, no absolute paths/secrets (per `research.md` R1/R3/R4/R6, `data-model.md`, `contracts/api-surface-schema.md`). Ship a sibling `scripts/api/extract-surface.d.mts` declaration so the TS tests import it typed (keeps `typecheck:tests` green without `allowJs`).
+- [X] T004 Register `"api:extract": "node scripts/api/extract-surface.mjs"` in `package.json`; run `npm run build && npm run api:extract` to seed `api/surface.json` (the v1.3.0 surface) and create `api/surface-allow.json` = `[]`; verify a second `api:extract` re-run is byte-identical and `npm pack --dry-run` does **not** list `api/`.
 
 **Checkpoint**: Surface extraction works and a frozen baseline exists — gate, repro, and docs can proceed.
 
@@ -59,14 +59,14 @@ blocks merge (quickstart Walkthrough 1).
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL)
 
-- [ ] T005 [P] [US1] Contract test `tests/contract/api-surface-gate.contract.test.ts` exercising the verdict logic over the Phase-1 fixtures: REMOVED non-deprecated → FAIL; REMOVED baseline-deprecated → PASS; ADDED → PASS; CHANGED (no allow, not deprecated) → FAIL; CHANGED with matching allow-entry → PASS; CHANGED baseline-deprecated → PASS; **plus the edge cases**: whole entry-point removal → each symbol REMOVED (rule applies); add-then-remove (never in baseline) → no-op PASS; no prior baseline → PASS (seeds, nothing to break); version bump does **not** exempt a removal (rule ignores `version`).
+- [X] T005 [P] [US1] Contract test `tests/contract/api-surface-gate.contract.test.ts` exercising the verdict logic over the Phase-1 fixtures: REMOVED non-deprecated → FAIL; REMOVED baseline-deprecated → PASS; ADDED → PASS; CHANGED (no allow, not deprecated) → FAIL; CHANGED with matching allow-entry → PASS; CHANGED baseline-deprecated → PASS; **plus the edge cases**: whole entry-point removal → each symbol REMOVED (rule applies); add-then-remove (never in baseline) → no-op PASS; no prior baseline → PASS (seeds, nothing to break); version bump does **not** exempt a removal (rule ignores `version`).
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Implement the pure comparison module `scripts/api/compare-surface.mjs` (Node ESM, + sibling `compare-surface.d.mts`): `(baseline, current, allow) → GateVerdict { removed, changed, added, violations, pass }` applying the rule in `contracts/api-surface-check.md` — pure additions auto-pass; a CHANGED signature passes only via baseline `deprecated:true` or an exact-match reviewed `AllowEntry`, **never** by demanding a deprecation cycle (revised FR-005). Makes T005 pass.
-- [ ] T007 [US1] Implement the gate entrypoint `scripts/api/check-surface.mjs`: **guard the honest `dist/*.d.ts` prerequisite in-process** (if absent, print "run `npm run build` first" and exit non-zero — never a silent pass), read `api/surface.json` + `api/surface-allow.json`, extract the current surface via T003, call `compare-surface`, print a verdict table (bundle-invariance style), `process.exit(verdict.pass ? 0 : 1)`.
-- [ ] T008 [US1] Register `"api:check": "node scripts/api/check-surface.mjs"` in `package.json` — a cross-platform Node entrypoint (no Bash wrapper) so local outcomes match CI on Windows/macOS/Linux; the `dist/` prerequisite guard lives in `check-surface.mjs` (T007).
-- [ ] T009 [US1] Add an `api-surface` job to `.github/workflows/ci.yml` (consume the existing build artifact like other jobs; run `npm run api:check`) and add `api-surface` to the `ci-success` aggregate `needs[]` so an undeprecated breaking change cannot merge (FR-009).
+- [X] T006 [US1] Implement the pure comparison module `scripts/api/compare-surface.mjs` (Node ESM, + sibling `compare-surface.d.mts`): `(baseline, current, allow) → GateVerdict { removed, changed, added, violations, pass }` applying the rule in `contracts/api-surface-check.md` — pure additions auto-pass; a CHANGED signature passes only via baseline `deprecated:true` or an exact-match reviewed `AllowEntry`, **never** by demanding a deprecation cycle (revised FR-005). Makes T005 pass.
+- [X] T007 [US1] Implement the gate entrypoint `scripts/api/check-surface.mjs`: **guard the honest `dist/*.d.ts` prerequisite in-process** (if absent, print "run `npm run build` first" and exit non-zero — never a silent pass), read `api/surface.json` + `api/surface-allow.json`, extract the current surface via T003, call `compare-surface`, print a verdict table (bundle-invariance style), `process.exit(verdict.pass ? 0 : 1)`.
+- [X] T008 [US1] Register `"api:check": "node scripts/api/check-surface.mjs"` in `package.json` — a cross-platform Node entrypoint (no Bash wrapper) so local outcomes match CI on Windows/macOS/Linux; the `dist/` prerequisite guard lives in `check-surface.mjs` (T007).
+- [X] T009 [US1] Add an `api-surface` job to `.github/workflows/ci.yml` (consume the existing build artifact like other jobs; run `npm run api:check`) and add `api-surface` to the `ci-success` aggregate `needs[]` so an undeprecated breaking change cannot merge (FR-009).
 
 **Checkpoint**: US1 fully functional — removals fail closed locally and block merge in CI.
 
@@ -83,12 +83,12 @@ a silent pass (quickstart Walkthroughs 5 & the prerequisite path).
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T010 [P] [US2] Test `tests/contract/api-surface-prereq.contract.test.ts`: invoking the gate (`npm run api:check` / `node scripts/api/check-surface.mjs`) with `dist/*.d.ts` absent exits non-zero and prints an actionable "run `npm run build` first" message (never passes silently).
-- [ ] T011 [P] [US2] Test `tests/contract/api-surface-determinism.contract.test.ts`: re-extracting an unchanged build via `scripts/api/extract-surface.mjs` yields byte-identical output (sorted symbols, stable keys, trailing newline).
+- [X] T010 [P] [US2] Test `tests/contract/api-surface-prereq.contract.test.ts`: invoking the gate (`npm run api:check` / `node scripts/api/check-surface.mjs`) with `dist/*.d.ts` absent exits non-zero and prints an actionable "run `npm run build` first" message (never passes silently).
+- [X] T011 [P] [US2] Test `tests/contract/api-surface-determinism.contract.test.ts`: re-extracting an unchanged build via `scripts/api/extract-surface.mjs` yields byte-identical output (sorted symbols, stable keys, trailing newline).
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Confirm `npm run api:check` is the single documented entrypoint with no CI-only shim: verify the `ci.yml` `api-surface` job invokes exactly `npm run api:check`; confirm the Node entrypoint runs identically on Windows/macOS/Linux (no Bash dependency) and that the TS tests resolve the `.mjs` tooling via the shipped `.d.mts` declarations under `typecheck:tests`; document local/CI parity in `quickstart.md` (Walkthrough 5). Resolve any resolver/format difference in-config, not with a skip.
+- [X] T012 [US2] Confirm `npm run api:check` is the single documented entrypoint with no CI-only shim: verify the `ci.yml` `api-surface` job invokes exactly `npm run api:check`; confirm the Node entrypoint runs identically on Windows/macOS/Linux (no Bash dependency) and that the TS tests resolve the `.mjs` tooling via the shipped `.d.mts` declarations under `typecheck:tests`; document local/CI parity in `quickstart.md` (Walkthrough 5). Resolve any resolver/format difference in-config, not with a skip.
 
 **Checkpoint**: US1 + US2 both pass independently; the gate is reproducible at the desk.
 
@@ -105,12 +105,12 @@ CI job / contract (quickstart Walkthroughs 7 & the failure message).
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T013 [P] [US3] Test `tests/contract/api-surface-message.contract.test.ts`: a gate failure output names every offending symbol and includes the deprecate-before-remove remediation guidance — no opaque/unattributed failure (SC-006).
+- [X] T013 [P] [US3] Test `tests/contract/api-surface-message.contract.test.ts`: a gate failure output names every offending symbol and includes the deprecate-before-remove remediation guidance — no opaque/unattributed failure (SC-006).
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Harden the failure output in `scripts/api/check-surface.mjs`: for each violation, name `(entry, name)`, its class (REMOVED/CHANGED), and the remediation (ship `@deprecated` + replacement + migration path for one minor, or revert), per `contracts/api-surface-check.md` (FR-010). Makes T013 pass.
-- [ ] T015 [US3] Update `CONTRIBUTING.md`: add a "Deprecating a public symbol" how-to; an **enforcement reference** linking Principle II / Principle X → `npm run api:check` (`scripts/api/check-surface.mjs`), the `api-surface` CI job, and `specs/011-deprecate-before-remove/contracts/api-surface-check.md` for rule→check traceability (FR-011); and a note that **disabling or removing the `api-surface` gate is subject to the constitution amendment process**, documenting the gate's required status as an enforced invariant (FR-012). Updating the constitution to name the mechanism is an optional patch-level refinement, not required by this feature (FR-011 clarification).
+- [X] T014 [US3] Harden the failure output in `scripts/api/check-surface.mjs`: for each violation, name `(entry, name)`, its class (REMOVED/CHANGED), and the remediation (ship `@deprecated` + replacement + migration path for one minor, or revert), per `contracts/api-surface-check.md` (FR-010). Makes T013 pass.
+- [X] T015 [US3] Update `CONTRIBUTING.md`: add a "Deprecating a public symbol" how-to; an **enforcement reference** linking Principle II / Principle X → `npm run api:check` (`scripts/api/check-surface.mjs`), the `api-surface` CI job, and `specs/011-deprecate-before-remove/contracts/api-surface-check.md` for rule→check traceability (FR-011); and a note that **disabling or removing the `api-surface` gate is subject to the constitution amendment process**, documenting the gate's required status as an enforced invariant (FR-012). Updating the constitution to name the mechanism is an optional patch-level refinement, not required by this feature (FR-011 clarification).
 
 **Checkpoint**: All three user stories are independently functional.
 
@@ -121,12 +121,12 @@ CI job / contract (quickstart Walkthroughs 7 & the failure message).
 **Purpose**: Keep the baseline fresh across releases, file the deferred-scope follow-up, and run
 the constitution-mandated validation passes.
 
-- [ ] T016 Release wiring + runbook (FR-007 / SC-004): add a freshness step to `.github/workflows/release.yml` asserting `api/surface.json` equals the surface extracted from the tagged commit's build (alongside `changelog-validate`); update `CONTRIBUTING.md § Cutting a release` to run `npm run api:extract`, commit the refreshed `api/surface.json`, and reset `api/surface-allow.json` to `[]` before tagging.
+- [X] T016 Release wiring + runbook (FR-007 / SC-004): add a freshness step to `.github/workflows/release.yml` asserting `api/surface.json` equals the surface extracted from the tagged commit's build (alongside `changelog-validate`); update `CONTRIBUTING.md § Cutting a release` to run `npm run api:extract`, commit the refreshed `api/surface.json`, and reset `api/surface-allow.json` to `[]` before tagging.
 - [ ] T017 [P] **Named, time-bound follow-up** (Principle X): file a tracked GitHub issue "Automated structural API compatibility classification" capturing the plan.md Complexity Tracking boundary (auto-distinguish compatible widenings from incompatible signature changes so the `surface-allow.json` override can shrink), with a stated deadline of **2026-09-01**; reference it from `plan.md` Complexity Tracking.
-- [ ] T018 Reproducible-Verification & Mechanical-Enforcement validation pass: confirm every gate this feature documents runs through `npm run api:check` (and the release freshness step) with identical local/CI exit codes; confirm `api-surface` is in `ci-success` `needs[]` and fails closed; confirm `tests/` here meets the same typing/lint/build standards as `src/` with no tolerated relaxation introduced.
-- [ ] T019 Supply-chain & distributed-surface validation (Principle XI): `npm pack --dry-run` shows `api/` excluded and `exports`/`files`/`main`/`module`/`types` unchanged; confirm attested OIDC publish, signed tags, DCO, and dependency pins remain intact and **no new dependency** was added; confirm this feature closes the constitution Sync Impact TODO item (a) (deprecation-discipline now mechanically enforced).
-- [ ] T020 [P] Security/privacy validation (FR-013): confirm `api/surface.json`, `api/surface-allow.json`, and gate output contain only public symbol names/kinds/signatures — no secrets, tokens, consumer data, or absolute paths.
-- [ ] T021 Run all `quickstart.md` walkthroughs (1–7) and confirm each acceptance criterion; record results in the PR.
+- [X] T018 Reproducible-Verification & Mechanical-Enforcement validation pass: confirm every gate this feature documents runs through `npm run api:check` (and the release freshness step) with identical local/CI exit codes; confirm `api-surface` is in `ci-success` `needs[]` and fails closed; confirm `tests/` here meets the same typing/lint/build standards as `src/` with no tolerated relaxation introduced.
+- [X] T019 Supply-chain & distributed-surface validation (Principle XI): `npm pack --dry-run` shows `api/` excluded and `exports`/`files`/`main`/`module`/`types` unchanged; confirm attested OIDC publish, signed tags, DCO, and dependency pins remain intact and **no new dependency** was added; confirm this feature closes the constitution Sync Impact TODO item (a) (deprecation-discipline now mechanically enforced).
+- [X] T020 [P] Security/privacy validation (FR-013): confirm `api/surface.json`, `api/surface-allow.json`, and gate output contain only public symbol names/kinds/signatures — no secrets, tokens, consumer data, or absolute paths.
+- [X] T021 Run all `quickstart.md` walkthroughs (1–7) and confirm each acceptance criterion; record results in the PR.
 
 ---
 

@@ -319,6 +319,58 @@ git remote set-head origin -a
 If you also cloned before the `master`→`main` default-branch rename,
 add `git branch -m master main` before the `git branch -u` line.
 
+## Changing the public API (deprecate-before-remove)
+
+The public API surface — every value and type exported from the
+`exports` entry points (`.`, `./testing`, `./transport-beacon`,
+`./transport-otlp`) — is a contract. Per the constitution's
+**Principle II**, an incompatible change to a published symbol must
+ship **deprecated first**: keep the old symbol working with an
+`@deprecated` JSDoc tag, a working replacement, and a documented
+migration path, for at least one minor release, before removing it.
+
+**This is mechanically enforced** (Principle X). The `api-surface` CI
+job — part of the required `ci-success` gate — runs `npm run api:check`
+([`scripts/api/check-surface.mjs`](scripts/api/check-surface.mjs)),
+which compares the built surface against the committed baseline
+([`api/surface.json`](api/surface.json)) and **fails closed** on an
+undeprecated removal or incompatible change. The rule, inputs, and exit
+codes are specified in
+[`specs/011-deprecate-before-remove/contracts/api-surface-check.md`](specs/011-deprecate-before-remove/contracts/api-surface-check.md).
+Run it locally before pushing — the verdict matches CI:
+
+```bash
+npm run build && npm run api:check
+```
+
+### Deprecating a symbol
+
+1. Add an `@deprecated` JSDoc tag to the symbol in `src/`, naming the
+   replacement and the migration path. Keep the symbol working.
+2. Note the deprecation in `CHANGELOG.md`.
+3. Ship it. At release, `npm run api:extract` records the symbol as
+   `deprecated: true` in the baseline.
+4. In a **later** minor (or major) release, remove the symbol — the gate
+   now passes the removal because the baseline shows it was deprecated.
+
+### Backward-compatible changes
+
+A pure addition (new export) passes the gate automatically. A
+backward-compatible **signature change** (e.g., a new optional
+parameter) is held by the gate until a reviewer acknowledges it: add an
+entry to [`api/surface-allow.json`](api/surface-allow.json) recording
+the exact `from`/`to` signature, a `reason`, and `reviewedBy`. The entry
+is cleared when the baseline is refreshed at the next release. A
+compatible change is **never** forced through a deprecation cycle.
+
+### Removing or disabling the gate
+
+The `api-surface` gate is itself a documented, enforced invariant.
+Disabling or removing it — or dropping it from `ci-success` — is a
+**relaxation of a documented contract** and goes through the
+constitution amendment process (Principle X), the same as relaxing the
+underlying Principle II rule. It is not a routine change.
+
 ## Cutting a release
 
 Only maintainers cut releases. The release workflow
@@ -373,6 +425,23 @@ documented notes.
 Commit the CHANGELOG entry on a release branch (e.g.,
 `release/v1.0.2`), open a pull request, wait for `ci-success` green,
 and merge into `main`.
+
+### 2b. Refresh the public API surface baseline
+
+On the same release branch, refresh the committed public-API baseline
+so this version becomes the next deprecate-before-remove reference:
+
+```bash
+npm run build
+npm run api:extract          # regenerates api/surface.json from the build
+printf '[]\n' > api/surface-allow.json   # clear any compatible-change overrides
+git add api/surface.json api/surface-allow.json
+```
+
+The release pipeline's `api-surface-freshness` stage **fails the
+publish** if `api/surface.json` does not match the tagged build's
+surface — the same "must be refreshed" discipline as the CHANGELOG.
+Commit the refreshed baseline alongside the CHANGELOG entry.
 
 ### 3. Create and push the signed tag
 

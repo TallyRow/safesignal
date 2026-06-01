@@ -190,6 +190,27 @@ jobs:
           tests/security/transport-beacon-bundle-shape.security.test.ts
           tests/security/transport-otlp-bundle-shape.security.test.ts
 
+  # Deprecate-before-remove gate (Feature 011 / issue #5): compares the built
+  # public API surface against the committed baseline (api/surface.json) and
+  # fails closed on an undeprecated removal or incompatible change. Consumes the
+  # build artifact; the gate is a cross-platform Node entrypoint (no bash).
+  api-surface:
+    name: api-surface
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: npm run api:check
+
   # DCO sign-off applies to the commits a PR introduces (GitLab ran it on MRs).
   # The Renovate GitHub App's bot commits carry no Signed-off-by trailer, so
   # `renovate/*` PRs are exempt — the job skips (a skip is not a failure for the
@@ -240,6 +261,7 @@ jobs:
       - coverage
       - bundle-invariance
       - dependency-pins
+      - api-surface
       - dco-check
       - secret-scan
     runs-on: ubuntu-latest

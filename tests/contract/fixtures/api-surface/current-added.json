@@ -1,0 +1,33 @@
+{
+  "version": "1.1.0",
+  "symbols": [
+    {
+      "entry": ".",
+      "name": "createLogger",
+      "kind": "function",
+      "signature": "function createLogger(options?: Options): Logger;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "newHelper",
+      "kind": "function",
+      "signature": "function newHelper(): void;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "oldHelper",
+      "kind": "function",
+      "signature": "function oldHelper(): void;",
+      "deprecated": true
+    },
+    {
+      "entry": "./testing",
+      "name": "assertContract",
+      "kind": "function",
+      "signature": "function assertContract(t: Transport): void;",
+      "deprecated": false
+    }
+  ]
+}
