@@ -182,10 +182,14 @@ jobs:
         with:
           name: dist
           path: dist/
-      # Bundle-shape tests inspect dist/, so they consume the build artifact.
-      - run: >
+      # Packaging-contract tests inspect dist/, so they consume the build
+      # artifact. Includes the distributed-surface parity gate (Feature 012 /
+      # issue #6): `npm pack` ↔ exports ↔ docs parity, fail-closed.
+      - name: "Packaging contracts: dependency-pins, bundle-shape, distributed-surface parity"
+        run: >
           npm test --
           tests/contract/dependency-pins.test.ts
+          tests/contract/distributed-surface.contract.test.ts
           tests/security/bundle-shape.security.test.ts
           tests/security/transport-beacon-bundle-shape.security.test.ts
           tests/security/transport-otlp-bundle-shape.security.test.ts
