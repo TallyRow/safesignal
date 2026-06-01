@@ -62,6 +62,7 @@
     "build": "tsup",
     "api:extract": "node scripts/api/extract-surface.mjs",
     "api:check": "node scripts/api/check-surface.mjs",
+    "surface:check": "vitest run tests/contract/distributed-surface.contract.test.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
     "typecheck:src": "tsc --noEmit",
     "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json",

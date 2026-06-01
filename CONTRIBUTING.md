@@ -371,6 +371,50 @@ Disabling or removing it — or dropping it from `ci-success` — is a
 constitution amendment process (Principle X), the same as relaxing the
 underlying Principle II rule. It is not a routine change.
 
+## Distributed-surface parity (what ships matches the docs)
+
+The package's **distributed surface** — the `exports` subpaths, the
+packaged `files`, and the bundle contents — is a contract. Per the
+constitution's **Principle XI**, what ships MUST match what is
+documented and contracted: nothing undocumented may ride along, no
+`exports` entry may point at a file that isn't shipped, and the public
+subpaths must be exactly the documented set.
+
+**This is mechanically enforced** (Principle X). The
+[`distributed-surface` contract test](tests/contract/distributed-surface.contract.test.ts)
+runs `npm pack --dry-run --json` and **fails closed** on any drift:
+
+- an `exports`/`main`/`module`/`types` target that isn't in the packed
+  file set (a missing/unshipped target),
+- a packaged file outside the documented surface — anything beyond
+  `dist/**` plus npm's mandatory `package.json`/`README`/`LICENSE` (a
+  stray inclusion),
+- an `exports` key set that doesn't equal the four documented public
+  subpaths (`.`, `./testing`, `./transport-beacon`, `./transport-otlp`).
+
+The documented surface is specified in
+[`specs/012-distributed-surface-parity/contracts/distributed-surface.md`](specs/012-distributed-surface-parity/contracts/distributed-surface.md).
+The gate runs in the `dependency-pins` job (part of the required
+`ci-success` aggregate **and** the release pipeline). Run it locally —
+the verdict matches CI:
+
+```bash
+npm run build && npm run surface:check
+```
+
+When you intentionally change the public surface (a new subpath, a
+changed `files`), update both `package.json` **and** the surface
+contract doc; the gate fails until they agree.
+
+### Removing or disabling the gate
+
+Like the `api-surface` gate, the distributed-surface parity test is a
+documented, enforced invariant. Disabling or removing it — or dropping
+it from the `dependency-pins` job / `ci-success` — is a **relaxation of
+a documented contract** and goes through the constitution amendment
+process (Principle X), the same as relaxing the underlying Principle XI
+rule. It is not a routine change.
+
 ## Cutting a release
 
 Only maintainers cut releases. The release workflow
