@@ -6,6 +6,26 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed — repository moved from GitLab to GitHub
+
+SafeSignal's canonical home is now
+[`github.com/TallyRow/safesignal`](https://github.com/TallyRow/safesignal)
+(previously GitLab). CI/CD runs on GitHub Actions
+(`.github/workflows/ci.yml`, `.github/workflows/release.yml`); releases
+publish to npm **with provenance** via the GitHub Actions OIDC Trusted
+Publisher. `v1.3.0` was the first release published from GitHub.
+
+- Contributor docs, issue/PR templates, and governance/security policy
+  updated for GitHub (pull requests, `gh`, branch ruleset, GitHub Private
+  Vulnerability Reporting).
+- Dependency automation moved to the **Renovate GitHub App**; the legacy
+  GitLab CI configuration was removed.
+- The GitLab project is archived read-only with a pointer to GitHub.
+- No package code, public API, runtime behavior, or `exports` changed.
+  (Feature 010.)
+
 ## [1.3.0] — 2026-05-30
 
 ### Added — outbound `traceparent` header injection (Feature 009)

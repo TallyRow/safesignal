@@ -7,13 +7,18 @@ response timeline to expect, and how disclosure is coordinated.
 
 ## Reporting a vulnerability
 
-**Email `security@tallyrow.com`** with vulnerability details. This
-address routes to the maintainer-owned inbox.
+Use either private channel — **do NOT open a public issue**:
 
-**DO NOT file vulnerability details in a public GitLab issue.** A
-public-issue submission would expose the issue before a fix can be
-prepared and published, creating a window during which consumers
-are unprotected.
+- **GitHub Private Vulnerability Reporting** (preferred): on the
+  repository's **Security** tab, click **Report a vulnerability**
+  (`https://github.com/TallyRow/safesignal/security/advisories/new`).
+  This opens a private advisory thread with the maintainer.
+- **Email `security@tallyrow.com`** with vulnerability details — routes
+  to the maintainer-owned inbox.
+
+A public-issue submission would expose the issue before a fix can be
+prepared and published, creating a window during which consumers are
+unprotected.
 
 If you want to send sensitive details encrypted, request a PGP key
 in your initial (non-sensitive) email and the maintainer will
@@ -60,9 +65,10 @@ Within that window:
 - The maintainer prepares and ships a fix.
 - A patched release is published to npm before any public
   disclosure.
-- A `SECURITY` advisory is published in the GitLab project and a
-  `CHANGELOG.md` entry names the issue (without exposing
-  exploitation details until after the patch is widely deployed).
+- A **GitHub Security Advisory** is published for the repository (with
+  a CVE where applicable) and a `CHANGELOG.md` entry names the issue
+  (without exposing exploitation details until after the patch is
+  widely deployed).
 
 The 90-day default is extendable by **mutual agreement** when a fix
 requires more time (significant architectural change, coordinated
@@ -142,4 +148,4 @@ Public credit for reported vulnerabilities is the default. Reporters
 who prefer to remain unnamed can request that in the initial email.
 The `CHANGELOG.md` entry for the patched release will list the
 reporter (or "Reported privately" if the reporter opts out) and
-link to the published GitLab security advisory.
+link to the published GitHub Security Advisory.
