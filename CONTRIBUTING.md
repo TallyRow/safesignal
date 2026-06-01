@@ -7,7 +7,7 @@ on npm as [`@tallyrow/safesignal`](https://www.npmjs.com/package/@tallyrow/safes
 under the MIT license.
 
 This document covers how the project's development workflow runs, how
-to file issues, how to open merge requests, and the contributor-side
+to file issues, how to open pull requests, and the contributor-side
 expectations.
 
 ## Code of Conduct
@@ -102,7 +102,7 @@ Worked examples (from oldest to newest):
   this feature (legal + community + governance).
 
 Small fixes (typo, broken link, doc-only clarification) can skip
-the full Spec Kit workflow and ship as a direct MR. Any change that
+the full Spec Kit workflow and ship as a direct PR. Any change that
 touches `src/`, public API surface, redaction defaults, sanitizer
 limits, URL scrubber behavior, transport contracts, or the
 federated-runtime model SHOULD go through Spec Kit. When in doubt,
@@ -111,8 +111,8 @@ implementation.
 
 ## Filing a bug
 
-Open a new issue on GitLab and select the **Bug** template. The
-template asks for:
+Open a new issue on GitHub and choose the **Bug report** template. It
+asks for:
 
 - Steps to reproduce
 - Expected behavior
@@ -126,8 +126,8 @@ The smaller the reproduction, the faster a fix lands.
 
 ## Proposing a feature
 
-Open a new issue and select the **Feature** template. The template
-asks you to describe:
+Open a new issue on GitHub and choose the **Feature request** template.
+It asks you to describe:
 
 - The consumer use case (what are you trying to do that the current
   SDK can't?)
@@ -141,20 +141,21 @@ Spec Kit feature spec (`/speckit-specify` → … → `/speckit-implement`).
 
 ## Reporting a security issue
 
-**DO NOT file vulnerability details in a public GitLab issue.**
-Email `security@tallyrow.com` instead. The full disclosure policy,
-response-time targets, and embargo window live in
-[`SECURITY.md`](./SECURITY.md).
+**DO NOT file vulnerability details in a public GitHub issue.**
+Report privately via the repository's **Security → Report a
+vulnerability** (GitHub Private Vulnerability Reporting), or email
+`security@tallyrow.com`. The full disclosure policy, response-time
+targets, and embargo window live in [`SECURITY.md`](./SECURITY.md).
 
 If you have a NON-sensitive question about the security policy
-itself (e.g., "is this still current?"), the public **Security**
-issue template is fine — but no vulnerability details there.
+itself (e.g., "is this still current?"), the public **Security policy
+question** issue template is fine — but no vulnerability details there.
 
-## Opening a merge request
+## Opening a pull request
 
-Push your branch to GitLab and open a new merge request. The
-**Default** MR template pre-fills the body with the structure the
-project expects:
+Push your branch to GitHub and open a new pull request against `main`.
+The repository's `PULL_REQUEST_TEMPLATE.md` pre-fills the body with the
+structure the project expects:
 
 - **Summary** — what changed in one paragraph
 - **What changed** — bulleted list of changes
@@ -168,25 +169,30 @@ project expects:
 
 Optional sections (Spec Kit linkage, migration notes) follow.
 
-### Use `glab` so your description lands intact
+`main` is protected by a branch ruleset: every change lands through a
+pull request, the **`ci-success`** check must pass, and force-pushes and
+deletions are blocked. As a solo-maintainer project it requires **0
+approvals** (a GitHub PR author cannot approve their own PR); a
+`CODEOWNERS`-based review requirement is added when a second maintainer
+joins. See [GOVERNANCE.md](./GOVERNANCE.md).
 
-Open the MR with the [GitLab CLI](https://gitlab.com/gitlab-org/cli)
-(`glab auth login` once per machine). Write your filled-in template to a
-file, then pass it via `--description` so multi-line content is
-preserved:
+### Use `gh` so your description lands intact
+
+Open the PR with the [GitHub CLI](https://cli.github.com/)
+(`gh auth login` once per machine). Write your filled-in template to a
+file, then pass it via `--body-file` so multi-line content is preserved:
 
 ```bash
-glab mr create \
-  --source-branch "$(git branch --show-current)" \
-  --target-branch main \
+gh pr create \
+  --base main \
+  --head "$(git branch --show-current)" \
   --title "Short, imperative summary" \
-  --description "$(cat mr-body.md)" \
-  --remove-source-branch
+  --body-file pr-body.md
 ```
 
-Do **not** open MRs via `git push -o merge_request.description=...`:
-GitLab push options reject newlines, so multi-line descriptions are
-silently dropped. The `glab` flow above is the supported path.
+You can also open the PR from the web UI — the template pre-fills
+automatically. Delete the branch after merge (GitHub's one-click button,
+or `gh pr merge --delete-branch`).
 
 ## Developer Certificate of Origin (DCO)
 
@@ -239,8 +245,8 @@ Signed-off-by: Your Full Name <your.email@example.com>
 ```
 
 The name and email must match your `git config user.name` and
-`git config user.email` values. MRs whose commits lack the
-`Signed-off-by:` footer will not be merged.
+`git config user.email` values. PRs whose commits lack the
+`Signed-off-by:` footer will not be merged (CI checks this).
 
 If you forgot to sign-off earlier commits, fix them retroactively:
 
@@ -253,7 +259,7 @@ If you forgot to sign-off earlier commits, fix them retroactively:
 ## Local development setup
 
 ```bash
-git clone git@gitlab.com:tallyrow/safesignal.git
+git clone https://github.com/TallyRow/safesignal.git
 cd safesignal
 npm install
 npm test          # vitest run; expect 48 files / 1088 passing / 10 todo / 0 failing
@@ -266,7 +272,7 @@ npm run test:coverage # vitest --coverage; enforces the per-package thresholds
 
 ### Quality checks (lint, format, coverage)
 
-The project uses **Biome** for linting and formatting. CI gates every merge
+The project uses **Biome** for linting and formatting. CI gates every pull
 request on `npm run lint`, `npm run format:check`, and `npm run test:coverage`,
 plus a gating **secret scan** (gitleaks). Run `npm run format` to auto-fix
 formatting before committing.
@@ -274,7 +280,7 @@ formatting before committing.
 **Coverage thresholds** are defined in `vitest.config.ts` (90% global; 100% on
 the four pipeline-security files: sanitizer, redactor, url-scrubber,
 control-char-guard) and enforced by the `coverage` CI job. They ratchet **up**
-freely. **Lowering** a threshold requires an MR that states the reason in the
+freely. **Lowering** a threshold requires a PR that states the reason in the
 description and links the follow-up that will restore it — a relaxation is a
 reviewed, time-bound exception, never a silent edit (constitution Principle X).
 
@@ -300,21 +306,26 @@ The example projects under `examples/host-app/` and
 `npm run typecheck` (run from each subdirectory). They link to the
 top-level package via `file:../..`.
 
-If you cloned before the `master`→`main` default-branch rename
-(Feature 005), update your local clone with:
+**If you cloned from GitLab** (before the move to GitHub), repoint your
+`origin` remote:
 
 ```bash
+git remote set-url origin https://github.com/TallyRow/safesignal.git
 git fetch origin
-git branch -m master main
 git branch -u origin/main main
 git remote set-head origin -a
 ```
 
+If you also cloned before the `master`→`main` default-branch rename,
+add `git branch -m master main` before the `git branch -u` line.
+
 ## Cutting a release
 
-Only maintainers cut releases. The release pipeline (Feature 005)
-publishes `@tallyrow/safesignal` to npm with provenance via GitLab
-OIDC trusted-publisher — no long-lived `NPM_TOKEN` involved.
+Only maintainers cut releases. The release workflow
+([`.github/workflows/release.yml`](.github/workflows/release.yml))
+publishes `@tallyrow/safesignal` to npm **with provenance** via npm's
+GitHub Actions **Trusted Publisher (OIDC)** — no long-lived `NPM_TOKEN`
+involved.
 
 ### 1. Decide the version number (SemVer)
 
@@ -360,8 +371,8 @@ is intentional — it prevents shipping a release with no
 documented notes.
 
 Commit the CHANGELOG entry on a release branch (e.g.,
-`release/v1.0.2`), open a merge request, wait for CI green, and
-self-merge into `main`.
+`release/v1.0.2`), open a pull request, wait for `ci-success` green,
+and merge into `main`.
 
 ### 3. Create and push the signed tag
 
@@ -371,53 +382,55 @@ After the CHANGELOG entry is on `main`:
 git checkout main
 git pull --ff-only
 
-# Verify your GPG/SSH signing key is configured:
+# SSH tag signing must be configured: `git config gpg.format` is `ssh`,
+# `git config user.signingkey` points at your key, your PUBLIC key is in
+# .github/allowed_signers, and your tagger email matches its principal.
+git config gpg.format
 git config user.signingkey
-# If empty: git config --global user.signingkey <your-key-id>
 
-# Create the signed annotated tag:
+# Create the SIGNED, annotated tag:
 git tag -s v1.0.2 -m "Release v1.0.2 — bug fix for X"
 
 # Verify the signature locally before pushing:
 git tag -v v1.0.2
-# Expect: "Good signature from ..."
+# Expect: Good "git" signature for <email> ...
 
-# Push the tag to trigger the release pipeline:
+# Push the tag to trigger the release workflow:
 git push origin v1.0.2
 ```
 
-### 4. Watch the release pipeline
+The tag **MUST** be a signed *annotated* tag (`git tag -s`) on a `main`
+commit that contains `.github/workflows/release.yml`. A lightweight tag
+fails `verify-tag-signed` with *"cannot verify a non-tag object of type
+commit."*
 
-Open GitLab → CI/CD → Pipelines and filter by your tag. The
-release pipeline runs:
+### 4. Watch the release workflow
 
-1. **verify-tag-signed** (~10 sec) — fail-fast: rejects if the
-   tag isn't signed or doesn't point at a commit on `main`.
-2. **typecheck × 2 Node versions** (~30 sec each, parallel).
-3. **test × 2 Node versions** (~30 sec each, parallel).
-4. **build × 2 Node versions** (~30 sec each, parallel).
-5. **bundle-invariance** (~90 sec — includes building the
-   merge-base for comparison).
-6. **dependency-pins** (~5 sec).
-7. **changelog-validate** (~1 sec) — fails if no `## [X.Y.Z]`
-   entry exists for the tagged version.
-8. **publish** (~30-60 sec) — runs `npm publish --provenance`
-   via GitLab OIDC trusted-publisher.
-9. **provenance-verify** (~45 sec — includes a 30-second sleep
-   for npm registry propagation).
+GitHub → **Actions** → the **Release** run for your tag. Stages:
 
-Total wall-clock: ~8-12 minutes on shared runners.
+1. **verify-tag-signed** — fail-fast: the SSH tag signature is verified
+   against `.github/allowed_signers`, and the tagged commit must be on
+   `main`.
+2. **build / typecheck / test** — Node 20 + 22 matrix.
+3. **bundle-invariance**, **dependency-pins**, **changelog-validate**.
+4. **publish** — `npm publish --provenance` via the npm GitHub Actions
+   Trusted Publisher (OIDC, no token).
+5. **provenance-verify** — confirms the version + attestation on npm.
 
-If any stage fails, the publish does NOT execute. Common failure
-modes:
-- **CHANGELOG missing entry** → add the entry, merge, delete +
+If any required stage fails, `publish` does NOT execute. Common failure
+modes (each was hit during the v1.3.0 cutover):
+- **Lightweight tag** → `verify-tag-signed` rejects it
+  (*"cannot verify a non-tag object of type commit"*); re-cut with
+  `git tag -s`.
+- **`repository.url` mismatch** → npm rejects the publish with **E422**
+  if `package.json` `repository.url` doesn't match the GitHub repo named
+  in the signed provenance.
+- **CHANGELOG missing entry** → add `## [X.Y.Z]`, merge, delete +
   re-create the tag.
-- **OIDC publish rejected** → npm Trusted Publishers binding
-  misconfigured; check the npm package's "Trusted Publishers"
-  page and confirm the subject-claim pattern matches GitLab's
-  `sub` claim.
-- **Tag not signed** → `git tag -s` was forgotten; delete + re-tag
-  with `-s`.
+- **OIDC publish rejected** → the npm **Trusted Publisher** binding
+  (Organization `TallyRow`, Repository `safesignal`, Workflow
+  `release.yml`, Environment blank) doesn't match; fix it on the npm
+  package's Settings → Trusted Publisher page.
 
 ### 5. Verify the publish
 
@@ -434,7 +447,7 @@ npm audit signatures --pkg=@tallyrow/safesignal@1.0.2
 
 Or visit `https://www.npmjs.com/package/@tallyrow/safesignal` and
 look for the new version in the Versions list, with a Provenance
-attestation linking back to the GitLab pipeline run.
+attestation linking back to the GitHub Actions run.
 
 ### 6. Prune the `next` dist-tag when an `-rc` line ships stable
 
@@ -481,11 +494,11 @@ details.
 
 ## Where to ask questions
 
-- Bug or behavior question: GitLab issue with the **Bug** template.
-- Feature idea: GitLab issue with the **Feature** template.
-- Security question (non-sensitive): GitLab issue with the
-  **Security** template. (Vulnerability details: email
-  `security@tallyrow.com`.)
+- Bug or behavior question: GitHub issue with the **Bug report** template.
+- Feature idea: GitHub issue with the **Feature request** template.
+- Security question (non-sensitive): GitHub issue with the
+  **Security policy question** template. (Vulnerability details: use
+  **Security → Report a vulnerability** or email `security@tallyrow.com`.)
 - Anything else: open a Feature issue and we'll figure out where it
   belongs.
 

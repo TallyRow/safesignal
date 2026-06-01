@@ -1,9 +1,15 @@
-<!--
-SafeSignal Bug Report
+---
+name: Bug report
+about: Report incorrect or surprising behavior in @tallyrow/safesignal
+title: ""
+labels: bug
+---
 
+<!--
 Please fill in every section below. The more concrete the report,
 the faster a fix can land. For security vulnerabilities, do NOT
-use this template — see SECURITY.md and email security@tallyrow.com.
+use this template — use "Report a security vulnerability" on the
+New issue chooser, or email security@tallyrow.com (see SECURITY.md).
 -->
 
 ## Summary
@@ -27,7 +33,7 @@ use this template — see SECURITY.md and email security@tallyrow.com.
 <!--
 What actually happens. Include any error messages, stack traces,
 or surprising output. If the package's `onInternalError` hook
-fired, include the BeaconErrorCode / error message it received.
+fired, include the error code / message it received.
 -->
 
 ## Package version
@@ -71,5 +77,5 @@ information.
 ---
 
 By submitting this issue, you agree to abide by the project's
-[Code of Conduct](../../CODE_OF_CONDUCT.md) and acknowledge that
-contributions are licensed under the [MIT License](../../LICENSE).
+[Code of Conduct](CODE_OF_CONDUCT.md) and acknowledge that
+contributions are licensed under the [MIT License](LICENSE).

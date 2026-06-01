@@ -382,11 +382,12 @@ package copies", and "Vendor neutrality".
 
 ## Project resources
 
-[![pipeline status](https://gitlab.com/tallyrow/safesignal/badges/main/pipeline.svg)](https://gitlab.com/tallyrow/safesignal/-/commits/main)
+[![CI](https://github.com/TallyRow/safesignal/actions/workflows/ci.yml/badge.svg)](https://github.com/TallyRow/safesignal/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@tallyrow/safesignal.svg)](https://www.npmjs.com/package/@tallyrow/safesignal)
 
 Community and legal:
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to file issues, send MRs, sign commits (DCO)
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to file issues, open PRs, sign commits (DCO)
 - [`SECURITY.md`](SECURITY.md) — vulnerability disclosure policy
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — Contributor Covenant 2.1
 - [`GOVERNANCE.md`](GOVERNANCE.md) — how project decisions get made
