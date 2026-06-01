@@ -81,7 +81,7 @@
     "@opentelemetry/sdk-logs": "^0.218.0",
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^2.1.0",
-    "happy-dom": "^15.0.0",
+    "happy-dom": "^20.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.4.0",
     "vitest": "^2.1.0"
