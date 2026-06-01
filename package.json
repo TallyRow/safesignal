@@ -22,8 +22,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://gitlab.com/tallyrow/safesignal.git"
+    "url": "git+https://github.com/TallyRow/safesignal.git"
   },
+  "bugs": {
+    "url": "https://github.com/TallyRow/safesignal/issues"
+  },
+  "homepage": "https://github.com/TallyRow/safesignal#readme",
   "type": "module",
   "sideEffects": false,
   "files": [
