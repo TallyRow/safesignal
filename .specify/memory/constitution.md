@@ -1,4 +1,36 @@
 <!--
+Sync Impact Report (latest)
+- Version change: 1.4.0 -> 1.5.0
+- Amendment: Principle VIII (Lightweight Logger Instances & Federated Runtime
+  Discipline) -- added an "Explicit host-level global install (opt-in)" clause
+  distinguishing the banned per-`Logger` global side effect from a single,
+  explicit, host-installed, runtime-level global handler (opt-in, one owner;
+  modules never install), analogous to configuring a transport. A scope note was
+  added to Package Architecture Standards (Logger construction constraints)
+  clarifying its bans are per-`Logger`/per-instance and do NOT forbid the
+  host-level install. The per-`Logger` prohibitions are unchanged (none removed).
+  (Roadmap G1 / issue #12 -- governance prerequisite for V1 global error capture,
+  #13.)
+- Rationale: the V1 opt-in `./capture` global error capturer (#13) needs one
+  explicit host-level install; the prior text + the README's blanket "no global
+  listeners" wording read as forbidding it. MINOR per the versioning policy
+  (materially expands governance by permitting a new behavior class); not MAJOR
+  (no principle removed or redefined incompatibly).
+- Templates requiring updates:
+  - plan/spec/tasks templates reviewed -- their lightweight-`Logger` language is
+    already per-`Logger`/per-instance-scoped and consistent; no edit needed.
+- Dependent docs updated in this change set:
+  - README.md -- the "What this package does NOT do" entry and the "no global
+    listeners" feature bullet reframed to "the core never touches globals; an
+    opt-in subpath may, with explicit host ownership (one owner; modules never
+    install)."
+- Follow-up (Principle X -- named, time-bound): the boundary "only an explicit
+  host-level install attaches global handlers; per-`Logger`/module code may not"
+  is mechanically enforced by #13 (V1). The enforcing test MUST land in the same
+  change set that adds the `./capture` subpath -- no release may ship `./capture`
+  without it -- deadline 2026-09-01.
+
+----- prior amendment -----
 Sync Impact Report
 - Version change: 1.3.0 -> 1.4.0
 - Added principles:
@@ -274,6 +306,21 @@ runtime/package level** (e.g., via `configureLogging()`) and **shared** across e
 `withContext()`, federated module loggers) MUST stay a constant-cost operation that
 layers context over the same shared runtime.
 
+**Explicit host-level global install (opt-in).** Distinct from per-`Logger`
+construction, the package MAY provide a **single, explicit, host-installed,
+runtime-level** integration that attaches a global handler — for example, a global
+uncaught-error / unhandled-rejection capturer — analogous to configuring a transport
+at the runtime level. Such an install is permitted **only** when it is: **opt-in**
+(never a side effect of `createLogger()` or any per-instance lifecycle, and never
+installed by default); **host-owned (single owner)** — installed by the host that
+owns the configured runtime, and federated modules MUST NOT install it; **explicitly
+named** — reached only through a dedicated, documented API/subpath, never ambient;
+**fail-safe** — it MUST NOT throw into, or otherwise break, the page (Principle III);
+and **fail-closed** — captured data routes through the existing secure pipeline so
+secrets are redacted/sanitized before any transport receives it (Principle V). The
+per-`Logger` prohibitions in this principle and in § Logger construction constraints
+are **unchanged**: a `Logger` still MUST NOT attach global listeners or patch globals.
+
 For federated and module-federation deployments, the package MUST also:
 - **Make ownership explicit.** The host application owns the configured runtime by
   default. Federated modules MUST NOT accidentally replace, override, or
@@ -449,6 +496,12 @@ integrity as an implementation detail of one feature's CI configuration.
   - Issue a network request, open a socket, or perform any other I/O.
   - Allocate unbounded memory, eagerly snapshot application state, or pre-warm
     caches sized by anything other than constant per-instance overhead.
+
+  These prohibitions are scoped to `Logger`-instance creation and per-instance
+  lifecycle. They do **not** forbid a single, explicit, **host-level** runtime
+  install that attaches a global handler through a dedicated documented API (see
+  Principle VIII, "Explicit host-level global install") — that is a host-owned,
+  opt-in runtime-configuration step, not a per-`Logger` side effect.
 - Federated host/module configuration ownership MUST be documented as part of the
   package contract. The duplicate-package-copy behavior MUST be classified as
   **isolated**, **shared**, or **explicitly unsupported**, with consumer-visible
@@ -559,4 +612,4 @@ release policy. Exceptions that relax a security, privacy, integrity, scalabilit
 verification, enforcement, or supply-chain guarantee require an explicit, named,
 time-bound remediation plan and MUST be re-reviewed at each subsequent release.
 
-**Version**: 1.4.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-31
+**Version**: 1.5.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-06-01

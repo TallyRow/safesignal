@@ -14,7 +14,7 @@ publishing organization; SafeSignal is the product).
 - **Never-throw boundary**: no transport, redactor, or sanitizer failure propagates into your `log.info(...)` call site. Logging cannot break rendering, navigation, or state updates.
 - **Vendor-neutral transport**: ship to Datadog, Honeycomb, your own ingestion, or the built-in `./transport-beacon` subpath for body-only HTTPS delivery — same API regardless of destination.
 - **Federated-runtime aware**: host owns the configured runtime; modules import loggers without re-configuring. Hundreds of `Logger` instances per page stay constant-cost.
-- **Lightweight**: ~8 KB gzipped default entry; structured events with bounded depth and bounded size; no global listeners, no ambient state reads, no per-instance backend init.
+- **Lightweight**: ~8 KB gzipped default entry; structured events with bounded depth and bounded size; the core installs no global listeners and reads no ambient state (an opt-in host subpath may install one — see Roadmap), and `Logger` creation does no per-instance backend init.
 
 ## Install
 
@@ -48,9 +48,14 @@ log.info('checkout opened', { cartItems: 3 });
   custom delivery primitive.
 - Read `process.env.NODE_ENV`, `import.meta.env`, `location`, or
   `document.cookie` — pass `environment` explicitly.
-- Install global listeners or singletons (RUM-style automatic
-  error capture, view tracking, web vitals, network
-  instrumentation are forward-looking; see Roadmap below).
+- Touch globals from the **core** or from `createLogger()` — the
+  core installs no global listeners and reads no ambient state. The
+  **one opt-in exception** is host-owned: a host may install a
+  single global **error** capturer via a dedicated subpath (see
+  Roadmap), routed through the same secure pipeline; federated
+  modules never install it. View tracking, web vitals, and network
+  instrumentation remain out of scope — SafeSignal is not a RUM
+  product.
 - Persist events to IndexedDB or any storage layer.
 - Batch, sample, or deduplicate events by default (opt-in
   batching is available via the `./transport-beacon` subpath).
