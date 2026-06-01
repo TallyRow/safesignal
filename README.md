@@ -51,11 +51,12 @@ log.info('checkout opened', { cartItems: 3 });
 - Touch globals from the **core** or from `createLogger()` — the
   core installs no global listeners and reads no ambient state. The
   **one opt-in exception** is host-owned: a host may install a
-  single global **error** capturer via a dedicated subpath (see
-  Roadmap), routed through the same secure pipeline; federated
-  modules never install it. View tracking, web vitals, and network
-  instrumentation remain out of scope — SafeSignal is not a RUM
-  product.
+  single global **error** capturer via the
+  [`./capture` subpath](#catch-uncaught-errors--capture-subpath) —
+  explicit, opt-in, routed through the same secure pipeline;
+  federated modules never install it. View tracking, web vitals,
+  and network instrumentation remain out of scope — SafeSignal is
+  not a RUM product.
 - Persist events to IndexedDB or any storage layer.
 - Batch, sample, or deduplicate events by default (opt-in
   batching is available via the `./transport-beacon` subpath).
@@ -228,6 +229,47 @@ identical across the batch (and within the 512-char bound).
   (a consumer-supplied `traceparent` wins). Only `./transport-otlp` supports it
   — `navigator.sendBeacon` cannot set custom request headers, so
   `./transport-beacon` is out of scope.
+
+## Catch uncaught errors — `./capture` subpath
+
+Uncaught exceptions and unhandled promise rejections normally vanish —
+they never reach your configured transports. The **opt-in** `./capture`
+subpath lets a **host** route them through the same secure pipeline as
+every other log:
+
+```ts
+import { configureLogging, getRootLogger } from '@tallyrow/safesignal';
+import { createBeaconTransport } from '@tallyrow/safesignal/transport-beacon';
+import { installGlobalErrorCapture } from '@tallyrow/safesignal/capture';
+
+configureLogging({
+  application: { name: 'checkout-web', version: '4.2.0' },
+  environment: 'production',
+  transports: [createBeaconTransport({ endpoint: 'https://logs.example.com/ingest' })],
+});
+
+// Host installs once — returns a disposer.
+const dispose = installGlobalErrorCapture(getRootLogger());
+// …on teardown: dispose();
+```
+
+It emits an `error`-level event (`'Uncaught exception'` /
+`'Unhandled promise rejection'`) carrying the serialized error and a
+`safesignal.source` / `safesignal.errorType` marker, redacted +
+sanitized like any log.
+
+- **Host-owned, opt-in** (Principle VIII): it is **never** a side effect
+  of `createLogger()`; a **federated module never installs it** — only the
+  host that owns the runtime does. Pass it the host's `Logger`
+  (`getRootLogger()` or `createLogger({ module })`).
+- **Fail-safe**: it never throws into the page and never breaks
+  rendering/navigation; a failing transport is swallowed to
+  `onInternalError`.
+- **Additive**: it chains via `addEventListener` — your existing
+  `window.onerror`/handlers keep firing; it never `preventDefault()`s.
+- **Errors only** — no view tracking, web vitals, or network
+  instrumentation (that is RUM; see Roadmap). Duplicate package copies are
+  **isolated** (each capturer uses the `Logger` from its own copy).
 
 ## Level configuration
 
@@ -422,9 +464,12 @@ The following are forward-looking items (not shipping today):
   subpath — the subpath ships **JSON** today behind an internal
   encoding seam; a protobuf encoder is an additive follow-up (no
   public-API change).
-- **RUM features** — Web Vitals, automatic error capture, view
-  tracking, network instrumentation (planned as opt-in subpaths
-  under `./rum-*`).
+- **RUM features** — Web Vitals, view tracking, network
+  instrumentation, and *automatic* page-level capture (planned as
+  opt-in subpaths under `./rum-*`). Note: **explicit, host-installed**
+  uncaught-error capture already ships via
+  [`./capture`](#catch-uncaught-errors--capture-subpath) — distinct
+  from these future *automatic* RUM signals.
 
 A separate sibling project, **`safesignal-server`**, is planned as
 a self-hostable monitoring backend that consumes SafeSignal's
