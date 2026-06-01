@@ -1,0 +1,256 @@
+name: Release
+
+# Signed-tag-triggered release pipeline for @tallyrow/safesignal.
+#
+# Mirrors the GitLab release pipeline (Feature 005) on GitHub Actions:
+#   verify-tag-signed (fail-fast)
+#     → build / typecheck / test  (Node 20 + 22 matrix)
+#     → bundle-invariance, dependency-pins, changelog-validate
+#     → npm publish --provenance  (OIDC Trusted Publisher — no long-lived token)
+#     → provenance-verify
+#
+# The helper scripts under scripts/ci/ are host-neutral; they read the env
+# vars supplied below (CI_COMMIT_TAG, CI_DEFAULT_BRANCH) or take the tag as an
+# argument, so they are reused unchanged.
+#
+# One-time prerequisites (tracked in migration issue #4):
+#   1. npm Trusted Publisher configured for @tallyrow/safesignal, bound to this
+#      repository + the `publish` job's workflow (npmjs → package Settings →
+#      Trusted Publishers). Auth is OIDC-only — NO NPM_TOKEN secret is stored
+#      (constitution Principle XI). 2FA stays enforced on the account.
+#   2. .github/allowed_signers committed (migrated from .gitlab/allowed_signers),
+#      holding the maintainers' SSH signing public keys.
+#   3. Branch protection on `main`; release tags created with `git tag -s`.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  # One release at a time per tag; never cancel an in-flight publish.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Fail-fast gate: the tag must be well-formed, SSH-signed by an allowed
+  # signer, and point at a commit that is on main.
+  # --------------------------------------------------------------------------
+  verify-tag-signed:
+    name: verify-tag-signed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history: verify the tag object + ancestry on main
+
+      - name: Validate tag format
+        run: |
+          if ! printf '%s' "${GITHUB_REF_NAME}" \
+            | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "Tag '${GITHUB_REF_NAME}' does not match v<MAJOR>.<MINOR>.<PATCH>[-prerelease]."
+            exit 1
+          fi
+
+      - name: Verify SSH signature against .github/allowed_signers
+        run: |
+          git config gpg.format ssh
+          git config gpg.ssh.allowedSignersFile .github/allowed_signers
+          echo "Verifying SSH signature on tag ${GITHUB_REF_NAME}..."
+          # actions/checkout can leave refs/tags/<tag> pointing at the commit
+          # (dereferenced), so `git tag -v` reports "non-tag object of type
+          # commit". Force-fetch the annotated tag object itself before verify.
+          git fetch --force --no-tags origin \
+            "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          git tag -v "${GITHUB_REF_NAME}"
+
+      - name: Verify tagged commit is on main
+        run: |
+          git fetch --depth=100 origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "Tagged commit ${GITHUB_SHA} is not an ancestor of origin/main."
+            exit 1
+          fi
+          echo "Tag ${GITHUB_REF_NAME} verified — signed by an allowed signer and on main."
+
+  # --------------------------------------------------------------------------
+  # Build on both supported Node versions; the Node 22 dist/ is uploaded once
+  # and reused by every downstream job (dist is version-independent JS, and the
+  # contract/quickstart tests import the package by name via the exports map →
+  # dist, so typecheck and test both consume the built artifact).
+  # --------------------------------------------------------------------------
+  build:
+    name: build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - run: npm run build
+      - name: Upload dist (Node 22 artifact, reused downstream)
+        if: matrix.node == '22'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  typecheck:
+    name: typecheck (Node ${{ matrix.node }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: npm run typecheck
+
+  test:
+    name: test (Node ${{ matrix.node }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: npm test
+
+  bundle-invariance:
+    name: bundle-invariance
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      # The script compares HEAD's bundle sizes against the merge-base with
+      # main; setting CI_DEFAULT_BRANCH makes it fetch + build origin/main^.
+      CI_DEFAULT_BRANCH: main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the script checks out + builds the base commit in a worktree
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: bash scripts/ci/bundle-invariance-check.sh
+
+  dependency-pins:
+    name: dependency-pins
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      # Bundle-shape tests inspect dist/, so they consume the build artifact.
+      - run: >
+          npm test --
+          tests/contract/dependency-pins.test.ts
+          tests/security/bundle-shape.security.test.ts
+          tests/security/transport-beacon-bundle-shape.security.test.ts
+          tests/security/transport-otlp-bundle-shape.security.test.ts
+
+  changelog-validate:
+    name: changelog-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate CHANGELOG has an entry for the tag
+        env:
+          CI_COMMIT_TAG: ${{ github.ref_name }}
+        run: bash scripts/ci/changelog-validate.sh
+
+  # --------------------------------------------------------------------------
+  # Publish with provenance via npm OIDC Trusted Publisher. No NPM_TOKEN: the
+  # `id-token: write` permission lets the npm CLI (>= 11.5.1) perform the OIDC
+  # exchange itself and sign the provenance attestation through Sigstore.
+  # --------------------------------------------------------------------------
+  publish:
+    name: publish (npm --provenance via OIDC)
+    needs:
+      - verify-tag-signed
+      - typecheck
+      - test
+      - bundle-invariance
+      - dependency-pins
+      - changelog-validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC for Trusted Publisher auth + provenance attestation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Upgrade npm (OIDC Trusted Publishing needs npm >= 11.5.1)
+        run: npm install -g npm@latest
+      - name: Publish to npm with provenance
+        run: |
+          # Derive the dist-tag from the version string:
+          #   v1.0.1      → latest (stable)
+          #   v1.0.1-rc.1 → next   (any pre-release with a '-' suffix)
+          case "${GITHUB_REF_NAME}" in
+            *-*) DIST_TAG="next" ;;
+            *)   DIST_TAG="latest" ;;
+          esac
+          echo "Publishing ${GITHUB_REF_NAME} under dist-tag '${DIST_TAG}'"
+          npm publish --provenance --tag "${DIST_TAG}"
+
+  provenance-verify:
+    name: provenance-verify
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify published version + provenance attestation (soft-fail)
+        run: bash scripts/ci/provenance-verify.sh "${GITHUB_REF_NAME}"
