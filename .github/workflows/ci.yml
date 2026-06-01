@@ -191,9 +191,13 @@ jobs:
           tests/security/transport-otlp-bundle-shape.security.test.ts
 
   # DCO sign-off applies to the commits a PR introduces (GitLab ran it on MRs).
+  # The Renovate GitHub App's bot commits carry no Signed-off-by trailer, so
+  # `renovate/*` PRs are exempt — the job skips (a skip is not a failure for the
+  # ci-success gate below). DCO is a contributor-agreement check, not a security
+  # gate; the bot is a trusted org-scoped automation.
   dco-check:
     name: dco-check
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -222,8 +226,8 @@ jobs:
   # Single aggregate gate. Require ONLY this check in branch protection: it is a
   # stable name (immune to matrix changes) that still gates on every job above.
   # `if: always()` runs it even when an upstream job is skipped (e.g. dco-check
-  # on push events); a *skipped* dependency is not a failure, so only real
-  # failures/cancellations fail the gate.
+  # on push events or on renovate/* PRs); a *skipped* dependency is not a
+  # failure, so only real failures/cancellations fail the gate.
   ci-success:
     name: ci-success
     if: always()
