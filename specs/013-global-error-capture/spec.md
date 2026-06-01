@@ -176,9 +176,13 @@ a module that only creates loggers never installs capture.
   event carrying the serialized error (name, message, stack).
 - **FR-003**: When installed, the capturer MUST route **unhandled promise rejections** through the
   same pipeline, emitting an `error`-level event carrying the serialized rejection reason.
-- **FR-004**: Captured events MUST be **fail-closed**: secrets in messages/stacks/reasons MUST be
-  redacted and sanitized by the existing pipeline before any transport receives the event; if
-  redaction/sanitization cannot complete, the event MUST be dropped rather than emitted.
+- **FR-004**: Captured events MUST be **fail-closed**: they MUST pass the **same** redaction +
+  sanitization pipeline that any `logger.error` passes before a transport receives them — whole-value
+  secrets (token-shaped values, denylisted keys) are masked, and if redaction/sanitization cannot
+  complete the event MUST be **dropped** rather than emitted. The capturer MUST introduce **no path
+  that bypasses** that pipeline. (Capture inherits exactly the pipeline's redaction; like all logging,
+  arbitrary substrings inside a free-text stack are not substring-scrubbed — secrets belong in
+  structured attributes, not thrown into messages. See Assumptions.)
 - **FR-005**: The capturer MUST be **fail-safe**: it MUST NOT throw, reject, or propagate any error
   into page code, and MUST NOT break rendering, navigation, or user interaction. Internal failures
   MUST be routed to the runtime's internal-error diagnostic hook and swallowed.
@@ -197,8 +201,10 @@ a module that only creates loggers never installs capture.
   events carrying the host's configured identity (application/module/environment) and a stable
   marker distinguishing the source (uncaught exception vs unhandled rejection) so they are
   separable downstream.
-- **FR-011**: The capturer MUST behave safely when **no runtime is explicitly configured** (emit
-  through the current default runtime, never throw); the behavior MUST be documented.
+- **FR-011**: The capturer MUST behave safely when the host's logging runtime is **unconfigured**
+  (the host installs capture before/without `configureLogging`): because capture emits through a
+  `Logger` handle, an unconfigured runtime simply routes captured errors to the default `Noop`
+  runtime — the capturer MUST NOT throw. The behavior MUST be documented.
 - **FR-012**: The capturer MUST be **loop-safe**: an error originating within its own capture/emit
   path MUST NOT cause unbounded re-capture.
 - **FR-013**: Installing capture MUST be the **sanctioned host-level location** for global
@@ -229,8 +235,10 @@ a module that only creates loggers never installs capture.
   `error`-level events.
 - **SC-002**: With capture installed, **100%** of triggered unhandled promise rejections are
   delivered likewise.
-- **SC-003**: For captured errors whose message/stack contains a known secret fixture, **0** occurrences
-  of that secret reach any transport (fully redacted, fail-closed).
+- **SC-003**: A captured error carrying a **whole-value** secret (a token-shaped message) is **masked**
+  by the redaction pipeline before any transport receives it, and a captured event whose redaction
+  **fails is dropped** (0 delivered) — proving capture routes through the same fail-closed redaction as
+  any log, with no bypass.
 - **SC-004**: An exception or rejection raised inside the capturer's own path (handler/transport
   failure) causes **0** page-breaking effects — no error propagates to page code and rendering/
   navigation continue — and **0** capture loops.
@@ -245,12 +253,21 @@ a module that only creates loggers never installs capture.
 - **Routing through the existing pipeline.** Captured errors are emitted through the same internal
   emit/dispatch path (sanitize → URL-scrub → redact → guard → SafeTransport) that `logger.error`
   uses — the capturer does not introduce a parallel emission path or its own transports. This is
-  what makes "fail-closed redaction of captured stacks" true by construction.
-- **Host-ownership via the configured runtime.** The host that owns logging (the caller of
-  `configureLogging`) is the same actor that installs capture; `installGlobalErrorCapture` receives
-  or reads the host's configured runtime. "Host only / modules never install" is expressed as a
-  documented federation contract plus the opt-in subpath, reinforced by the existing module-scoped
-  runtime isolation.
+  what makes capture's redaction identical to any log's, by construction.
+- **Redaction is whole-value, not substring.** The pipeline's redactor masks whole-value secrets
+  (token-shaped values, denylisted keys) and drops on failure; it does **not** scrub arbitrary
+  secret substrings embedded in a free-text message or stack — a pipeline-wide property that predates
+  and is unchanged by this feature. Capture inherits exactly that behavior (no better, no worse than
+  `logger.error`); the package's guidance to keep secrets in structured attributes (not in thrown
+  message strings) applies equally to captured errors.
+- **Host-ownership via a `Logger` handle.** The host that owns logging (the caller of
+  `configureLogging`) is the same actor that installs capture. The issue's `installGlobalErrorCapture(runtime)`
+  is realized in planning as `installGlobalErrorCapture(logger, options?)` — a `Logger` is the only
+  public handle over the configured runtime, `logger.error` already routes through the full
+  fail-closed pipeline, and (decisively) a `Logger` crosses the separate-bundle boundary safely where
+  reading the module-scoped runtime slot directly would not (see plan Complexity Tracking). "Host only
+  / modules never install" is expressed as a documented federation contract plus the opt-in subpath,
+  reinforced by the existing module-scoped runtime isolation.
 - **Errors-only V1 scope.** No sampling, dedup, grouping, or rate-limiting of captured errors in V1
   beyond the existing internal-error-notice rate-limiting; every captured error is emitted. RUM
   signals (Web Vitals, view tracking, network) are explicitly out of scope.
