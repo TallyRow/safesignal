@@ -56,8 +56,7 @@ export class OtelLogsBackend implements TelemetryBackend {
 
     try {
       this.bridge = new EventBridge(config.transports);
-      this.provider = new LoggerProvider();
-      this.provider.addLogRecordProcessor(this.bridge);
+      this.provider = new LoggerProvider({ processors: [this.bridge] });
       this.logger = this.provider.getLogger(LOGGER_NAME);
       this.useFallback = false;
     } catch (err) {
