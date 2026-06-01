@@ -21,7 +21,7 @@ description: "Task list for Complete the GitLab → GitHub Migration"
 
 ## Phase 1: Setup
 
-- [ ] T001 Verify branch currency before editing shared docs: if constitution PR #4 (v1.4.0) has merged to `main`, run `git rebase origin/main` and resolve any `CONTRIBUTING.md` / `GOVERNANCE.md` region overlaps (PR #4 edits the principle list; this feature edits GitLab references — different regions, expected clean). If PR #4 has not merged, proceed on the current base. (repo root)
+- [x] T001 Verify branch currency before editing shared docs. **Done 2026-06-01**: constitution PR #4 (v1.4.0) merged; this branch was rebased onto `origin/main` (clean — PR #4's principle-list edits to `CONTRIBUTING.md`/`GOVERNANCE.md` are in different regions than this feature's GitLab-reference edits). The constitution is now v1.4.0 in-tree and the spec's Principle I/IX/XI citations are exact. (repo root)
 
 ---
 
@@ -136,4 +136,4 @@ description: "Task list for Complete the GitLab → GitHub Migration"
 
 - **MVP** = Phase 1–2 + **US1** (contributor-correct docs & templates) → the highest-impact, most-visible fix; shippable on its own.
 - **Incremental**: add US2 (release runbook) and US4 (governance/security) in the same in-repo PR; US3 (Renovate) and US5 (archive) are external/maintainer actions sequenced around the PR, with the GitLab archive performed last.
-- **Sequencing with PR #4**: prefer merging the constitution v1.4.0 PR first so the spec's Principle I/XI citations are exact and shared-file edits rebase cleanly.
+- **Sequencing with PR #4**: done — the constitution v1.4.0 PR is merged and this branch is rebased onto it (T001), so the spec's Principle I/IX/XI citations are exact.

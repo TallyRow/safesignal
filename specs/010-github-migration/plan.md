@@ -32,24 +32,22 @@ Finish the documentation, repo-metadata, template, dependency-automation, and de
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-> **Constitution version note.** This branch is off `main`, which carries **constitution v1.3.0** (principles I–IX). The **v1.4.0** amendment (adds Principle I *Spec-Driven Development* and Principle XI *Supply-Chain Integrity*, renumbering the rest) is in flight as **PR #4** and is the agreed governing direction. The check below is against the in-tree v1.3.0 gates; the two incoming principles are addressed explicitly at the end. The spec's "Principle I/XI" citations use v1.4.0 numbering and become exact once PR #4 merges. **Sequencing recommendation: merge PR #4 before (or with) implementing this feature** so principle numbering is consistent — not a hard blocker.
+> **Constitution version note.** PR #4 merged on 2026-06-01; `main` (and this rebased branch) now carries **constitution v1.4.0** (principles I–XI, adding **I** *Spec-Driven Development* and **XI** *Supply-Chain Integrity & Verifiable Provenance*). The check below is against the in-tree **v1.4.0** gates, and the spec's Principle I / IX / XI citations are now exact.
 
-- **API Stability** — ✅ N/A. No consumer-facing API, config, type, or behavior is touched. (`package.json` `repository.url`/`bugs`/`homepage` were already updated in the v1.3.0 release, PR #3; not part of this feature.)
-- **Browser Resilience & Failure Safety** — ✅ N/A. No runtime/`src` code.
+- **Spec-Driven Development (NON-NEGOTIABLE, Principle I)** — ✅ Satisfied by construction: this feature ran the full Spec Kit lifecycle (specify → clarify → plan → tasks → analyze → implement) with this Constitution Check completed before any implementation.
+- **API Stability & Deprecation (Principle II)** — ✅ N/A. No consumer-facing API, config, type, or behavior is touched, and nothing is deprecated or removed. (`package.json` `repository.url`/`bugs`/`homepage` were already updated in the v1.3.0 release, PR #3; not part of this feature.)
+- **Browser Resilience & Failure Safety (Principle III)** — ✅ N/A. No runtime/`src` code.
 - **Neutrality & Portability** — ✅ N/A for the package. (At the project-infra level the move *reduces* host lock-in; no package coupling introduced.)
-- **Structured Observability** — ✅ N/A. No event model / logging change.
+- **Structured Observability & Standards Interop (Principle IV)** — ✅ N/A. No event model, logging, or wire-format change.
 - **Secure Logging by Default & Sensitive Data Minimization** — ✅ N/A to logging behavior. Security-relevant only in that the `SECURITY.md` rewrite MUST preserve the disclosure channel with **no gap** (FR-005); the redaction/safe-logging docs (`docs/safe-logging.md`) are unchanged and continue to model safe behavior.
 - **Log Integrity & Monitoring Suitability** — ✅ N/A. No event production change.
 - **Lightweight Logger Instances & Federated Runtime** — ✅ N/A. No logger/runtime code.
 - **Reproducible Verification** — ✅ Applies, preserved. FR-009 requires every documented quality check keep running through the GitHub workflows with identical local/CI outcomes; this feature adds **no new check** and changes **no verification path**. `scripts/ci/*.sh` remain host-neutral and unmodified (FR-008). The Renovate move does not gate merges.
 - **Mechanical Enforcement of Documented Contracts** — ✅ Applies, no regression. The feature introduces **no new machine-checkable code invariant**, and disables **no existing enforced gate** (`ci-success`, release pipeline stay intact). Documentation correctness ("docs match reality") is verified by the acceptance walkthroughs (SC-001..SC-004), which is appropriate — it is doc accuracy, not a code invariant. No undocumented-gate remediation tasks are created by this feature.
 - **Test & Documentation Coverage** — ✅ Applies (this is fundamentally a documentation feature). "Tests" = the acceptance walkthroughs in `quickstart.md`. Docs continue to model safe logging; no example normalizes insecure patterns.
+- **Supply-Chain Integrity & Verifiable Provenance (Principle XI)** — ✅ Preserved. FR-009 keeps releases provenance-attested via OIDC on GitHub; the Renovate App preserves dependency screening; the GitLab archive (read-only) keeps historical provenance source links resolvable. No change weakens the attested-publish path.
 
-**Incoming v1.4.0 principles (PR #4):**
-- **Principle I — Spec-Driven Development (NON-NEGOTIABLE)** — ✅ Satisfied by construction: this feature is itself running the full Spec Kit lifecycle (specify → clarify → plan → tasks → implement) with this Constitution Check.
-- **Principle XI — Supply-Chain Integrity & Verifiable Provenance** — ✅ Preserved: FR-009 keeps releases provenance-attested via OIDC on GitHub; the Renovate App preserves dependency screening; the GitLab archive keeps historical provenance source links resolvable.
-
-**Result: PASS** (no violations; Complexity Tracking empty).
+**Result: PASS** (constitution v1.4.0 in-tree; no violations; Complexity Tracking empty).
 
 ## Project Structure
 
@@ -108,7 +106,7 @@ Preserved UNCHANGED (non-regression — FR-008):
 ## Approach & sequencing
 
 1. **Templates first** (`.github/` issue + PR templates) — low-risk, unblocks correct contributor UX immediately; then remove `.gitlab/` templates.
-2. **Docs sweep** — `CONTRIBUTING` (largest: release-runbook rewrite), `GOVERNANCE`, `README`, `SECURITY`. Coordinate with **PR #4** which also edits `CONTRIBUTING`/`GOVERNANCE` in *different regions* (principle list) — expected to auto-merge; if PR #4 lands first, rebase this branch onto it.
+2. **Docs sweep** — `CONTRIBUTING` (largest: release-runbook rewrite), `GOVERNANCE`, `README`, `SECURITY`. **PR #4 (v1.4.0) is already merged and this branch is rebased onto it**; its `CONTRIBUTING`/`GOVERNANCE` edits (the principle list) sit in *different regions* than this feature's GitLab-reference edits, so they coexist cleanly.
 3. **External actions** — install Renovate App; enable PVR (these are org/repo settings, done by the maintainer; the spec/tasks document the steps and the verification).
 4. **Decommission last** — only after all in-repo links resolve to GitHub: archive the GitLab project + redirect, add the CHANGELOG host-change entry.
 
