@@ -88,7 +88,7 @@ export interface NotifyContext {
  * (instance) per session (FR-010). Subsequent calls with the same code are
  * silently suppressed. The `onInternalError` callback is invoked inside a
  * try/catch so a throwing consumer handler can never propagate back into
- * the transport's hot path (Principle II).
+ * the transport's hot path (Principle III).
  *
  * `detail` is an optional NON-SECRET human string (e.g. an HTTP status).
  * Callers MUST NOT pass any configured header/secret value here.

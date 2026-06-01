@@ -22,35 +22,46 @@ private channel described in `CODE_OF_CONDUCT.md`.
 The binding technical standard for **what** SafeSignal must do and
 **how** its code must behave is the constitution at
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
-The constitution defines nine non-negotiable principles:
+The constitution defines eleven non-negotiable principles:
 
-1. **Stable Consumer API & Clear Boundaries** — public API stays
-   small, stable, and isolated from internal details.
-2. **Browser-First Runtime Resilience** — logging cannot break
+1. **Spec-Driven Development (NON-NEGOTIABLE)** — every feature
+   flows through the Spec Kit lifecycle (specify → clarify → plan →
+   tasks → implement); no production code before a spec and plan
+   exist; each plan carries a Constitution Check.
+2. **Stable Consumer API & Clear Boundaries** — public API stays
+   small, stable, and isolated from internal details. Incompatible
+   contract changes ship deprecated first, with a migration path,
+   for at least one minor release before removal.
+3. **Browser-First Runtime Resilience** — logging cannot break
    rendering, navigation, or state updates; failures degrade
    safely.
-3. **Framework-Neutral Structured Observability** — vendor-neutral
-   structured events with bounded depth and size.
-4. **Secure & Privacy-Safe Logging by Default** — secrets,
+4. **Framework-Neutral Structured Observability** — vendor-neutral
+   structured events with bounded depth and size; prefer conforming
+   to open published standards over proprietary shapes.
+5. **Secure & Privacy-Safe Logging by Default** — secrets,
    credentials, tokens, session identifiers, authorization headers,
    cookies, and known PII are stripped before any transport sees
    them. Fail-closed redaction.
-5. **Testable, Minimal, Maintainable Package Design** — small public
+6. **Testable, Minimal, Maintainable Package Design** — small public
    surface, deliberate dependencies, internals that future
    contributors can understand. Test code is held to the same
    typing, lint, build, and import-resolution standards as `src/`.
-6. **Log Integrity & Monitoring Suitability** — events are
+7. **Log Integrity & Monitoring Suitability** — events are
    structured, attributable, and downstream-monitorable. Any
    drop/sample/batch/transform behavior is documented.
-7. **Lightweight Logger Instances & Federated Runtime Discipline** —
+8. **Lightweight Logger Instances & Federated Runtime Discipline** —
    creating a `Logger` is constant-cost; expensive runtime resources
    are configured once and shared.
-8. **Reproducible Quality Verification** — every quality check
+9. **Reproducible Quality Verification** — every quality check
    produces the same pass/fail outcome locally and in CI for the
    same source state, through a single documented entrypoint.
-9. **Mechanical Enforcement of Documented Contracts** — every
-   documented quality gate has a machine-executable enforcement
-   path (test, CI job, lint rule, or publish-time hook).
+10. **Mechanical Enforcement of Documented Contracts** — every
+    documented quality gate has a machine-executable enforcement
+    path (test, CI job, lint rule, or publish-time hook).
+11. **Supply-Chain Integrity & Verifiable Provenance** — the
+    installed artifact is verifiably what the project built:
+    attested publish, signed tags, DCO attribution, pinned
+    dependencies, and an honest distributed surface.
 
 This document is the **human-facing process** layer; the constitution
 is the **machine-evaluable standard** layer. The
@@ -265,7 +276,7 @@ the four pipeline-security files: sanitizer, redactor, url-scrubber,
 control-char-guard) and enforced by the `coverage` CI job. They ratchet **up**
 freely. **Lowering** a threshold requires an MR that states the reason in the
 description and links the follow-up that will restore it — a relaxation is a
-reviewed, time-bound exception, never a silent edit (constitution Principle IX).
+reviewed, time-bound exception, never a silent edit (constitution Principle X).
 
 ### Local commit hooks (recommended)
 
@@ -314,7 +325,7 @@ OIDC trusted-publisher — no long-lived `NPM_TOKEN` involved.
 | Bug fix, security patch, doc-only or build-only change | **Patch** | `v1.0.1` → `v1.0.2` |
 | Pre-release of any of the above | suffix `-rc.N` / `-beta.N` / `-alpha.N` | `v1.1.0-rc.1`, `v2.0.0-beta.2` |
 
-Per the constitution's Principle I, breaking changes require an
+Per the constitution's Principle II, breaking changes require an
 explicit justification, migration plan, and a `## Migration
 history` entry in `README.md`. Don't ship a major bump silently.
 

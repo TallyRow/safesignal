@@ -8,7 +8,7 @@
  * **per-logger** (it can differ between events in the same batch via
  * `withContext`), so it is attributed per-`LogRecord` (see
  * `otlp-serializer.ts`), not on the shared Resource — preserving correct
- * origin attribution (Principle VI).
+ * origin attribution (Principle VII).
  *
  * Only present fields are emitted (no empty/`null` keys). Pure and
  * dependency-free.

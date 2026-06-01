@@ -6,7 +6,7 @@ enumerates the DO and DON'T patterns that keep you on the safe path,
 the package's documented automatic transformations, the extension
 points (`createRedactor()`, `scrubUrl()`, `sanitizerLimits`), and the
 complete list of every documented behavior that drops, transforms, or
-otherwise bounds an event before delivery (Principle VI).
+otherwise bounds an event before delivery (Principle VII).
 
 ## Logging safely
 
@@ -871,7 +871,7 @@ the package pre-committing the host to anything.
 
 ## Documented drops, transforms, and bounded behavior
 
-Constitution Principle VI requires that any behavior that **drops**,
+Constitution Principle VII requires that any behavior that **drops**,
 **transforms**, or **bounds** an event before delivery be documented
 so downstream monitoring and forensics can account for it. The
 complete enumeration:
@@ -940,7 +940,7 @@ These are NOT bugs; they are documented non-features:
   via `configureLogging({ environment, context, correlation })`.
 
 If any of these change in a future version, the change WILL be
-documented in this section per Principle VI.
+documented in this section per Principle VII.
 
 ## Diagnostics
 

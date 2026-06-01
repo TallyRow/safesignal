@@ -1,57 +1,98 @@
 <!--
 Sync Impact Report
-- Version change: 1.2.0 -> 1.3.0
+- Version change: 1.3.0 -> 1.4.0
+- Added principles:
+  - I. Spec-Driven Development (NON-NEGOTIABLE) (new principle): every feature
+    MUST flow through the Spec Kit lifecycle (specify -> clarify -> plan ->
+    tasks -> implement); no production code before a spec and plan exist; each
+    plan MUST carry a Constitution Check. Leads the list and formalizes the
+    workflow the project already follows.
+  - XI. Supply-Chain Integrity & Verifiable Provenance (new principle): the
+    artifact a consumer installs MUST be verifiably the artifact this project
+    built from reviewed, attributed source -- attested publish, signed tags,
+    DCO, pinned/screened dependencies, and an honest distributed surface.
+    States the intent behind gates previously recorded only as enforcement.
+- Renumbered principles (no semantic change):
+  - I -> II   Stable Consumer API & Clear Boundaries
+  - II -> III Browser-First Runtime Resilience
+  - III -> IV Framework-Neutral Structured Observability
+  - IV -> V   Secure & Privacy-Safe Logging by Default
+  - V -> VI   Testable, Minimal, Maintainable Package Design
+  - VI -> VII Log Integrity & Monitoring Suitability
+  - VII -> VIII Lightweight Logger Instances & Federated Runtime Discipline
+  - VIII -> IX Reproducible Quality Verification
+  - IX -> X   Mechanical Enforcement of Documented Contracts
 - Modified principles:
-  - V. Testable, Minimal, Maintainable Package Design — name unchanged; new
-    clause added requiring test code (and any test-bearing path) to meet the
-    same TypeScript typing, lint, build, and import-resolution standards as
-    production code, with any tolerated exception carrying a written, named,
-    time-bound removal condition.
-- Added sections:
-  - VIII. Reproducible Quality Verification (new principle): a single,
-    authoritative answer to "does this branch pass our quality checks?".
-    Local and CI runs of the same check MUST produce the same outcome;
-    divergence between resolvers, runners, or environments is a defect to
-    fix in the package's own configuration, not a "works on my machine"
-    tolerance.
-  - IX. Mechanical Enforcement of Documented Contracts (new principle):
-    every quality gate the project documents — invariants, bundle budgets,
-    security clauses, dependency pin sets, sign-off rules, performance
-    targets — MUST have a machine-executable enforcement path. Documented
-    gates without enforcement are exceptions that require a named,
-    time-bound remediation task.
-  - Delivery Workflow & Quality Gates: two new clauses, "Reproducible
-    Verification" and "Mechanical Enforcement of Documented Contracts",
-    operationalize Principles VIII and IX inside the per-feature workflow.
+  - II. Stable Consumer API & Clear Boundaries (was I) -- added a deprecation-
+    discipline clause: an incompatible contract change MUST first ship
+    deprecated, with a replacement and migration path, for at least one minor
+    release before removal, signaled where consumers encounter it.
+  - IV. Framework-Neutral Structured Observability (was III) -- added a
+    standards-based interoperability clause: prefer conforming to an open,
+    published interchange standard over inventing a proprietary shape;
+    proprietary formats permitted only as additive, clearly-scoped options.
+- Governing-altitude refactor (relocation, not relaxation -- all relocated
+  text remains binding in the section it moves to, and Principle X keeps it
+  mechanically enforced):
+  - VIII. Lightweight Logger Instances (was VII): the enumerated MUST-NOT lists
+    (specific globals, ambient-state reads) move to a "Logger construction
+    constraints" item under Package Architecture Standards; the principle keeps
+    the governing statement, the federated-runtime clauses, and the rationale.
+  - VI. Testable, Minimal, Maintainable Package Design (was V): the inline
+    test-suppression enumeration (skip / xfail / todo / @ts-ignore /
+    @ts-expect-error / per-path tsconfig relaxations) moves to the Delivery
+    Workflow as the operational definition of a tolerated exception.
+  - X. Mechanical Enforcement of Documented Contracts (was IX): the inline
+    contract-test IDs (T-S1..T-S5) are de-inlined; the principle points to
+    Delivery Workflow / contracts for the specific identifiers.
 - Removed sections:
   - None
 - Templates requiring updates:
-  - ✅ updated .specify/templates/plan-template.md (Constitution Check adds
-       "Reproducible Verification" and "Mechanical Enforcement of Documented
-       Contracts" gates)
-  - ✅ updated .specify/templates/spec-template.md (Consumer Impact adds a
-       "Verification & Enforcement" bullet; FR-012 added for mechanical
-       enforcement of documented quality gates)
-  - ✅ updated .specify/templates/tasks-template.md (Polish phase adds an
-       enforcement-coverage validation pass requiring every documented
-       quality gate from the feature to be reproducible and machine-checked)
+  - ✅ updated .specify/templates/plan-template.md (Constitution Check adds a
+       leading "Spec-Driven Development" gate, a deprecation clause under API
+       Stability, a standards-based interoperability clause, and a
+       "Supply-Chain Integrity & Provenance" gate)
+  - ✅ updated .specify/templates/spec-template.md (Consumer Impact adds
+       "Deprecation & Migration" and "Supply-Chain / Distribution Impact"
+       bullets)
+  - ✅ updated .specify/templates/tasks-template.md (Polish phase extends the
+       enforcement-coverage pass to cover deprecation signaling and
+       provenance/attestation gates)
 - Dependent docs updated in this change set:
-  - ✅ GOVERNANCE.md (principle count 7 → 9; constitution reference
-       v1.2.0 → v1.3.0; Principles VIII + IX added to the enumerated list)
-  - ✅ CONTRIBUTING.md (principle count 7 → 9; Principles VIII + IX added
-       to the numbered list with one-line summaries)
+  - ✅ GOVERNANCE.md (principle count 9 → 11; constitution reference
+       v1.3.0 → v1.4.0; Principles I + XI added and the list renumbered)
+  - ✅ CONTRIBUTING.md (principle count 9 → 11; Principles I + XI added with
+       one-line summaries; list renumbered; deprecation/interop clauses noted)
 - Follow-up TODOs:
-  - None deferred. The first concrete remediation the new Principle V
-    clause requires — the pre-existing test-code typecheck debt surfaced
-    when Feature 005's CI pipeline ran its first typecheck stage — is a
-    feature-scoping decision (it belongs in a Developer Ergonomics feature),
-    not a constitutional one.
+  - Per Principle X, two newly documented gates need their enforcement path
+    confirmed or a named, time-bound remediation task filed in the owning
+    feature: (a) deprecation discipline (Principle II) -- an automated check
+    that a removed public symbol was @deprecated in a prior minor, or a
+    documented release-checklist gate; (b) the "distributed surface matches
+    exports/docs" clause of Principle XI, if not already covered by the
+    existing bundle-shape audit. Spec-Driven Development (I) and the remaining
+    provenance bullets are already enforced (Spec Kit workflow + plan-template
+    Constitution Check; signed tags, OIDC+provenance publish, DCO, dependency
+    pins from Feature 005).
 -->
 # SafeSignal Constitution
 
 ## Core Principles
 
-### I. Stable Consumer API & Clear Boundaries
+### I. Spec-Driven Development (NON-NEGOTIABLE)
+Every feature MUST flow through the Spec Kit lifecycle: `specify → clarify` (when
+ambiguous) `→ plan → tasks → implement`. No production code may be written before a spec
+and plan exist for it. Each plan MUST include a **Constitution Check** confirming
+compliance with these principles — including that its concrete source, stack, dependency,
+and scope choices are justified — before implementation begins.
+
+Rationale: SafeSignal's trustworthiness rests on every change being specified, reviewed
+against this constitution, and enforced before it ships. The project's features have been
+built through this lifecycle from the start; stating it as the entry-gate principle makes
+the discipline binding rather than conventional, and ties the plan-template Constitution
+Check to a governing principle rather than to habit alone.
+
+### II. Stable Consumer API & Clear Boundaries
 The package MUST expose a minimal, stable, application-friendly public logging API
 for browser JavaScript and TypeScript consumers. Consumer code MUST depend only on
 documented package contracts and MUST NOT require vendor-specific, transport-specific,
@@ -63,11 +104,20 @@ the safe path the easy path: defaults, examples, and ergonomic call signatures M
 favor safe, structured, minimal logging, and unsafe usage MUST require deliberate
 opt-in.
 
+When a published contract must change incompatibly, it MUST first ship **deprecated** —
+with the replacement available and a documented migration path — for at least one minor
+release before removal. Deprecation MUST be signaled where consumers encounter it (types,
+`@deprecated` annotations, changelog), not only in prose. Removing a deprecated contract
+is itself a breaking change subject to the justification, versioning, and migration
+requirements above.
+
 Rationale: The package exists to be reused across host applications and independently
 deployed frontend modules without forcing consumer rewrites when implementation
-details evolve, and without making it easy to log unsafely by accident.
+details evolve, and without making it easy to log unsafely by accident. A deprecation
+window with a working replacement is what lets consumers move on their own schedule
+instead of being broken by an upgrade.
 
-### II. Browser-First Runtime Resilience
+### III. Browser-First Runtime Resilience
 The package MUST be designed primarily for browser execution and MUST remain safe in
 modern frontend runtimes, including host applications and federated or modular
 frontend architectures. Logging MUST NEVER break rendering, navigation, state
@@ -83,7 +133,7 @@ Rationale: Observability is subordinate to application availability and data saf
 A logging SDK that can destabilize frontend execution or leak sensitive data when
 something goes wrong is unacceptable.
 
-### III. Framework-Neutral Structured Observability
+### IV. Framework-Neutral Structured Observability
 The package MUST remain neutral to frameworks, applications, backends, and deployment
 models. It MUST emit structured log events and MUST NOT encourage or default to
 unstructured string-only logging, raw object dumping, or uncontrolled serialization
@@ -98,11 +148,19 @@ first-class supported model. Transported event payloads MUST be suitable for sec
 parsing and monitoring consumption, with documented field shapes, bounded depth, and
 bounded size.
 
+Where an open, published interchange standard exists for a concern the package addresses
+— wire formats, context propagation, delivery primitives — the package MUST prefer
+conforming to that standard (and MUST document the standard and version it targets) over
+inventing a proprietary shape. Proprietary or vendor-specific formats are permitted only
+as additive, clearly-scoped options that do not displace the standards-based path.
+
 Rationale: Structured, portable, predictable events preserve observability value now
 while keeping the package adaptable to future ingestion and observability backends,
 and prevent the runtime hazards of arbitrary object serialization in the browser.
+Conforming to open standards rather than proprietary shapes is what keeps the package
+interoperable with the broadest set of backends and free of vendor lock-in.
 
-### IV. Secure & Privacy-Safe Logging by Default
+### V. Secure & Privacy-Safe Logging by Default
 Secure logging and sensitive-data minimization are first-class, non-negotiable
 package responsibilities, on equal footing with API stability and browser
 resilience. Frontend log data MUST be treated as potentially sensitive at every
@@ -136,12 +194,12 @@ visible to user-controlled environments. Privacy and security are baseline packa
 responsibilities that consumers cannot reliably bolt on after the fact; the package
 must make accidental leakage actively difficult.
 
-### V. Testable, Minimal, Maintainable Package Design
+### VI. Testable, Minimal, Maintainable Package Design
 The package MUST favor a small, clear public surface area, deliberate dependency
 selection, and internals that remain understandable to future contributors. Strong
 automated coverage is required for public API contracts, runtime behavior, failure
 safety, metadata handling, redaction behavior, environment-sensitive configuration,
-and the secure-defaults posture defined in Principle IV. Documentation, examples,
+and the secure-defaults posture defined in Principle V. Documentation, examples,
 and integration guidance MUST be kept aligned with actual package behavior and MUST
 model safe logging behavior; they MUST NOT normalize insecure logging patterns
 (secret dumping, raw object dumping, disabling redaction in examples, etc.). Unsafe
@@ -154,12 +212,10 @@ under `tests/` — and any other test-bearing path — MUST satisfy the same Typ
 typing, lint, build, and import-resolution rules that apply to `src/`. A quality
 check that passes against `src/` but is skipped, weakened, or routed through a
 different resolver for `tests/` is a documentation gap masquerading as a quality
-gate. Tolerated exceptions — `skip`, `xfail`, `todo`, `@ts-ignore` /
-`@ts-expect-error` comments, temporarily disabled test files, per-path tsconfig
-relaxations, or any other carve-out — MUST carry a written, named, time-bound
-removal condition stored alongside the exception (in the source itself or in the
-owning feature's task list), and MUST be tracked as remediation debt rather than
-treated as steady state.
+gate. Any tolerated exception MUST be tracked as time-bound remediation debt rather
+than treated as steady state; what counts as a tolerated exception, and the
+removal-condition discipline it MUST carry, is defined under Delivery Workflow &
+Quality Gates.
 
 Rationale: Reusable packages succeed through predictable behavior, low maintenance
 cost, and high consumer trust in both code and documentation; documentation that
@@ -168,7 +224,7 @@ evidence that those behaviors hold — letting it drift from the production stan
 makes the evidence unreliable and lets latent defects accumulate behind a green
 local prompt.
 
-### VI. Log Integrity & Monitoring Suitability
+### VII. Log Integrity & Monitoring Suitability
 Log data emitted by this package may be security-relevant and MUST be suitable for
 monitoring, incident review, and forensic use by application or platform owners.
 The package MUST preserve clean boundaries so application and platform owners can
@@ -196,7 +252,7 @@ Rationale: Logs are often the primary evidence in incident response and security
 review. A reusable package that quietly mutates, loses, or obscures events would
 undermine those use cases for every consuming application.
 
-### VII. Lightweight Logger Instances & Federated Runtime Discipline
+### VIII. Lightweight Logger Instances & Federated Runtime Discipline
 The package MUST scale to **many `Logger` instances per page** — one per module is
 the normal case in federated and host-app deployments. Creating a `Logger` MUST be
 lightweight, deterministic, and side-effect-free: a `Logger` is a context handle
@@ -204,20 +260,12 @@ over the already-configured shared runtime, never an initializer of the runtime
 itself. Per-`Logger` cost MUST NOT scale with the number of instances; the package
 MUST stay predictable when a page hosts tens, hundreds, or more loggers.
 
-The package MUST NOT perform any of the following at `Logger`-instance creation,
-nor at per-instance lifecycle events:
-- Initialize a telemetry backend, vendor SDK, or transport.
-- Start a queue, buffer flush loop, batching loop, retry loop, timer, interval,
-  scheduled callback, or any other recurring task.
-- Attach a global event listener; patch a global (`console`, `fetch`,
-  `XMLHttpRequest`, `navigator.sendBeacon`, `window.onerror`,
-  `window.onunhandledrejection`, history, etc.); or install any document/window
-  observer.
-- Read ambient browser state (`location`, `document.cookie`, `localStorage`,
-  `sessionStorage`, `navigator.*`, `process.env`, `import.meta.env`).
-- Issue a network request, open a socket, or perform any other I/O.
-- Allocate unbounded memory, eagerly snapshot application state, or pre-warm
-  caches sized by anything other than constant per-instance overhead.
+Creating a `Logger`, and any per-instance lifecycle event, MUST NOT initialize
+backends, vendor SDKs, or transports; start recurring tasks (queues, flush/batch/retry
+loops, timers); attach or patch globals; read ambient browser state; perform network
+work or other I/O; or allocate unbounded memory. The exhaustive construction
+constraints are enumerated under Package Architecture Standards (§ Logger construction
+constraints) and are binding there.
 
 Expensive runtime resources — backend adapters, transports, batchers, correlation
 hooks, redactors, sanitizer state — MUST be configured **once at the
@@ -256,7 +304,7 @@ browser performance, keeps the public contract honest about who owns
 configuration, and makes federated deployment a first-class scalability concern
 rather than an afterthought.
 
-### VIII. Reproducible Quality Verification
+### IX. Reproducible Quality Verification
 There MUST be a single, authoritative answer to the question "does this branch pass
 our quality checks?" — and that answer MUST be the same whether the checks run on a
 contributor's machine, in CI, or on a release runner. Two test runners, two module
@@ -294,7 +342,7 @@ enforceable in practice; without it, a passing check is a coincidence rather tha
 a guarantee, and latent defects accumulate behind whichever runner happens to be
 the most permissive.
 
-### IX. Mechanical Enforcement of Documented Contracts
+### X. Mechanical Enforcement of Documented Contracts
 Every quality gate this project documents — in the constitution, in
 `CONTRIBUTING.md`, in `GOVERNANCE.md`, in a feature's `plan.md`, `spec.md`, or
 `tasks.md`, or in any `contracts/` artifact — MUST have a machine-executable
@@ -304,13 +352,15 @@ one.
 
 The package MUST:
 - Pair every published invariant with an automated check. Bundle-size budgets,
-  dependency pin sets, redactor fail-closed behavior, transport security clauses
-  (T-S1..T-S5), DCO sign-off requirements, signed-tag requirements,
-  publish-provenance attestation, structured-event shape and bounded depth,
-  level-filter defaults, the `exports` map shape, and any future invariant added
-  by an amendment MUST each be guarded by a test, a lint rule, a CI job, a
-  publish-time hook, or another automated check that fails closed when the
-  invariant is violated.
+  dependency pin sets, redactor fail-closed behavior, transport security clauses,
+  DCO sign-off requirements, signed-tag requirements, publish-provenance
+  attestation, structured-event shape and bounded depth, level-filter defaults,
+  the `exports` map shape, and any future invariant added by an amendment MUST
+  each be guarded by a test, a lint rule, a CI job, a publish-time hook, or
+  another automated check that fails closed when the invariant is violated. (The
+  specific transport security clause identifiers — `T-S1..T-S5` and peers — and
+  the contract tests that enforce them are catalogued in the `contracts/`
+  artifacts and the Delivery Workflow, not inlined here.)
 - Treat undocumented enforcement as an exception. A documented gate that has no
   automated check MUST be filed as a named, time-bound remediation task in the
   same change set that introduces the gate. The documenting change is not
@@ -320,8 +370,8 @@ The package MUST:
   disabling the automated check that enforces a documented gate MUST go through
   the same review and amendment process as relaxing the underlying contract —
   including a documented justification, a re-review at each subsequent release,
-  and (for security, privacy, integrity, or scalability guarantees) a named,
-  time-bound remediation plan.
+  and (for security, privacy, integrity, scalability, or supply-chain guarantees)
+  a named, time-bound remediation plan.
 - Keep the enforcement path discoverable. Each documented gate SHOULD reference
   its enforcement mechanism (test file path, CI job name, lint rule identifier,
   contract test ID) so contributors can trace a rule from its statement to its
@@ -334,6 +384,38 @@ incident or a shipped vulnerability rather than as a failed CI job. Mechanical
 enforcement converts intent into protection; it is the discipline that makes the
 rest of the constitution operate as a binding standard instead of as advice.
 
+### XI. Supply-Chain Integrity & Verifiable Provenance
+The artifact a consumer installs MUST be verifiably the artifact this project built
+from reviewed, attributed source. Distribution integrity is a first-class
+responsibility, distinct from the runtime data-safety of Principle V (Secure &
+Privacy-Safe Logging) and the log-event integrity of Principle VII (Log Integrity &
+Monitoring Suitability).
+
+The package MUST:
+- **Publish only through an automated, attested path.** Releases MUST carry build
+  provenance tying the published artifact to its source commit and build, and MUST
+  be published via short-lived, trusted-publisher credentials rather than
+  long-lived tokens.
+- **Establish source authenticity.** Release tags MUST be signed and contributions
+  MUST be attributable (DCO sign-off), so the provenance chain begins at reviewed
+  source.
+- **Pin and screen its own dependencies,** so a compromised upstream cannot
+  silently enter a published build.
+- **Keep the distributed surface honest.** What ships (entry points, the `exports`
+  map, bundle contents) MUST match what is documented and contracted; nothing
+  undocumented rides along in the published artifact.
+
+Tamper-resistance and reproducibility of the published build are the goal: a
+consumer, a maintainer, and CI MUST be able to reach the same conclusion about an
+artifact's origin.
+
+Rationale: A security package is only as trustworthy as the weakest link between its
+source and the consumer's `node_modules`. The project already signs tags, publishes
+via OIDC trusted-publisher with provenance attestation, requires DCO, and pins
+dependencies; stating this as a principle records *why* those gates are
+non-negotiable and binds future releases to keep them, rather than leaving artifact
+integrity as an implementation detail of one feature's CI configuration.
+
 ## Package Architecture Standards
 
 - The package MUST target reusable browser package distribution rather than a single
@@ -344,30 +426,53 @@ rest of the constitution operate as a binding standard instead of as advice.
   published contracts and documented behavior remain intact.
 - Optional integrations and transports MUST be additive, MUST NOT impose vendor
   lock-in on the base package, and MUST NOT be permitted to weaken the secure
-  defaults defined in Principle IV or the integrity guarantees in Principle VI.
+  defaults defined in Principle V or the integrity guarantees in Principle VII.
 - Sensitive-data handling, redaction, and structured-output guarantees MUST be
   enforced inside the package, before any transport receives an event, so optional
   integrations cannot bypass them.
 - The configured runtime (backend, transports, redactor, sanitizer state, internal
   error reporter) is a **package-level shared resource**. `Logger` instances are
   cheap handles that read from this shared runtime; they MUST NOT own, initialize,
-  or duplicate it. Logger derivation MUST stay constant-cost (Principle VII).
+  or duplicate it. Logger derivation MUST stay constant-cost (Principle VIII).
+- **Logger construction constraints.** The package MUST NOT perform any of the
+  following at `Logger`-instance creation, nor at per-instance lifecycle events
+  (these are the binding, enumerated form of Principle VIII):
+  - Initialize a telemetry backend, vendor SDK, or transport.
+  - Start a queue, buffer flush loop, batching loop, retry loop, timer, interval,
+    scheduled callback, or any other recurring task.
+  - Attach a global event listener; patch a global (`console`, `fetch`,
+    `XMLHttpRequest`, `navigator.sendBeacon`, `window.onerror`,
+    `window.onunhandledrejection`, history, etc.); or install any document/window
+    observer.
+  - Read ambient browser state (`location`, `document.cookie`, `localStorage`,
+    `sessionStorage`, `navigator.*`, `process.env`, `import.meta.env`).
+  - Issue a network request, open a socket, or perform any other I/O.
+  - Allocate unbounded memory, eagerly snapshot application state, or pre-warm
+    caches sized by anything other than constant per-instance overhead.
 - Federated host/module configuration ownership MUST be documented as part of the
   package contract. The duplicate-package-copy behavior MUST be classified as
   **isolated**, **shared**, or **explicitly unsupported**, with consumer-visible
-  guidance for each (Principle VII).
+  guidance for each (Principle VIII).
 - Package decisions MUST favor portability, composability, and a uniform security
   posture across consumers over app-specific shortcuts.
 
 ## Delivery Workflow & Quality Gates
 
-- Every plan, spec, and task list MUST show how the work preserves API stability,
-  browser resilience, framework neutrality, secure-by-default logging, privacy-safe
-  data handling, log integrity, lightweight logger creation, federated runtime
-  discipline, package maintainability, reproducible verification, and mechanical
-  enforcement of documented contracts.
+- Every feature MUST proceed through the Spec Kit lifecycle (Principle I): a spec and
+  a plan MUST exist before production code, and each plan MUST pass its Constitution
+  Check against the principles below before implementation begins.
+- Every plan, spec, and task list MUST show how the work preserves API stability and
+  deprecation discipline, browser resilience, framework neutrality and standards-based
+  interoperability, secure-by-default logging, privacy-safe data handling, log
+  integrity, lightweight logger creation, federated runtime discipline, package
+  maintainability, reproducible verification, mechanical enforcement of documented
+  contracts, and supply-chain integrity.
 - New or changed public API behavior MUST include contract tests and migration notes
   when consumer-visible behavior changes.
+- **Deprecation & Migration**: A change that removes or incompatibly alters a published
+  contract MUST land the deprecation first — replacement available, migration path
+  documented, deprecation signaled in types/`@deprecated`/changelog — and keep the
+  deprecated contract for at least one minor release before removal (Principle II).
 - Runtime failure modes, log level behavior, metadata handling, redaction,
   environment-sensitive configuration, and integrity-relevant transformations
   (drops, batches, samples) MUST be covered by automated tests before work is
@@ -388,6 +493,12 @@ rest of the constitution operate as a binding standard instead of as advice.
   (b) federated module loggers do not accidentally replace or re-initialize the
   host's configured runtime; and (c) the duplicate-package-copy behavior matches
   the documented classification (isolated / shared / explicitly unsupported).
+- **Supply-Chain Integrity & Provenance**: Any change to the release pipeline,
+  publish path, dependency set, or the distributed surface (entry points, `exports`
+  map, packaged files) MUST preserve attested publishing, signed tags, DCO
+  attribution, pinned/screened dependencies, and parity between what ships and what
+  is documented (Principle XI). Each such gate MUST reference its automated check or
+  file a named, time-bound remediation task.
 - **Reproducible Verification**: Every quality check this feature defines
   (typecheck, test, build, bundle-size, dependency-pins, security, integrity,
   performance, and any new check added by the feature) MUST be invokable through a
@@ -399,8 +510,12 @@ rest of the constitution operate as a binding standard instead of as advice.
   input — MUST be eliminated in the package's own configuration rather than
   absorbed with per-environment skips or ad-hoc CI shims. Test code under `tests/`
   MUST be held to the same typing, lint, build, and import-resolution standards as
-  `src/` (Principle V); any tolerated relaxation MUST carry a written, named,
-  time-bound removal condition in the feature's task list.
+  `src/` (Principle VI). A tolerated relaxation is any `skip`, `xfail`, `todo`,
+  `@ts-ignore` / `@ts-expect-error` comment, temporarily disabled test file,
+  per-path tsconfig relaxation, or other carve-out; each MUST carry a written,
+  named, time-bound removal condition stored alongside the exception (in the source
+  itself or in the owning feature's task list) and MUST be tracked as remediation
+  debt rather than treated as steady state.
 - **Mechanical Enforcement of Documented Contracts**: Every quality gate this
   feature documents — invariants, bundle budgets, security clauses, dependency pin
   sets, sign-off rules, performance targets, the `exports` map shape, and any
@@ -412,15 +527,15 @@ rest of the constitution operate as a binding standard instead of as advice.
   name, lint rule identifier, contract test ID) so contributors can trace a rule
   from its statement to its check. Removing or disabling the enforcement of a
   previously-enforced gate goes through the same amendment and re-review process
-  as relaxing the underlying principle (Principle IX).
+  as relaxing the underlying principle (Principle X).
 - Documentation, examples, and integration guidance for single-app and
   federated/module-based usage MUST be updated when behavior or setup expectations
   change, and MUST continue to model safe logging behavior and document the
   host/module configuration ownership contract.
 - Any proposal that adds significant abstraction, dependency weight, vendor
-  coupling, or that relaxes a security, integrity, scalability, verification, or
-  enforcement guarantee MUST document why a simpler package-centric and
-  contract-preserving approach is insufficient.
+  coupling, or that relaxes a security, integrity, scalability, verification,
+  enforcement, or supply-chain guarantee MUST document why a simpler package-centric
+  and contract-preserving approach is insufficient.
 
 ## Governance
 
@@ -441,7 +556,7 @@ review. Work that violates these principles MUST not be approved without an expl
 documented exception and a remediation plan. Consumer-facing breaking changes require
 documented justification, migration guidance, and versioning aligned with the package
 release policy. Exceptions that relax a security, privacy, integrity, scalability,
-verification, or enforcement guarantee require an explicit, named, time-bound
-remediation plan and MUST be re-reviewed at each subsequent release.
+verification, enforcement, or supply-chain guarantee require an explicit, named,
+time-bound remediation plan and MUST be re-reviewed at each subsequent release.
 
-**Version**: 1.3.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-28
+**Version**: 1.4.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-31

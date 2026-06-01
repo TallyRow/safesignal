@@ -282,7 +282,7 @@ log.info('order placed', { orderId: order.id, total: order.total });
 enumeration of DO / DON'T patterns, the sanitizer's bounded-input
 rules, the redactor's default denylist and shape rules,
 `createRedactor()` composition, `scrubUrl()` usage, the
-diagnostics contract, and — per constitution Principle VI — every
+diagnostics contract, and — per constitution Principle VII — every
 documented behavior that drops, transforms, or otherwise bounds an
 event before delivery (level-filter drops, fail-closed redactor
 drops, sanitizer truncation markers, URL-scrubber replacements,

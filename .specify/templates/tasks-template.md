@@ -205,6 +205,15 @@ independently
   import-resolution standards as `src/`, with any tolerated relaxation
   carrying a written, named, time-bound removal condition; file a remediation
   task for any documented gate that lacks an enforcement path
+- [ ] TXXX Deprecation & supply-chain validation pass: if any published contract
+  changes incompatibly, confirm the replacement shipped first with a documented
+  migration path, the deprecation is signaled (types / `@deprecated` / changelog),
+  and the deprecated contract is retained for at least one minor release before
+  removal (with an automated check that a removed public symbol was deprecated in a
+  prior minor, or a documented release-checklist gate filed as remediation). If the
+  release pipeline, publish path, dependency set, or distributed surface changed,
+  confirm attested publishing, signed tags, DCO attribution, pinned/screened
+  dependencies, and ship-vs-documented parity remain enforced
 - [ ] TXXX Validate consumer migration notes and package API docs
 - [ ] TXXX Run quickstart.md validation
 
