@@ -1,0 +1,18 @@
+# Normalize all text files to LF in the repository and in every working tree,
+# on every platform. Without this, contributors on Windows (core.autocrlf=true)
+# get CRLF working trees, which breaks LF-sensitive tests (markdown-embedded
+# code comparisons) and the Biome `format:check` gate locally even though the
+# committed blobs are LF. Git auto-detects binary files and leaves them alone.
+* text=auto eol=lf
+
+# Be explicit for common binary types so they are never EOL-processed.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
