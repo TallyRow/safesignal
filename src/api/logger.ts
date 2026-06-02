@@ -22,6 +22,12 @@
  * default path; future vendor adapters are peer transports.
  */
 
+import {
+  breadcrumbFail,
+  CAUSES_KEY,
+  extractCauseChain,
+  MAX_CAUSE_DEPTH,
+} from '../breadcrumbs/breadcrumb-buffer.js';
 import { mergeContexts } from '../context/context-merge.js';
 import {
   safeNotify,
@@ -211,6 +217,25 @@ function makeLogger(
       context,
       errorValue,
     });
+
+    // Error-breadcrumbs cause chain (Feature 016) — opt-in, off by default.
+    // Write the bounded, cycle-safe cause chain into attributes BEFORE dispatch
+    // so the existing sanitizer + redactor process it like any attribute.
+    if (
+      cfg.breadcrumbs !== undefined &&
+      level === 'error' &&
+      errorValue !== undefined
+    ) {
+      try {
+        const causes = extractCauseChain(errorValue, MAX_CAUSE_DEPTH);
+        if (causes.length > 0) {
+          event.attributes[CAUSES_KEY] =
+            causes as unknown as Attributes[string];
+        }
+      } catch (err) {
+        breadcrumbFail(cfg.onInternalError, err);
+      }
+    }
 
     // Route through the locked pipeline order in src/pipeline/dispatcher.ts:
     //   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze →

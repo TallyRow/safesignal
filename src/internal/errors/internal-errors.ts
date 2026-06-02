@@ -19,6 +19,8 @@ export type PackageErrorCode =
   | 'backend_init_failed'
   | 'backend_handle_failed'
   | 'sanitizer_limit_clamped'
+  | 'breadcrumbs_max_clamped'
+  | 'breadcrumb_failed'
   | 'no_transport_configured';
 
 export interface PackageErrorOptions {

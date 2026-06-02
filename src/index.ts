@@ -23,6 +23,7 @@ export type {
   AppIdentity,
   Attributes,
   AttributeValue,
+  BreadcrumbsOptions,
   CreateLoggerOptions,
   ErrorInfo,
   LevelMap,
