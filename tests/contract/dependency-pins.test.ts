@@ -396,6 +396,7 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
       '.',
       './capture',
       './dev-console',
+      './stacks',
       './testing',
       './transport-beacon',
       './transport-otlp',
@@ -424,6 +425,7 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
     ['./transport-otlp', 'transport-otlp'],
     ['./capture', 'capture'],
     ['./dev-console', 'dev-console'],
+    ['./stacks', 'stacks'],
   ])('entry %s has the documented { types, import, require } triple for "%s"', (key, name) => {
     const pkg = loadPackageJson();
     const entry = (

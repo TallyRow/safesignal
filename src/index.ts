@@ -37,6 +37,8 @@ export type {
   Redactor,
   SanitizerLimits,
   ScrubUrlOptions,
+  StackFrame,
+  StackNormalizer,
   TraceContext,
   Transport,
   TransportFactory,

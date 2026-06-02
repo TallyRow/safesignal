@@ -237,6 +237,33 @@ function makeLogger(
       }
     }
 
+    // Error-stack normalization (Feature 017) — opt-in, off by default. Parse
+    // the raw stack into trimmed (optionally source-mapped) frames and write them
+    // into attributes BEFORE dispatch, so the existing url-scrub + redact + sanitize
+    // stages scrub frame URLs and bound them. The raw `error.stack` is preserved.
+    if (
+      cfg.normalizeStack !== undefined &&
+      level === 'error' &&
+      event.error?.stack !== undefined
+    ) {
+      try {
+        const frames = cfg.normalizeStack(event.error.stack);
+        if (frames !== null && frames.length > 0) {
+          event.attributes['safesignal.stack'] =
+            frames as unknown as Attributes[string];
+        }
+      } catch (err) {
+        safeNotify(
+          cfg.onInternalError,
+          wrapAsPackageError(
+            'stack_normalize_failed',
+            'stack normalize failed',
+            err,
+          ),
+        );
+      }
+    }
+
     // Route through the locked pipeline order in src/pipeline/dispatcher.ts:
     //   Sanitize → URLScrub → Redact → ControlCharGuard → Freeze →
     //   direct transport fan-out. The dispatcher owns its own try/catch

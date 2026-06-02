@@ -21,6 +21,7 @@ export type PackageErrorCode =
   | 'sanitizer_limit_clamped'
   | 'breadcrumbs_max_clamped'
   | 'breadcrumb_failed'
+  | 'stack_normalize_failed'
   | 'no_transport_configured';
 
 export interface PackageErrorOptions {

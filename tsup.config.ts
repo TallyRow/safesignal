@@ -10,6 +10,7 @@ export default defineConfig({
     'transport-otlp': 'src/transport-otlp/index.ts',
     capture: 'src/capture/index.ts',
     'dev-console': 'src/dev-console/index.ts',
+    stacks: 'src/stacks/index.ts',
   },
   format: ['esm', 'cjs'],
   outExtension: ({ format }) => ({ js: format === 'esm' ? '.mjs' : '.cjs' }),

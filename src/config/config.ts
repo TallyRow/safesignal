@@ -19,6 +19,7 @@ import type {
   ModuleIdentity,
   Redactor,
   SanitizerLimits,
+  StackNormalizer,
   Transport,
 } from '../api/types.js';
 
@@ -59,6 +60,8 @@ export interface NormalizedConfig {
   readonly sanitizerLimits: SanitizerLimits;
   /** Shared runtime-level breadcrumb ring buffer, or undefined when off (default). */
   readonly breadcrumbs: BreadcrumbBuffer | undefined;
+  /** Consumer error-stack normalizer (`./stacks`), or undefined when off (default). */
+  readonly normalizeStack: StackNormalizer | undefined;
   readonly onInternalError: (err: Error) => void;
 }
 
@@ -96,6 +99,7 @@ export function normalizeConfig(config: LoggerConfig): NormalizedConfig {
     redactor: config.redactor,
     sanitizerLimits,
     breadcrumbs: resolveBreadcrumbs(config.breadcrumbs, onInternalError),
+    normalizeStack: config.normalizeStack,
     onInternalError,
   };
 }

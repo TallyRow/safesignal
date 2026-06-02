@@ -368,6 +368,7 @@ describe('TB-12 — package.json exports + dependency hygiene', () => {
       '.',
       './capture',
       './dev-console',
+      './stacks',
       './testing',
       './transport-beacon',
       './transport-otlp',

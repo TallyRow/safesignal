@@ -335,9 +335,19 @@ describe('(d) dist/transport-beacon.mjs gzipped size budget', () => {
  * `bundle-invariance` gate (HEAD vs merge-base; see scripts/ci/
  * bundle-invariance-check.sh) — NOT beacon leakage (still guarded by (a)–(c)).
  * The gate moved (with this justification), it was not removed (Principle X).
+ *
+ * Re-baselined again in Feature 017 (readable error stacks): the core gained the
+ * tiny `normalizeStack` seam (the `StackFrame`/`StackNormalizer` types are erased;
+ * the runtime add is the `LoggerConfig.normalizeStack` config passthrough + the
+ * `emit()` wiring that stashes frames into `attributes['safesignal.stack']`). The
+ * heavy parser/trimmer/resolver lives in the `./stacks` SUBPATH (not the default
+ * entry). The +~100 B mjs seam delta is within the ±1 KiB dynamic
+ * `bundle-invariance` gate (HEAD vs the post-F016 merge-base) — gate moved with
+ * justification, not removed (Principle X). The `./stacks` bundle has its own
+ * shape/size test (`stacks-bundle-shape.security.test.ts`).
  */
-const DEFAULT_ENTRY_MJS_GZ_MAX = 9850; // observed: 9770 B (F016)
-const DEFAULT_ENTRY_CJS_GZ_MAX = 9900; // observed: 9810 B (F016)
+const DEFAULT_ENTRY_MJS_GZ_MAX = 9950; // observed: 9870 B (F017)
+const DEFAULT_ENTRY_CJS_GZ_MAX = 9990; // observed: 9910 B (F017)
 
 describe('(e) dist/index.{mjs,cjs} default-entry size lock (SC-007)', () => {
   it(`dist/index.mjs is ≤ ${DEFAULT_ENTRY_MJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {
