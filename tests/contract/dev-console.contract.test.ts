@@ -65,15 +65,17 @@ describe('DC-1 — development: collapsed, level-styled group header', () => {
     expect(String(styles[0])).toMatch(/color:.+;font-weight:bold/);
   });
 
-  it.each(['debug', 'info', 'warn', 'error'] as LogLevel[])(
-    'renders a styled header for level %s',
-    (level) => {
-      const spy = spyConsole();
-      DevConsoleTransport().send(makeEvent({ level }));
-      const [header] = spy.groupCollapsed.mock.calls[0]!;
-      expect(header).toContain(level.toUpperCase());
-    },
-  );
+  it.each([
+    'debug',
+    'info',
+    'warn',
+    'error',
+  ] as LogLevel[])('renders a styled header for level %s', (level) => {
+    const spy = spyConsole();
+    DevConsoleTransport().send(makeEvent({ level }));
+    const [header] = spy.groupCollapsed.mock.calls[0]!;
+    expect(header).toContain(level.toUpperCase());
+  });
 
   it('colors:false renders a plain (no-%c) header', () => {
     const spy = spyConsole();
@@ -104,7 +106,11 @@ describe('DC-2 — group body: attributes / error / trace, each omitted when emp
     DevConsoleTransport().send(
       makeEvent({
         level: 'error',
-        error: { name: 'TypeError', message: 'upstream timeout', stack: 'at x' },
+        error: {
+          name: 'TypeError',
+          message: 'upstream timeout',
+          stack: 'at x',
+        },
       }),
     );
     const logged = spy.log.mock.calls.map((c) => String(c[0]));
@@ -158,9 +164,7 @@ describe('DC-8 — trace link carry-only', () => {
     );
     const logged = spy.log.mock.calls.map((c) => String(c[0]));
     expect(
-      logged.some(
-        (l) => l.includes(TRACE.traceId) && l.includes(TRACE.spanId),
-      ),
+      logged.some((l) => l.includes(TRACE.traceId) && l.includes(TRACE.spanId)),
     ).toBe(true);
   });
 });
@@ -170,21 +174,25 @@ describe('DC-8 — trace link carry-only', () => {
 // ---------------------------------------------------------------------------
 
 describe('DC-3 — non-development falls back to the structured form', () => {
-  it.each(['production', 'staging', 'qa-unknown'])(
-    'environment %s: calls console[level](message, event) and never groups',
-    (environment) => {
-      const spy = spyConsole();
-      const event = makeEvent({ level: 'warn', context: { environment } });
-      DevConsoleTransport().send(event);
+  it.each([
+    'production',
+    'staging',
+    'qa-unknown',
+  ])('environment %s: calls console[level](message, event) and never groups', (environment) => {
+    const spy = spyConsole();
+    const event = makeEvent({ level: 'warn', context: { environment } });
+    DevConsoleTransport().send(event);
 
-      expect(spy.groupCollapsed).not.toHaveBeenCalled();
-      expect(spy.warn).toHaveBeenCalledTimes(1);
-      expect(spy.warn).toHaveBeenCalledWith(event.message, event);
-    },
-  );
+    expect(spy.groupCollapsed).not.toHaveBeenCalled();
+    expect(spy.warn).toHaveBeenCalledTimes(1);
+    expect(spy.warn).toHaveBeenCalledWith(event.message, event);
+  });
 
   it('DC-10 parity: in non-dev, DevConsoleTransport mirrors ConsoleTransport call-for-call', () => {
-    const event = makeEvent({ level: 'info', context: { environment: 'production' } });
+    const event = makeEvent({
+      level: 'info',
+      context: { environment: 'production' },
+    });
 
     const devSpy = spyConsole();
     DevConsoleTransport().send(event);

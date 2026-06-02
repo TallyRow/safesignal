@@ -57,12 +57,13 @@ export interface DevConsoleTransportOptions {
 type ConsoleMethod = (message?: unknown, ...optional: unknown[]) => void;
 
 /** Per-level icon + devtools color. Presentation only. */
-const LEVEL_STYLE: Record<LogEvent['level'], { icon: string; color: string }> = {
-  debug: { icon: '🐛', color: '#6b7280' },
-  info: { icon: 'ℹ️', color: '#2563eb' },
-  warn: { icon: '⚠️', color: '#d97706' },
-  error: { icon: '⛔', color: '#dc2626' },
-};
+const LEVEL_STYLE: Record<LogEvent['level'], { icon: string; color: string }> =
+  {
+    debug: { icon: '🐛', color: '#6b7280' },
+    info: { icon: 'ℹ️', color: '#2563eb' },
+    warn: { icon: '⚠️', color: '#d97706' },
+    error: { icon: '⛔', color: '#dc2626' },
+  };
 
 const DIM_STYLE = 'color:#9ca3af';
 
@@ -119,7 +120,10 @@ function traceLink(
 }
 
 /** Pretty-render one dev event as a collapsed group. */
-function renderGroup(event: LogEvent, options: DevConsoleTransportOptions): void {
+function renderGroup(
+  event: LogEvent,
+  options: DevConsoleTransportOptions,
+): void {
   const useColors = options.colors ?? true;
   const { icon, color } = LEVEL_STYLE[event.level];
   const level = event.level.toUpperCase();

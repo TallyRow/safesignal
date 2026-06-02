@@ -109,9 +109,9 @@ describe('DC-5 — renders only the post-pipeline event, by reference', () => {
     DevConsoleTransport().send(event);
     const strings = allStrings(calls);
     // The fixture's raw authorization value never appears.
-    expect(strings.some((s) => s.includes(makeSecretFixture().authorization))).toBe(
-      false,
-    );
+    expect(
+      strings.some((s) => s.includes(makeSecretFixture().authorization)),
+    ).toBe(false);
   });
 });
 

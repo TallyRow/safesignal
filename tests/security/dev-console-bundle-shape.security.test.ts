@@ -158,12 +158,18 @@ describe('(a) source-import boundary — src/dev-console/**/*.ts', () => {
 
 describe('(b) dist/dev-console.{mjs,cjs} contains no vendor reference', () => {
   it.each(VENDOR_PACKAGE_NAMES)('mjs contains no reference to "%s"', (name) => {
-    expect(read(DEV_CONSOLE_MJS).toLowerCase()).not.toContain(name.toLowerCase());
+    expect(read(DEV_CONSOLE_MJS).toLowerCase()).not.toContain(
+      name.toLowerCase(),
+    );
   });
   it.each(VENDOR_PACKAGE_NAMES)('cjs contains no reference to "%s"', (name) => {
-    expect(read(DEV_CONSOLE_CJS).toLowerCase()).not.toContain(name.toLowerCase());
+    expect(read(DEV_CONSOLE_CJS).toLowerCase()).not.toContain(
+      name.toLowerCase(),
+    );
   });
-  it.each(VENDOR_IDENTIFIERS)('mjs contains no vendor identifier "%s"', (name) => {
+  it.each(
+    VENDOR_IDENTIFIERS,
+  )('mjs contains no vendor identifier "%s"', (name) => {
     expect(read(DEV_CONSOLE_MJS)).not.toMatch(new RegExp(`\\b${name}\\b`));
   });
 });
