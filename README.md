@@ -271,6 +271,46 @@ sanitized like any log.
   instrumentation (that is RUM; see Roadmap). Duplicate package copies are
   **isolated** (each capturer uses the `Logger` from its own copy).
 
+## Readable error stacks — `./stacks` subpath
+
+A raw browser error stack is a wall of minified, framework-internal noise. The
+**opt-in** `./stacks` subpath parses an error's stack into **trimmed, structured
+frames** (function / file / line / column), and — when you supply a **synchronous
+source-map resolver** — maps minified production frames back to original source
+positions. **Off by default.**
+
+```ts
+import { configureLogging, getRootLogger } from '@tallyrow/safesignal';
+import { createStackNormalizer } from '@tallyrow/safesignal/stacks';
+
+// Optional: a SYNCHRONOUS resolver over source maps you have already loaded.
+const resolver = (f) => mySourceMaps.lookup(f.file, f.line, f.column) ?? null;
+
+configureLogging({
+  application: { name: 'checkout-web', version: '4.2.0' },
+  environment: 'production',
+  transports: [/* … */],
+  normalizeStack: createStackNormalizer({ resolver, maxFrames: 30 }), // OFF unless set
+});
+
+getRootLogger().error('checkout failed', { orderId: 'ord_9f3' }, new Error('boom'));
+```
+
+The delivered **error** event gains `attributes['safesignal.stack']` — an ordered
+array of `{ function?, file?, line?, column?, original? }` (the raw `error.stack`
+string is preserved unchanged). Other events are untouched.
+
+- **Trimmed**: `node_modules`, engine-internal, and boilerplate frames are removed
+  by default (`includeNodeModules` / `includeInternal` opt back in); bounded to
+  `maxFrames` (default 30, max 100).
+- **Source-mapped**: with a **synchronous** `resolver`, resolvable frames carry
+  `original`; an unmappable frame is left as-is. SafeSignal does **no** async work
+  or `.map` fetching — you load your maps; SafeSignal calls a fast sync lookup.
+- **Safe**: frames ride in `attributes`, so a secret in a frame URL's query is
+  scrubbed by the pipeline (whole-value guarantee). Off by default, fail-safe
+  (a throwing parser/resolver never breaks the page — the error is always
+  delivered), runtime-level (no per-`Logger` cost), and **no new dependency**.
+
 ## Error breadcrumbs — recent-event context on errors
 
 When an error is logged, the hardest debugging question is "what happened *just

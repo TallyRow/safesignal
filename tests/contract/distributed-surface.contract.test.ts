@@ -24,6 +24,7 @@ const PUBLIC_SUBPATHS = [
   './transport-otlp',
   './capture',
   './dev-console',
+  './stacks',
 ] as const;
 
 interface PackageManifest {
@@ -174,6 +175,11 @@ const HONEST_PKG: PackageManifest = {
       types: './dist/dev-console.d.ts',
       import: './dist/dev-console.mjs',
       require: './dist/dev-console.cjs',
+    },
+    './stacks': {
+      types: './dist/stacks.d.ts',
+      import: './dist/stacks.mjs',
+      require: './dist/stacks.cjs',
     },
   },
   main: './dist/index.cjs',
