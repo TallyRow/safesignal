@@ -361,12 +361,13 @@ describe('TB-10 — synchronous factory and synchronous send', () => {
 // ---------------------------------------------------------------------------
 
 describe('TB-12 — package.json exports + dependency hygiene', () => {
-  it('exports map has exactly { ".", "./capture", "./testing", "./transport-beacon", "./transport-otlp" }', () => {
+  it('exports map has exactly { ".", "./capture", "./dev-console", "./testing", "./transport-beacon", "./transport-otlp" }', () => {
     const pkg = loadPackageJson();
     const keys = Object.keys(pkg.exports ?? {}).sort();
     expect(keys).toEqual([
       '.',
       './capture',
+      './dev-console',
       './testing',
       './transport-beacon',
       './transport-otlp',
