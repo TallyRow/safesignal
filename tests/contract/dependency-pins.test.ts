@@ -389,12 +389,13 @@ describe('T070 (d) — published `dist/index.d.{ts,cts}` contain no vendor-speci
 // ---------------------------------------------------------------------------
 
 describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `./transport-beacon`, `./transport-otlp`, sideEffects:false', () => {
-  it('exports map keys are exactly { ".", "./capture", "./testing", "./transport-beacon", "./transport-otlp" }', () => {
+  it('exports map keys are exactly { ".", "./capture", "./dev-console", "./testing", "./transport-beacon", "./transport-otlp" }', () => {
     const pkg = loadPackageJson();
     const exports = pkg.exports ?? {};
     expect(Object.keys(exports).sort()).toEqual([
       '.',
       './capture',
+      './dev-console',
       './testing',
       './transport-beacon',
       './transport-otlp',
@@ -422,6 +423,7 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
     ['./transport-beacon', 'transport-beacon'],
     ['./transport-otlp', 'transport-otlp'],
     ['./capture', 'capture'],
+    ['./dev-console', 'dev-console'],
   ])('entry %s has the documented { types, import, require } triple for "%s"', (key, name) => {
     const pkg = loadPackageJson();
     const entry = (

@@ -271,6 +271,45 @@ sanitized like any log.
   instrumentation (that is RUM; see Roadmap). Duplicate package copies are
   **isolated** (each capturer uses the `Logger` from its own copy).
 
+## Pretty dev logs — `./dev-console` subpath
+
+The built-in `ConsoleTransport` hands devtools the message plus the structured
+event object — correct and safe, but a wall of JSON to scan locally. The
+**opt-in** `./dev-console` subpath ships `DevConsoleTransport`: a pretty,
+**development-only** sibling that renders the *same* already sanitized + redacted
+event as a collapsed, level-styled group (icon/color, message, `app · module ·
+env`, attributes, error, and a trace link). Select it **only** in development so
+your bundler tree-shakes it out of production entirely:
+
+```ts
+import { configureLogging, getRootLogger, ConsoleTransport } from '@tallyrow/safesignal';
+import { DevConsoleTransport } from '@tallyrow/safesignal/dev-console';
+
+configureLogging({
+  application: { name: 'checkout-web', version: '4.2.0' },
+  environment: import.meta.env.DEV ? 'development' : 'production',
+  transports: [
+    import.meta.env.DEV
+      ? DevConsoleTransport({ traceUrl: ({ traceId }) => `https://trace.example/${traceId}` })
+      : ConsoleTransport(),
+  ],
+});
+
+getRootLogger().info('checkout opened', { cartItems: 3 });
+```
+
+- **Genuine zero production cost**: the dev branch is dead-code-eliminated from
+  your production build, so the renderer ships **0 bytes** there. SafeSignal's
+  default `.` entry (and `ConsoleTransport`) is byte-unchanged.
+- **Runtime-gated + defensive**: it renders pretty only when the event's
+  `environment === 'development'`; in any other environment — or where rich
+  console features are absent — it behaves exactly like `ConsoleTransport`
+  (`console[level](message, event)`), even if mistakenly used in production.
+- **Structured-only & safe**: it renders **only** the post-pipeline event (no
+  re-serialization of app objects), attaches **no** globals, reads no ambient
+  state, and never throws into the page. The optional `traceUrl` formatter is
+  carry-only — built from the event's existing trace ids, no ids minted.
+
 ## Level configuration
 
 In `production`, `debug` and `info` are dropped by default. Raise the

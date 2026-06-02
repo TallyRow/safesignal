@@ -23,6 +23,7 @@ const PUBLIC_SUBPATHS = [
   './transport-beacon',
   './transport-otlp',
   './capture',
+  './dev-console',
 ] as const;
 
 interface PackageManifest {
@@ -168,6 +169,11 @@ const HONEST_PKG: PackageManifest = {
       types: './dist/capture.d.ts',
       import: './dist/capture.mjs',
       require: './dist/capture.cjs',
+    },
+    './dev-console': {
+      types: './dist/dev-console.d.ts',
+      import: './dist/dev-console.mjs',
+      require: './dist/dev-console.cjs',
     },
   },
   main: './dist/index.cjs',

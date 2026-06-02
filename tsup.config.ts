@@ -9,6 +9,7 @@ export default defineConfig({
     'transport-beacon': 'src/transport-beacon/index.ts',
     'transport-otlp': 'src/transport-otlp/index.ts',
     capture: 'src/capture/index.ts',
+    'dev-console': 'src/dev-console/index.ts',
   },
   format: ['esm', 'cjs'],
   outExtension: ({ format }) => ({ js: format === 'esm' ? '.mjs' : '.cjs' }),
