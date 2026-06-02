@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/015-dev-console-rendering/plan.md
+specs/016-error-breadcrumbs/plan.md
 <!-- SPECKIT END -->

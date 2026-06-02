@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "entry": ".",
+    "name": "LoggerConfig",
+    "from": "interface LoggerConfig { application?: AppIdentity; module?: ModuleIdentity; environment?: string; level?: LogLevel | LevelMap; context?: Partial<LogContext>; correlation?: () => Partial<LogContext>; transports?: Array<Transport | TransportFactory>; redactor?: Redactor; sanitizerLimits?: Partial<SanitizerLimits>; onInternalError?: (err: Error) => void; }",
+    "to": "interface LoggerConfig { application?: AppIdentity; module?: ModuleIdentity; environment?: string; level?: LogLevel | LevelMap; context?: Partial<LogContext>; correlation?: () => Partial<LogContext>; transports?: Array<Transport | TransportFactory>; redactor?: Redactor; sanitizerLimits?: Partial<SanitizerLimits>; breadcrumbs?: boolean | BreadcrumbsOptions; onInternalError?: (err: Error) => void; }",
+    "reason": "Feature 016 (opt-in error breadcrumbs): additive, backward-compatible new OPTIONAL field `breadcrumbs?: boolean | BreadcrumbsOptions` (off by default). No existing field is removed or changed; existing consumers are unaffected. Not a breaking change, so no deprecation is required."
+  }
+]

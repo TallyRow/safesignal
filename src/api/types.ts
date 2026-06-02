@@ -270,11 +270,31 @@ export interface LoggerConfig {
   /** Tighten sanitizer bounds. Values above documented Max are clamped. */
   sanitizerLimits?: Partial<SanitizerLimits>;
   /**
+   * Opt-in **error breadcrumbs** (off by default). When enabled, an error log
+   * automatically carries the most recent events (`attributes['safesignal.breadcrumbs']`)
+   * and the error's cause chain (`attributes['safesignal.errorCauses']`), built only
+   * from the already sanitized + redacted event. `true` enables defaults; an object
+   * overrides them. See {@link BreadcrumbsOptions}.
+   */
+  breadcrumbs?: boolean | BreadcrumbsOptions;
+  /**
    * Diagnostics hook for internal failures (transport throws, init failure,
    * redactor throw, sanitizer-limit clamp). Fires at most once per
    * failing transport per session.
    */
   onInternalError?: (err: Error) => void;
+}
+
+/**
+ * Options for opt-in **error breadcrumbs** (Feature 016). Enable via
+ * `LoggerConfig.breadcrumbs`. Off by default.
+ */
+export interface BreadcrumbsOptions {
+  /**
+   * Ring-buffer capacity — how many recent events an error log carries.
+   * Default `20`; clamped to `[1, 100]` (one `onInternalError` notice on clamp).
+   */
+  maxEvents?: number;
 }
 
 /**

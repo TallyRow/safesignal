@@ -326,9 +326,18 @@ describe('(d) dist/transport-beacon.mjs gzipped size budget', () => {
  * core per research D6 — the +597 B mjs delta is within the ±1 KiB
  * invariance gate). This is a legitimate core-feature growth, not
  * beacon-subpath leakage (still guarded by groups (a)–(c) above).
+ *
+ * Re-baselined again in Feature 016 (opt-in error breadcrumbs): the core
+ * gained the off-by-default `src/breadcrumbs/` ring buffer + cause-chain
+ * walker + the `breadcrumbs` config option + the dispatcher/logger wiring
+ * (Option A — a core runtime option, not a subpath). The ~+1.0 KB mjs delta
+ * is a legitimate core-feature growth held within the ±1 KiB dynamic
+ * `bundle-invariance` gate (HEAD vs merge-base; see scripts/ci/
+ * bundle-invariance-check.sh) — NOT beacon leakage (still guarded by (a)–(c)).
+ * The gate moved (with this justification), it was not removed (Principle X).
  */
-const DEFAULT_ENTRY_MJS_GZ_MAX = 8800; // observed: 8763 B (F008)
-const DEFAULT_ENTRY_CJS_GZ_MAX = 8850; // observed: 8806 B (F008)
+const DEFAULT_ENTRY_MJS_GZ_MAX = 9850; // observed: 9770 B (F016)
+const DEFAULT_ENTRY_CJS_GZ_MAX = 9900; // observed: 9810 B (F016)
 
 describe('(e) dist/index.{mjs,cjs} default-entry size lock (SC-007)', () => {
   it(`dist/index.mjs is ≤ ${DEFAULT_ENTRY_MJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {

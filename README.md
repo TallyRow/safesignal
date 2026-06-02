@@ -271,6 +271,48 @@ sanitized like any log.
   instrumentation (that is RUM; see Roadmap). Duplicate package copies are
   **isolated** (each capturer uses the `Logger` from its own copy).
 
+## Error breadcrumbs — recent-event context on errors
+
+When an error is logged, the hardest debugging question is "what happened *just
+before* this?" Enable **opt-in error breadcrumbs** and every error log
+automatically carries a bounded trail of the most recent events plus the error's
+cause chain — built only from SafeSignal's own already sanitized + redacted
+events. **Off by default.**
+
+```ts
+import { configureLogging, getRootLogger } from '@tallyrow/safesignal';
+
+configureLogging({
+  application: { name: 'checkout-web', version: '4.2.0' },
+  environment: 'production',
+  transports: [/* … */],
+  breadcrumbs: true,          // or { maxEvents: 30 } — default 20, max 100
+});
+
+const log = getRootLogger();
+log.info('checkout opened', { cartItems: 3 });
+log.warn('coupon expired');
+log.error('checkout failed', { orderId: 'ord_9f3' },
+  new Error('checkout failed', { cause: new Error('payment processor 5xx') }));
+```
+
+The delivered **error** event gains two documented, machine-parseable attribute
+fields (other events are untouched):
+
+- `attributes['safesignal.breadcrumbs']` — the recent events, oldest→newest, each
+  `{ ts, level, message, app?, module?, attributes? }` (host vs. federated-module
+  origin stays distinguishable).
+- `attributes['safesignal.errorCauses']` — the error's nested cause chain,
+  outermost→root, each `{ name, message }`.
+
+- **Bounded & cheap**: a single runtime-level ring buffer — constant memory (≤
+  `maxEvents`), constant-cost recording, **no** per-`Logger` cost. Duplicate
+  package copies are **isolated** (each runtime owns its buffer).
+- **Safe**: breadcrumbs carry only the post-redaction event; the cause chain runs
+  through the same redaction. It never mutates other (or already-delivered)
+  events, and never throws into the page — an error is always delivered, with or
+  without the trail.
+
 ## Pretty dev logs — `./dev-console` subpath
 
 The built-in `ConsoleTransport` hands devtools the message plus the structured
