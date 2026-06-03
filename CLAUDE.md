@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/019-auto-enable-hooks/plan.md
+specs/020-vue-error-handler/plan.md
 <!-- SPECKIT END -->

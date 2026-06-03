@@ -331,6 +331,64 @@ function SaveButton() {
   Duplicate package copies are **isolated** (each routes through the logger it is
   handed).
 
+## Catch Vue errors — `./framework-vue` subpath
+
+The Vue 3 counterpart of `./framework-react`. When a Vue component throws during
+render, a lifecycle hook, a watcher, or a template handler, that error never
+reaches your transports. The **opt-in** `./framework-vue` subpath is the
+**no-globals, per-app** counterpart to `./capture`: an `app.config.errorHandler`
+adapter plus the `useLogError()` and `useErrorCapture()` composables that route
+Vue errors through your existing `Logger`. `vue` is a **peer dependency**
+(`>=3.0`) — the core and every other subpath stay Vue-free.
+
+```ts
+import { createApp } from 'vue';
+import { createLogger } from '@tallyrow/safesignal';
+import { safesignalErrorHandler } from '@tallyrow/safesignal/framework-vue';
+
+const log = createLogger({ module: 'checkout' });
+
+createApp(App)
+  .use(safesignalErrorHandler, { logger: log }) // sets app.config.errorHandler + provides the logger
+  .mount('#app');
+```
+
+A framework error emits an `error`-level event (`'Vue error'`) carrying the
+serialized error and best-effort Vue context (`safesignal.vue.info`,
+`safesignal.vue.componentName`), with `safesignal.source: 'vue-error-handler'`,
+redacted + sanitized like any log. Prefer to wire it yourself? The factory is
+side-effect-free: `app.config.errorHandler = createErrorHandler(log)`.
+
+For errors Vue's handler can't catch (async/`try`-`catch`, native listeners), use
+`useLogError()`; to contain and recover a subtree, use `useErrorCapture()`:
+
+```ts
+import { ref } from 'vue';
+import { useLogError, useErrorCapture } from '@tallyrow/safesignal/framework-vue';
+
+// In a component's setup():
+const logError = useLogError(); // stable callback; resolves the provided logger
+async function onClick() {
+  try { await save(); } catch (err) { logError(err, { 'safesignal.action': 'save' }); }
+}
+
+// In a wrapper component's setup() — a subtree boundary:
+const failed = ref(false);
+useErrorCapture({ onError: () => { failed.value = true; } });
+// descendant errors log once (safesignal.source: 'vue-error-captured') and, by
+// default, do NOT also reach the app-level handler. Pass { propagate: true } to bubble.
+```
+
+- **No globals** (Principle VIII): patches nothing, attaches no `window`
+  listeners — the explicit contrast with `./capture`. Complementary; usable together.
+- **Fail-safe** (Principle III): a logging (or `onError`) failure is swallowed and
+  the app keeps running; no error loop.
+- **Fail-closed** (Principle V): errors route through the same redaction pipeline
+  as any log; if redaction fails the event is dropped.
+- **Explicit logger**: provide it via the plugin (or `useLogError(logger)` /
+  `useErrorCapture({ logger })`). With no logger resolvable, the helpers are a
+  **safe no-op** (never throw). Duplicate package copies are **isolated**.
+
 ## Readable error stacks — `./stacks` subpath
 
 A raw browser error stack is a wall of minified, framework-internal noise. The

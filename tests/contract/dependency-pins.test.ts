@@ -397,6 +397,7 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
       './capture',
       './dev-console',
       './framework-react',
+      './framework-vue',
       './stacks',
       './testing',
       './transport-beacon',
@@ -428,6 +429,7 @@ describe('T070 sanity — `package.json` exports map exposes `.`, `./testing`, `
     ['./dev-console', 'dev-console'],
     ['./stacks', 'stacks'],
     ['./framework-react', 'framework-react'],
+    ['./framework-vue', 'framework-vue'],
   ])('entry %s has the documented { types, import, require } triple for "%s"', (key, name) => {
     const pkg = loadPackageJson();
     const entry = (

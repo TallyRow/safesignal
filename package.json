@@ -73,6 +73,11 @@
       "types": "./dist/framework-react.d.ts",
       "import": "./dist/framework-react.mjs",
       "require": "./dist/framework-react.cjs"
+    },
+    "./framework-vue": {
+      "types": "./dist/framework-vue.d.ts",
+      "import": "./dist/framework-vue.mjs",
+      "require": "./dist/framework-vue.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -100,10 +105,14 @@
     "prepare": "node scripts/setup-hooks.mjs"
   },
   "peerDependencies": {
-    "react": ">=16.8.0"
+    "react": ">=16.8.0",
+    "vue": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },
@@ -121,7 +130,8 @@
     "react-dom": "^18.3.1",
     "tsup": "^8.3.0",
     "typescript": "^5.4.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "vue": "^3.5.0"
   },
   "engines": {
     "node": ">=18.0.0"
