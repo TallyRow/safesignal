@@ -65,6 +65,28 @@ function makeTmpDir(): string {
   tmpDirs.push(d);
   return d;
 }
+
+/**
+ * A fresh temp git repo. `identity: true` configures a LOCAL committer identity
+ * so the hook's `git config user.name/email` is deterministic and independent of
+ * the host/CI machine (CI runners have no identity — that divergence must not
+ * leak into the test). Returns the repo path.
+ */
+function makeGitRepo(identity = true): string {
+  const repo = makeTmpDir();
+  execFileSync('git', ['init', '-q'], { cwd: repo, stdio: 'ignore' });
+  if (identity) {
+    execFileSync('git', ['config', 'user.name', 'Test Dev'], {
+      cwd: repo,
+      stdio: 'ignore',
+    });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], {
+      cwd: repo,
+      stdio: 'ignore',
+    });
+  }
+  return repo;
+}
 afterAll(() => {
   for (const d of tmpDirs) rmSync(d, { recursive: true, force: true });
 });
@@ -136,34 +158,53 @@ describe.skipIf(!SH)('commit-time hooks — behavior (US2 / C2–C4)', () => {
   const commitMsg = join(HOOKS_DIR, 'commit-msg');
 
   it('prepare-commit-msg appends Signed-off-by when missing (C2)', () => {
-    const dir = makeTmpDir();
-    const msg = join(dir, 'MSG');
+    const repo = makeGitRepo();
+    const msg = join(repo, 'MSG');
     writeFileSync(msg, 'feat: a change\n');
-    execFileSync('sh', [prepare, msg], { cwd: REPO_ROOT, stdio: 'ignore' });
+    execFileSync('sh', [prepare, msg], { cwd: repo, stdio: 'ignore' });
     expect(readFileSync(msg, 'utf8')).toMatch(
-      /^Signed-off-by: .+ <[^@\s]+@[^>\s]+>$/m,
+      /^Signed-off-by: Test Dev <test@example\.com>$/m,
     );
   });
 
   it('prepare-commit-msg does not duplicate an existing trailer (C3)', () => {
-    const dir = makeTmpDir();
-    const msg = join(dir, 'MSG');
+    const repo = makeGitRepo();
+    const msg = join(repo, 'MSG');
     writeFileSync(
       msg,
       'feat: a change\n\nSigned-off-by: Dev <dev@example.com>\n',
     );
-    execFileSync('sh', [prepare, msg], { cwd: REPO_ROOT, stdio: 'ignore' });
+    execFileSync('sh', [prepare, msg], { cwd: repo, stdio: 'ignore' });
     const count = (readFileSync(msg, 'utf8').match(/^Signed-off-by:/gm) ?? [])
       .length;
     expect(count).toBe(1);
   });
 
+  it('prepare-commit-msg no-ops when committer identity is unset (C2 edge)', () => {
+    const repo = makeGitRepo(false); // no local identity
+    const emptyCfg = join(makeTmpDir(), 'empty-gitconfig');
+    writeFileSync(emptyCfg, '');
+    const msg = join(repo, 'MSG');
+    writeFileSync(msg, 'feat: a change\n');
+    // Isolate from any global/system identity so user.name/email resolve empty.
+    execFileSync('sh', [prepare, msg], {
+      cwd: repo,
+      stdio: 'ignore',
+      env: {
+        ...process.env,
+        GIT_CONFIG_GLOBAL: emptyCfg,
+        GIT_CONFIG_SYSTEM: emptyCfg,
+      },
+    });
+    expect(readFileSync(msg, 'utf8')).not.toMatch(/Signed-off-by/);
+  });
+
   it('commit-msg blocks a message with no sign-off (C4 backstop)', () => {
-    const dir = makeTmpDir();
-    const msg = join(dir, 'MSG');
+    const repo = makeGitRepo(false);
+    const msg = join(repo, 'MSG');
     writeFileSync(msg, 'feat: unsigned\n');
     expect(() =>
-      execFileSync('sh', [commitMsg, msg], { cwd: REPO_ROOT, stdio: 'ignore' }),
+      execFileSync('sh', [commitMsg, msg], { cwd: repo, stdio: 'ignore' }),
     ).toThrow();
   });
 });
