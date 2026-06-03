@@ -271,6 +271,66 @@ sanitized like any log.
   instrumentation (that is RUM; see Roadmap). Duplicate package copies are
   **isolated** (each capturer uses the `Logger` from its own copy).
 
+## Catch React errors — `./framework-react` subpath
+
+When a React component throws during render, the default outcome is a blank
+screen and an error that never reaches your transports. The **opt-in**
+`./framework-react` subpath is the **no-globals, per-component** counterpart to
+`./capture`: a `<LogErrorBoundary>` and a `useLogError()` hook that route React
+errors through your existing `Logger` and render a graceful fallback. `react` is
+a **peer dependency** (`>=16.8`) — the core and every other subpath stay
+React-free.
+
+```tsx
+import { configureLogging, createLogger } from '@tallyrow/safesignal';
+import { LoggerProvider, LogErrorBoundary, useLogError }
+  from '@tallyrow/safesignal/framework-react';
+
+configureLogging({ application: { name: 'checkout-web' }, environment: 'production', transports: [/* … */] });
+const log = createLogger({ module: 'checkout' });
+
+function App() {
+  return (
+    <LoggerProvider logger={log}>
+      <LogErrorBoundary fallback={<p>Something went wrong.</p>}>
+        <Checkout />
+      </LogErrorBoundary>
+    </LoggerProvider>
+  );
+}
+```
+
+A boundary-caught error emits an `error`-level event (`'React render error'`)
+carrying the serialized error and the React **component stack**
+(`safesignal.react.componentStack`), with `safesignal.source:
+'react-error-boundary'`, redacted + sanitized like any log. For the errors a
+boundary **cannot** catch — event handlers, async/`Promise` callbacks, effects —
+use the hook:
+
+```tsx
+function SaveButton() {
+  const logError = useLogError(); // stable callback; resolves the logger from context
+  const onClick = async () => {
+    try { await save(); } catch (err) { logError(err, { 'safesignal.action': 'save' }); }
+  };
+  return <button onClick={onClick}>Save</button>;
+}
+```
+
+- **No globals** (Principle VIII): patches nothing, attaches no `window`
+  listeners — the explicit contrast with `./capture`'s host-level install. The
+  two are complementary and can be used together.
+- **Fail-safe** (Principle III): a logging (or `onError`) failure is swallowed
+  and the fallback still renders; React semantics keep it loop-free.
+- **Fail-closed** (Principle V): errors route through the same redaction
+  pipeline as any log; if redaction fails the event is dropped.
+- **Explicit logger**: provide it via `<LoggerProvider>` or a `logger` prop /
+  `useLogError(logger)` argument. With no logger resolvable, the helpers are a
+  **safe no-op** (never throw). `<LogErrorBoundary>` also accepts `onError`,
+  `resetKeys`, and a render-prop `fallback={(error, reset) => …}` for recovery.
+  Duplicate package copies are **isolated** (each routes through the logger it is
+  handed).
+
 ## Readable error stacks — `./stacks` subpath
 
 A raw browser error stack is a wall of minified, framework-internal noise. The
@@ -589,8 +649,10 @@ The following are forward-looking items (not shipping today):
   instrumentation, and *automatic* page-level capture (planned as
   opt-in subpaths under `./rum-*`). Note: **explicit, host-installed**
   uncaught-error capture already ships via
-  [`./capture`](#catch-uncaught-errors--capture-subpath) — distinct
-  from these future *automatic* RUM signals.
+  [`./capture`](#catch-uncaught-errors--capture-subpath), and
+  **explicit, per-component** React error handling ships via
+  [`./framework-react`](#catch-react-errors--framework-react-subpath) —
+  both distinct from these future *automatic* RUM signals.
 
 A separate sibling project, **`safesignal-server`**, is planned as
 a self-hostable monitoring backend that consumes SafeSignal's
