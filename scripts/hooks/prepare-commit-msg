@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+# SafeSignal prepare-commit-msg hook — auto-append the DCO Signed-off-by trailer.
+#
+# Enabled (with the other hooks) automatically via the npm `prepare` script:
+#   git config core.hooksPath scripts/hooks
+#
+# Keeps DCO frictionless: a normal `git commit` (no -s) still ends up signed, so
+# the dco-check CI gate never surprises you. If the trailer is already present it
+# is NOT duplicated; if the committer identity is unconfigured this no-ops and the
+# commit-msg hook blocks instead (backstop).
+
+msg_file="$1"
+
+# Already signed → nothing to do (no duplicate).
+if grep -qE '^Signed-off-by: ' "$msg_file"; then
+  exit 0
+fi
+
+name="$(git config user.name)"
+email="$(git config user.email)"
+
+# No identity configured → let the commit-msg backstop speak.
+[ -n "$name" ] && [ -n "$email" ] || exit 0
+
+printf '\nSigned-off-by: %s <%s>\n' "$name" "$email" >>"$msg_file"
