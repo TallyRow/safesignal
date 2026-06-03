@@ -8,6 +8,25 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Docs — sharpened product focus (README)
+
+The README now **leads with the shipped developer-value features** — a
+"What you get" section headlining ⭐ silent-error capture (`./capture`,
+uncaught exceptions + unhandled rejections), dev-mode console rendering
+(`./dev-console`), error breadcrumbs, readable source-mapped error stacks
+(`./stacks`), the React error boundary + hook (`./framework-react`), and the
+Vue errorHandler adapter (`./framework-vue`) — each linking to its section.
+
+It also **removes the forward-looking RUM/monitoring-backend scope** from the
+roadmap, replacing it with a plain present-tense boundary: SafeSignal captures
+your errors and ships them securely to any backend; it is **not** a
+RUM/monitoring product or server. The legitimate OTLP/HTTP+protobuf transport
+roadmap item is retained.
+
+Living docs only — historical `specs/**` records are left as point-in-time
+documents. No package code, public API, runtime behavior, or `exports` changed.
+(Issue #19.)
+
 ### Changed — repository moved from GitLab to GitHub
 
 SafeSignal's canonical home is now
