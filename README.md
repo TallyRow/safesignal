@@ -2,11 +2,35 @@
 
 **SafeSignal** is a browser-first, vendor-neutral structured logging
 facade and safety boundary for browser applications and federated
-frontend modules. Secure-by-default sanitization, URL scrubbing,
-key + shape redaction, control-character escaping, and a pluggable
-transport boundary — all applied before any transport sees an event.
-Published on npm as `@tallyrow/safesignal` (TallyRow is the
-publishing organization; SafeSignal is the product).
+frontend modules. It catches the errors your users actually hit —
+uncaught exceptions, unhandled rejections, and React/Vue component
+crashes — and ships them securely to any backend. Secure-by-default
+sanitization, URL scrubbing, key + shape redaction, control-character
+escaping, and a pluggable transport boundary — all applied before any
+transport sees an event. Published on npm as `@tallyrow/safesignal`
+(TallyRow is the publishing organization; SafeSignal is the product).
+
+## What you get
+
+The visible wins — all opt-in subpaths, each routed through the same
+secure pipeline as any log:
+
+- ⭐ **[Catch the silent errors](#catch-uncaught-errors--capture-subpath)** —
+  the opt-in `./capture` subpath logs the **uncaught exceptions and
+  unhandled rejections** that otherwise never reach your transports.
+- **[Dev-mode console rendering](#pretty-dev-logs--dev-console-subpath)** —
+  readable, colorized log output in development.
+- **[Error breadcrumbs](#error-breadcrumbs--recent-event-context-on-errors)** —
+  bounded recent-event context attached to each error.
+- **[Readable, source-mapped error stacks](#readable-error-stacks--stacks-subpath)** —
+  turn a wall of minified frames into trimmed, structured ones.
+- **[React error boundary + hook](#catch-react-errors--framework-react-subpath)** —
+  `./framework-react` routes component-tree errors through your `Logger`.
+- **[Vue errorHandler adapter](#catch-vue-errors--framework-vue-subpath)** —
+  `./framework-vue` does the same for Vue 3.
+
+The core stays tiny and ships nothing you don't import. Here is *why*
+each of those stays safe:
 
 ## Why SafeSignal
 
@@ -14,7 +38,7 @@ publishing organization; SafeSignal is the product).
 - **Never-throw boundary**: no transport, redactor, or sanitizer failure propagates into your `log.info(...)` call site. Logging cannot break rendering, navigation, or state updates.
 - **Vendor-neutral transport**: ship to Datadog, Honeycomb, your own ingestion, or the built-in `./transport-beacon` subpath for body-only HTTPS delivery — same API regardless of destination.
 - **Federated-runtime aware**: host owns the configured runtime; modules import loggers without re-configuring. Hundreds of `Logger` instances per page stay constant-cost.
-- **Lightweight**: ~8 KB gzipped default entry; structured events with bounded depth and bounded size; the core installs no global listeners and reads no ambient state (an opt-in host subpath may install one — see Roadmap), and `Logger` creation does no per-instance backend init.
+- **Lightweight**: ~8 KB gzipped default entry; structured events with bounded depth and bounded size; the core installs no global listeners and reads no ambient state (an opt-in host subpath may install one — see the [`./capture` subpath](#catch-uncaught-errors--capture-subpath)), and `Logger` creation does no per-instance backend init.
 
 ## Install
 
@@ -54,9 +78,9 @@ log.info('checkout opened', { cartItems: 3 });
   single global **error** capturer via the
   [`./capture` subpath](#catch-uncaught-errors--capture-subpath) —
   explicit, opt-in, routed through the same secure pipeline;
-  federated modules never install it. View tracking, web vitals,
-  and network instrumentation remain out of scope — SafeSignal is
-  not a RUM product.
+  federated modules never install it. Web Vitals, view tracking,
+  network instrumentation, and a server/monitoring backend remain out
+  of scope — SafeSignal is an error-logging library, not a RUM product.
 - Persist events to IndexedDB or any storage layer.
 - Batch, sample, or deduplicate events by default (opt-in
   batching is available via the `./transport-beacon` subpath).
@@ -268,7 +292,7 @@ sanitized like any log.
 - **Additive**: it chains via `addEventListener` — your existing
   `window.onerror`/handlers keep firing; it never `preventDefault()`s.
 - **Errors only** — no view tracking, web vitals, or network
-  instrumentation (that is RUM; see Roadmap). Duplicate package copies are
+  instrumentation (that is RUM — out of scope). Duplicate package copies are
   **isolated** (each capturer uses the `Logger` from its own copy).
 
 ## Catch React errors — `./framework-react` subpath
@@ -703,19 +727,12 @@ The following are forward-looking items (not shipping today):
   subpath — the subpath ships **JSON** today behind an internal
   encoding seam; a protobuf encoder is an additive follow-up (no
   public-API change).
-- **RUM features** — Web Vitals, view tracking, network
-  instrumentation, and *automatic* page-level capture (planned as
-  opt-in subpaths under `./rum-*`). Note: **explicit, host-installed**
-  uncaught-error capture already ships via
-  [`./capture`](#catch-uncaught-errors--capture-subpath), and
-  **explicit, per-component** React error handling ships via
-  [`./framework-react`](#catch-react-errors--framework-react-subpath) —
-  both distinct from these future *automatic* RUM signals.
 
-A separate sibling project, **`safesignal-server`**, is planned as
-a self-hostable monitoring backend that consumes SafeSignal's
-OTLP-formatted events. SafeSignal stays a small vendor-neutral
-SDK; the server lives in its own repo when it ships.
+SafeSignal is singly focused: it captures your errors — explicit
+`log.error`, framework boundaries, and opt-in global capture — and
+ships them securely to any backend. It is **not** a RUM/monitoring
+product (no Web Vitals, view tracking, network instrumentation, or
+server backend) and is not planned to become one.
 
 ## Migration history
 
