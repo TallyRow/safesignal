@@ -12,11 +12,13 @@ export default defineConfig({
     'dev-console': 'src/dev-console/index.ts',
     stacks: 'src/stacks/index.ts',
     'framework-react': 'src/framework-react/index.ts',
+    'framework-vue': 'src/framework-vue/index.ts',
   },
-  // `react` is a (consumer-provided) peer dependency — never bundle it into the
-  // ./framework-react entry. peerDependencies are auto-externalized; this is
-  // explicit defense-in-depth, asserted by the bundle-shape security test.
-  external: ['react'],
+  // `react` / `vue` are (consumer-provided) peer dependencies — never bundle them
+  // into the ./framework-react / ./framework-vue entries. peerDependencies are
+  // auto-externalized; this is explicit defense-in-depth, asserted by the
+  // bundle-shape security tests.
+  external: ['react', 'vue'],
   format: ['esm', 'cjs'],
   outExtension: ({ format }) => ({ js: format === 'esm' ? '.mjs' : '.cjs' }),
   dts: true,

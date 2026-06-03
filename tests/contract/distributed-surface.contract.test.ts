@@ -26,6 +26,7 @@ const PUBLIC_SUBPATHS = [
   './dev-console',
   './stacks',
   './framework-react',
+  './framework-vue',
 ] as const;
 
 interface PackageManifest {
@@ -186,6 +187,11 @@ const HONEST_PKG: PackageManifest = {
       types: './dist/framework-react.d.ts',
       import: './dist/framework-react.mjs',
       require: './dist/framework-react.cjs',
+    },
+    './framework-vue': {
+      types: './dist/framework-vue.d.ts',
+      import: './dist/framework-vue.mjs',
+      require: './dist/framework-vue.cjs',
     },
   },
   main: './dist/index.cjs',

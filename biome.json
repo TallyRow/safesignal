@@ -48,5 +48,21 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/framework-vue/**",
+        "tests/contract/framework-vue.contract.test.ts",
+        "tests/integration/framework-vue.integration.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    }
+  ]
 }
