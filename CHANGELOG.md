@@ -8,6 +8,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-06-03
+
 ### Added — React error handling via `./framework-react` (Feature 018)
 
 Opt-in `@tallyrow/safesignal/framework-react` subpath — the no-globals,
