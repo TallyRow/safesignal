@@ -68,6 +68,11 @@
       "types": "./dist/stacks.d.ts",
       "import": "./dist/stacks.mjs",
       "require": "./dist/stacks.cjs"
+    },
+    "./framework-react": {
+      "types": "./dist/framework-react.d.ts",
+      "import": "./dist/framework-react.mjs",
+      "require": "./dist/framework-react.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -92,14 +97,26 @@
     "format": "biome format --write",
     "format:check": "biome format"
   },
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/api-logs": "^0.218.0",
     "@opentelemetry/sdk-logs": "^0.218.0",
     "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
     "@vitest/coverage-v8": "^2.1.0",
     "happy-dom": "^20.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tsup": "^8.3.0",
     "typescript": "^5.4.0",
     "vitest": "^2.1.0"

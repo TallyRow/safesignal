@@ -25,6 +25,7 @@ const PUBLIC_SUBPATHS = [
   './capture',
   './dev-console',
   './stacks',
+  './framework-react',
 ] as const;
 
 interface PackageManifest {
@@ -180,6 +181,11 @@ const HONEST_PKG: PackageManifest = {
       types: './dist/stacks.d.ts',
       import: './dist/stacks.mjs',
       require: './dist/stacks.cjs',
+    },
+    './framework-react': {
+      types: './dist/framework-react.d.ts',
+      import: './dist/framework-react.mjs',
+      require: './dist/framework-react.cjs',
     },
   },
   main: './dist/index.cjs',

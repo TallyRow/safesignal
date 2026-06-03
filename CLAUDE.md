@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-specs/017-readable-error-stacks/plan.md
+specs/018-react-error-boundary/plan.md
 <!-- SPECKIT END -->
