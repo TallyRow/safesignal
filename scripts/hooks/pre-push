@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# SafeSignal pre-push hook — run the full local quality gate before pushing.
+#
+# Enabled automatically via the npm `prepare` script
+# (git config core.hooksPath scripts/hooks). Mirrors the high-frequency CI jobs
+# so a red CI is caught locally first. A non-zero exit aborts the push.
+#
+# Emergency bypass:  git push --no-verify
+
+echo "[pre-push] running 'npm run verify' (build, typecheck, lint, format:check, test, api:check)…"
+npm run verify

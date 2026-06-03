@@ -284,22 +284,33 @@ freely. **Lowering** a threshold requires a PR that states the reason in the
 description and links the follow-up that will restore it — a relaxation is a
 reviewed, time-bound exception, never a silent edit (constitution Principle X).
 
-### Local commit hooks (recommended)
+### Local quality hooks (auto-enabled)
 
-Opt in once per clone to run the same lint/format + DCO checks at commit time:
+The local git hooks are **wired automatically by `npm install`** (the `prepare`
+script points `core.hooksPath` at `scripts/hooks/`), so a normal setup turns them
+on with no manual step. To enable them by hand, or to verify the wiring:
 
 ```bash
-git config core.hooksPath scripts/hooks
+git config core.hooksPath scripts/hooks   # manual fallback
+git config core.hooksPath                  # should print: scripts/hooks
 ```
 
-- `pre-commit` runs Biome lint + format-check on your **staged** files and
-  **blocks** the commit on any issue (it never auto-formats or re-stages —
-  run `npm run format` and re-stage yourself).
-- `commit-msg` blocks commits missing a `Signed-off-by:` trailer (use
-  `git commit -s`).
+- `pre-commit` runs Biome (lint + format-check) on your **staged** files and
+  **blocks** the commit on any issue (it never auto-formats — run `npm run format`
+  and re-stage).
+- `prepare-commit-msg` **auto-adds** the DCO `Signed-off-by:` trailer when it is
+  missing, so a normal `git commit` (no `-s`) is signed for you.
+- `commit-msg` still **blocks** any commit that ends up without a `Signed-off-by:`
+  trailer (a backstop for commit paths that skip `prepare-commit-msg`).
+- `pre-push` runs the full local gate — `npm run verify` (build, typecheck, lint,
+  format:check, test, api:check) — and **blocks the push** on failure.
 
-Hooks are a faster local mirror; **CI remains the authoritative gate**, so an
-un-hooked clone still cannot bypass these checks.
+`npm run verify` is the one-command local gate; run it anytime to reproduce the
+high-frequency CI verdict. (CI additionally runs bundle-invariance, a container
+secret-scan, and full coverage — those stay CI-side.) **Emergency bypass:**
+`git commit --no-verify` / `git push --no-verify` — these are guardrails, not
+locks. **CI remains the authoritative gate**, so an un-hooked clone still cannot
+bypass these checks.
 
 The example projects under `examples/host-app/` and
 `examples/federated-module/` have their own `npm install` and

@@ -95,7 +95,9 @@
     "test:coverage": "vitest run --coverage",
     "lint": "biome lint",
     "format": "biome format --write",
-    "format:check": "biome format"
+    "format:check": "biome format",
+    "verify": "npm run build && npm run typecheck && npm run lint && npm run format:check && npm test && npm run api:check",
+    "prepare": "node scripts/setup-hooks.mjs"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
