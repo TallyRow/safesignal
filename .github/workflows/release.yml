@@ -160,7 +160,7 @@ jobs:
           fetch-depth: 0 # the script checks out + builds the base commit in a worktree
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
       - uses: actions/download-artifact@v4
@@ -177,7 +177,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
       - uses: actions/download-artifact@v4
@@ -219,7 +219,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
       - uses: actions/download-artifact@v4
@@ -261,7 +261,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
       - uses: actions/download-artifact@v4
         with:
           name: dist
@@ -288,6 +288,6 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Verify published version + provenance attestation (soft-fail)
         run: bash scripts/ci/provenance-verify.sh "${GITHUB_REF_NAME}"
