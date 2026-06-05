@@ -99,7 +99,7 @@ jobs:
       - run: npm run build
       - name: Upload dist (Node 22 artifact, reused downstream)
         if: matrix.node == '22'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -120,7 +120,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -140,7 +140,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -163,7 +163,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -180,7 +180,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -222,7 +222,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -262,7 +262,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
