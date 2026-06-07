@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { LogEvent } from '../../src/api/types.js';
 import { createOtlpTransport } from '../../src/transport-otlp/index.js';
+import { serializeOtlpJson } from '../../src/transport-otlp/otlp-serializer.js';
 import {
   installFetchDouble,
   installSendBeaconDouble,
@@ -273,5 +274,77 @@ describe('JSON-protobuf interop (US3)', () => {
       // Should not crash — either no fetch call or a successful one
       // Protobuf empty batch produces 0 bytes which is valid
     }
+  });
+});
+
+describe('serializeOtlpJson backward compatibility (T021)', () => {
+  it('produces valid JSON identical to pre-feature output', () => {
+    const batch: LogEvent[] = [
+      {
+        timestamp: '2024-05-29T00:00:00.000Z',
+        level: 'info',
+        message: 'backward compat test',
+        attributes: { key: 'value' },
+        context: { application: { name: 'test' }, environment: 'test' },
+      },
+    ];
+    const result = serializeOtlpJson(batch, 1700000000000);
+    expect(typeof result).toBe('string');
+    const parsed = JSON.parse(result);
+    expect(parsed.resourceLogs).toHaveLength(1);
+    expect(parsed.resourceLogs[0].scopeLogs[0].logRecords).toHaveLength(1);
+    expect(
+      parsed.resourceLogs[0].scopeLogs[0].logRecords[0].body.stringValue,
+    ).toBe('backward compat test');
+  });
+});
+
+describe('traceparent injection with protobuf encoding (T022)', () => {
+  beforeEach(() => {
+    fetchDouble = installFetchDouble({
+      behavior: { kind: 'resolve', status: 200 },
+    });
+    beaconDouble = installSendBeaconDouble({ returnValue: true });
+  });
+
+  it('set traceparent header identically for JSON and protobuf encoding', async () => {
+    const traceId = '4bf92f3577b34da6a3ce929d0e0e4736';
+    const spanId = '00f067aa0ba902b7';
+    const traceparentRegex =
+      /^00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01$/;
+
+    const headers: Record<string, string | null> = {};
+
+    for (const encoding of ['json', 'protobuf'] as const) {
+      const t = createOtlpTransport({
+        endpoint: ENDPOINT,
+        encoding,
+        injectTraceparent: true,
+        batching: { maxBatchSize: 1 },
+      });
+      t.send(
+        event({
+          context: {
+            application: { name: 'svc' },
+            trace: { traceId, spanId, traceFlags: 1 },
+          },
+        }),
+      );
+      await t.flush!();
+      const reqHeaders = fetchDouble!.calls[0]!.init?.headers as Record<
+        string,
+        string
+      >;
+      headers[encoding] = reqHeaders?.traceparent ?? null;
+      fetchDouble!.uninstall();
+      fetchDouble = installFetchDouble({
+        behavior: { kind: 'resolve', status: 200 },
+      });
+    }
+
+    expect(headers.json).toBeTruthy();
+    expect(headers.protobuf).toBeTruthy();
+    expect(headers.json).toBe(headers.protobuf);
+    expect(headers.json).toMatch(traceparentRegex);
   });
 });
