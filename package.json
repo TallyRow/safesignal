@@ -1,6 +1,6 @@
 {
   "name": "@tallyrow/safesignal",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "publishConfig": {
     "access": "public"
   },
@@ -22,8 +22,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://gitlab.com/tallyrow/safesignal.git"
+    "url": "git+https://github.com/TallyRow/safesignal.git"
   },
+  "bugs": {
+    "url": "https://github.com/TallyRow/safesignal/issues"
+  },
+  "homepage": "https://github.com/TallyRow/safesignal#readme",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -49,6 +53,31 @@
       "types": "./dist/transport-otlp.d.ts",
       "import": "./dist/transport-otlp.mjs",
       "require": "./dist/transport-otlp.cjs"
+    },
+    "./capture": {
+      "types": "./dist/capture.d.ts",
+      "import": "./dist/capture.mjs",
+      "require": "./dist/capture.cjs"
+    },
+    "./dev-console": {
+      "types": "./dist/dev-console.d.ts",
+      "import": "./dist/dev-console.mjs",
+      "require": "./dist/dev-console.cjs"
+    },
+    "./stacks": {
+      "types": "./dist/stacks.d.ts",
+      "import": "./dist/stacks.mjs",
+      "require": "./dist/stacks.cjs"
+    },
+    "./framework-react": {
+      "types": "./dist/framework-react.d.ts",
+      "import": "./dist/framework-react.mjs",
+      "require": "./dist/framework-react.cjs"
+    },
+    "./framework-vue": {
+      "types": "./dist/framework-vue.d.ts",
+      "import": "./dist/framework-vue.mjs",
+      "require": "./dist/framework-vue.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -56,6 +85,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
+    "api:extract": "node scripts/api/extract-surface.mjs",
+    "api:check": "node scripts/api/check-surface.mjs",
+    "surface:check": "vitest run tests/contract/distributed-surface.contract.test.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
     "typecheck:src": "tsc --noEmit",
     "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json",
@@ -68,19 +100,38 @@
     "test:coverage": "vitest run --coverage",
     "lint": "biome lint",
     "format": "biome format --write",
-    "format:check": "biome format"
+    "format:check": "biome format",
+    "verify": "npm run build && npm run typecheck && npm run lint && npm run format:check && npm test && npm run api:check",
+    "prepare": "node scripts/setup-hooks.mjs"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "vue": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/api-logs": "^0.57.0",
-    "@opentelemetry/sdk-logs": "^0.57.0",
-    "@types/node": "^20.0.0",
+    "@opentelemetry/api-logs": "^0.218.0",
+    "@opentelemetry/sdk-logs": "^0.218.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitest/coverage-v8": "^2.1.0",
-    "happy-dom": "^15.0.0",
+    "happy-dom": "^20.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.4.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "vue": "^3.5.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,0 +1,19 @@
+{
+  "version": "1.1.0",
+  "symbols": [
+    {
+      "entry": ".",
+      "name": "oldHelper",
+      "kind": "function",
+      "signature": "function oldHelper(): void;",
+      "deprecated": true
+    },
+    {
+      "entry": "./testing",
+      "name": "assertContract",
+      "kind": "function",
+      "signature": "function assertContract(t: Transport): void;",
+      "deprecated": false
+    }
+  ]
+}

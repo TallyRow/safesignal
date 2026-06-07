@@ -40,8 +40,8 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -49,7 +49,7 @@ jobs:
       - run: npm run build
       - name: Upload dist (Node 22 artifact, reused downstream)
         if: matrix.node == '22'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -64,13 +64,13 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -84,13 +84,13 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -101,10 +101,10 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
@@ -113,10 +113,10 @@ jobs:
     name: format-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run format:check
@@ -126,13 +126,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -143,15 +143,15 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # the script checks out + builds the base commit in a worktree
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -172,31 +172,60 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      # Bundle-shape tests inspect dist/, so they consume the build artifact.
-      - run: >
+      # Packaging-contract tests inspect dist/, so they consume the build
+      # artifact. Includes the distributed-surface parity gate (Feature 012 /
+      # issue #6): `npm pack` ↔ exports ↔ docs parity, fail-closed.
+      - name: "Packaging contracts: dependency-pins, bundle-shape, distributed-surface parity"
+        run: >
           npm test --
           tests/contract/dependency-pins.test.ts
+          tests/contract/distributed-surface.contract.test.ts
           tests/security/bundle-shape.security.test.ts
           tests/security/transport-beacon-bundle-shape.security.test.ts
           tests/security/transport-otlp-bundle-shape.security.test.ts
 
-  # DCO sign-off applies to the commits a PR introduces (GitLab ran it on MRs).
-  dco-check:
-    name: dco-check
-    if: github.event_name == 'pull_request'
+  # Deprecate-before-remove gate (Feature 011 / issue #5): compares the built
+  # public API surface against the committed baseline (api/surface.json) and
+  # fails closed on an undeprecated removal or incompatible change. Consumes the
+  # build artifact; the gate is a cross-platform Node entrypoint (no bash).
+  api-surface:
+    name: api-surface
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - run: npm run api:check
+
+  # DCO sign-off applies to the commits a PR introduces (GitLab ran it on MRs).
+  # The Renovate GitHub App's bot commits carry no Signed-off-by trailer, so
+  # `renovate/*` PRs are exempt — the job skips (a skip is not a failure for the
+  # ci-success gate below). DCO is a contributor-agreement check, not a security
+  # gate; the bot is a trusted org-scoped automation.
+  dco-check:
+    name: dco-check
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # need base + head commits reachable for the rev-list range
       - name: Verify Signed-off-by on every PR commit
@@ -212,7 +241,7 @@ jobs:
     name: secret-scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: gitleaks detect
         run: |
           docker run --rm -v "${PWD}:/repo" zricethezav/gitleaks:v8.18.2 \
@@ -222,8 +251,8 @@ jobs:
   # Single aggregate gate. Require ONLY this check in branch protection: it is a
   # stable name (immune to matrix changes) that still gates on every job above.
   # `if: always()` runs it even when an upstream job is skipped (e.g. dco-check
-  # on push events); a *skipped* dependency is not a failure, so only real
-  # failures/cancellations fail the gate.
+  # on push events or on renovate/* PRs); a *skipped* dependency is not a
+  # failure, so only real failures/cancellations fail the gate.
   ci-success:
     name: ci-success
     if: always()
@@ -236,6 +265,7 @@ jobs:
       - coverage
       - bundle-invariance
       - dependency-pins
+      - api-surface
       - dco-check
       - secret-scan
     runs-on: ubuntu-latest

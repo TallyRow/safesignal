@@ -16,7 +16,7 @@
  */
 
 import { type LogRecord, SeverityNumber } from '@opentelemetry/api-logs';
-import type { LogRecord as SdkLogRecord } from '@opentelemetry/sdk-logs';
+import type { SdkLogRecord } from '@opentelemetry/sdk-logs';
 
 import type { LogEvent, LogLevel } from '../../../api/types.js';
 

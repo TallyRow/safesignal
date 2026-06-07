@@ -86,18 +86,30 @@ function recordedUrls(): string[] {
 }
 
 /**
- * Re-serialize a recorded body with `error.stack` (if present)
- * stripped from each event. Matches feature 001's `findLeaks`
- * convention from `tests/integration/secret-sweep.integration.test.ts`:
- * stack traces are debugging detail, NOT under the redactor's
- * scope, so fixture values that flow into Error messages (and
- * therefore into the stack's first line) are out-of-scope for the
- * secret-sweep contract. Consumers who put sensitive data into
- * Error messages own that decision.
+ * Re-serialize a recorded body for the fixture sweep, dropping two fields
+ * from each event that would otherwise produce false positives:
+ *
+ *  - `error.stack` — stack traces are debugging detail, NOT under the
+ *    redactor's scope, so fixture values that flow into Error messages (and
+ *    therefore into the stack's first line) are out-of-scope for the
+ *    secret-sweep contract. Consumers who put sensitive data into Error
+ *    messages own that decision.
+ *  - `timestamp` — the SDK-generated timestamp is never consumer-supplied,
+ *    so it cannot carry a real secret, yet its millisecond component can
+ *    coincidentally contain a short fixture value (e.g. the intentionally
+ *    short `cvv` fixture `'123'` vs a `…41.123Z` timestamp), producing a
+ *    flaky false-positive "leak". (Principle IX: the same source must give
+ *    the same result.)
+ *
+ * Matches feature 001's `findLeaks` convention from
+ * `tests/integration/secret-sweep.integration.test.ts` and
+ * `tests/security/secret-leakage.test.ts`, which exclude the same fields.
  */
 function withoutStacks(body: string): string {
   const parsed = JSON.parse(body) as Record<string, unknown>;
   const stripEvent = (ev: Record<string, unknown>): Record<string, unknown> => {
+    const { timestamp: _timestamp, ...rest } = ev;
+    ev = rest;
     if (ev.error !== undefined && ev.error !== null) {
       const e = ev.error as Record<string, unknown>;
       ev = { ...ev, error: { name: e.name, message: e.message } };

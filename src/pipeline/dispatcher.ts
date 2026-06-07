@@ -44,6 +44,7 @@
  */
 
 import type { LogEvent } from '../api/types.js';
+import { breadcrumbFail } from '../breadcrumbs/breadcrumb-buffer.js';
 import type { NormalizedConfig } from '../config/config.js';
 import {
   safeNotify,
@@ -87,6 +88,19 @@ export function dispatch(event: LogEvent, config: NormalizedConfig): void {
     current = controlCharGuard(current, config);
     if (current === null) return;
 
+    // Error-breadcrumbs enrichment (Feature 016) — opt-in, off by default.
+    // Attach the recent trail to an error event BEFORE freeze so the enriched
+    // event is dev-frozen like everything else. Guarded (fail-safe): a throw is
+    // swallowed and the (un-enriched but valid) error event still proceeds —
+    // NOT routed through the outer catch, which would drop the event.
+    if (config.breadcrumbs !== undefined && current.level === 'error') {
+      try {
+        config.breadcrumbs.attachTrailTo(current);
+      } catch (err) {
+        breadcrumbFail(config.onInternalError, err);
+      }
+    }
+
     current = freezeInDev(current, config);
     if (current === null) return;
   } catch (err) {
@@ -119,6 +133,17 @@ export function dispatch(event: LogEvent, config: NormalizedConfig): void {
     } catch {
       // SafeTransport already catches; this is a defensive belt for
       // unwrapped transports.
+    }
+  }
+
+  // Record this (post-pipeline, already-delivered) event as a breadcrumb for
+  // future errors — AFTER fan-out, so an error never records its own trail.
+  // Guarded so a throw never reaches the caller and never un-delivers the event.
+  if (config.breadcrumbs !== undefined) {
+    try {
+      config.breadcrumbs.record(current);
+    } catch (err) {
+      breadcrumbFail(config.onInternalError, err);
     }
   }
 }

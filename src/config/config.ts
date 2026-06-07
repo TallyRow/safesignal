@@ -11,6 +11,7 @@
 
 import type {
   AppIdentity,
+  BreadcrumbsOptions,
   LevelMap,
   LogContext,
   LoggerConfig,
@@ -18,9 +19,15 @@ import type {
   ModuleIdentity,
   Redactor,
   SanitizerLimits,
+  StackNormalizer,
   Transport,
 } from '../api/types.js';
 
+import {
+  BreadcrumbBuffer,
+  DEFAULT_MAX_EVENTS,
+  MAX_EVENTS_BOUND,
+} from '../breadcrumbs/breadcrumb-buffer.js';
 import {
   PackageError,
   safeNotify,
@@ -51,6 +58,10 @@ export interface NormalizedConfig {
   readonly transports: ReadonlyArray<Transport>;
   readonly redactor: Redactor | undefined;
   readonly sanitizerLimits: SanitizerLimits;
+  /** Shared runtime-level breadcrumb ring buffer, or undefined when off (default). */
+  readonly breadcrumbs: BreadcrumbBuffer | undefined;
+  /** Consumer error-stack normalizer (`./stacks`), or undefined when off (default). */
+  readonly normalizeStack: StackNormalizer | undefined;
   readonly onInternalError: (err: Error) => void;
 }
 
@@ -87,8 +98,41 @@ export function normalizeConfig(config: LoggerConfig): NormalizedConfig {
     transports,
     redactor: config.redactor,
     sanitizerLimits,
+    breadcrumbs: resolveBreadcrumbs(config.breadcrumbs, onInternalError),
+    normalizeStack: config.normalizeStack,
     onInternalError,
   };
+}
+
+/**
+ * Resolve the opt-in `breadcrumbs` config into a shared ring buffer (or
+ * `undefined` when off — the default). Constructs the buffer **once** here.
+ * `maxEvents` is clamped to `[1, MAX_EVENTS_BOUND]`, emitting one notice on clamp
+ * (mirrors the sanitizer-limit clamp).
+ */
+function resolveBreadcrumbs(
+  option: boolean | BreadcrumbsOptions | undefined,
+  onInternalError: (err: Error) => void,
+): BreadcrumbBuffer | undefined {
+  if (!option) return undefined; // undefined | false → off
+  const requested = option === true ? undefined : option.maxEvents;
+  if (requested === undefined || !Number.isFinite(requested)) {
+    return new BreadcrumbBuffer(DEFAULT_MAX_EVENTS);
+  }
+  const maxEvents = Math.min(
+    MAX_EVENTS_BOUND,
+    Math.max(1, Math.floor(requested)),
+  );
+  if (maxEvents !== requested) {
+    safeNotify(
+      onInternalError,
+      new PackageError(
+        'breadcrumbs_max_clamped',
+        `breadcrumbs.maxEvents clamped to ${maxEvents}`,
+      ),
+    );
+  }
+  return new BreadcrumbBuffer(maxEvents);
 }
 
 /**

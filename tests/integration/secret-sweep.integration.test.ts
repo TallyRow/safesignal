@@ -135,7 +135,7 @@ function findLeaks(event: LogEvent): string[] {
   // carries consumer/fixture data, and its millisecond digits can
   // coincidentally contain a short fixture value (e.g. cvv "123"),
   // producing a false-positive "leak" that makes this test flaky
-  // (Principle VIII: same source must give the same result).
+  // (Principle IX: same source must give the same result).
   const { timestamp: _timestamp, ...scannable } = safe;
   const serialized = JSON.stringify(scannable);
   return FIXTURE_VALUES.filter((v) => serialized.includes(v));

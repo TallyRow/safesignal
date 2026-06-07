@@ -28,7 +28,7 @@ export type DeliveryResult =
  * POST `body` to `endpoint` with `keepalive: true`, merging the caller's
  * static `headers` (e.g. auth) over the mandatory `content-type`.
  * `credentials: 'same-origin'` keeps cookies from leaking cross-origin by
- * default (Principle IV); auth travels only in the explicit headers.
+ * default (Principle V); auth travels only in the explicit headers.
  */
 export async function deliver(
   endpoint: string,

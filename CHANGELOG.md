@@ -6,6 +6,86 @@ documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.4.0] — 2026-06-03
+
+### Added — React error handling via `./framework-react` (Feature 018)
+
+Opt-in `@tallyrow/safesignal/framework-react` subpath — the no-globals,
+per-component counterpart to `./capture`. A `<LogErrorBoundary>` catches
+descendant render/lifecycle errors and a `useLogError()` hook reports the errors
+a boundary cannot (event handlers, async), both routed through a
+consumer-provided `Logger`'s existing secure pipeline.
+
+- **Fail-closed + fail-safe**: emits via `logger.error`, so messages, stacks, and
+  the React component stack are redacted/sanitized (drop-on-failure) before any
+  transport; a logging or `onError` throw is swallowed and the fallback still
+  renders (no catch/render loop).
+- **No globals** (Principle VIII): patches nothing, attaches no `window`
+  listeners; errors flow only through the resolved logger (via `LoggerProvider`
+  context or an explicit `logger` prop). With no logger resolvable, a safe no-op.
+- **React is an externalized optional peer** (`>=16.8`): the core entry and every
+  other subpath stay React-free. Events carry `safesignal.source:
+  'react-error-boundary'` / `'react-use-log-error'` and
+  `safesignal.react.componentStack`. (Issue #17.)
+
+### Added — Vue error handling via `./framework-vue` (Feature 020)
+
+Opt-in `@tallyrow/safesignal/framework-vue` subpath — the Vue 3 counterpart of
+`./framework-react`. A side-effect-free `createErrorHandler(logger)` factory and a
+`safesignalErrorHandler` plugin wire `app.config.errorHandler`; `useLogError()`
+reports caught errors and `useErrorCapture()` is a subtree boundary (wraps
+`onErrorCaptured`, stopping propagation by default). All routed through a
+consumer-provided `Logger`.
+
+- **Fail-closed + fail-safe**: emits via `logger.error` (the same
+  sanitize → redact pipeline); logging and `onError` throws are swallowed.
+- **No globals** (Principle VIII): no `window` listeners, no patching; the logger
+  is resolved explicitly or via `provide`/`inject` (`loggerKey`). With no logger
+  resolvable, a safe no-op.
+- **Vue is an externalized optional peer** (`>=3.0`): the core entry and every
+  other subpath stay Vue-free. Events carry `safesignal.source:
+  'vue-error-handler'` / `'vue-use-log-error'` / `'vue-error-captured'`, plus
+  best-effort `safesignal.vue.info` / `safesignal.vue.componentName`. (Issue #18.)
+
+### Docs — sharpened product focus (README)
+
+The README now **leads with the shipped developer-value features** — a
+"What you get" section headlining ⭐ silent-error capture (`./capture`,
+uncaught exceptions + unhandled rejections), dev-mode console rendering
+(`./dev-console`), error breadcrumbs, readable source-mapped error stacks
+(`./stacks`), the React error boundary + hook (`./framework-react`), and the
+Vue errorHandler adapter (`./framework-vue`) — each linking to its section.
+
+It also **removes the forward-looking RUM/monitoring-backend scope** from the
+roadmap, replacing it with a plain present-tense boundary: SafeSignal captures
+your errors and ships them securely to any backend; it is **not** a
+RUM/monitoring product or server. The legitimate OTLP/HTTP+protobuf transport
+roadmap item is retained.
+
+Living docs only — historical `specs/**` records are left as point-in-time
+documents. No package code, public API, runtime behavior, or `exports` changed.
+(Issue #19.)
+
+### Changed — repository moved from GitLab to GitHub
+
+SafeSignal's canonical home is now
+[`github.com/TallyRow/safesignal`](https://github.com/TallyRow/safesignal)
+(previously GitLab). CI/CD runs on GitHub Actions
+(`.github/workflows/ci.yml`, `.github/workflows/release.yml`); releases
+publish to npm **with provenance** via the GitHub Actions OIDC Trusted
+Publisher. `v1.3.0` was the first release published from GitHub.
+
+- Contributor docs, issue/PR templates, and governance/security policy
+  updated for GitHub (pull requests, `gh`, branch ruleset, GitHub Private
+  Vulnerability Reporting).
+- Dependency automation moved to the **Renovate GitHub App**; the legacy
+  GitLab CI configuration was removed.
+- The GitLab project is archived read-only with a pointer to GitHub.
+- No package code, public API, runtime behavior, or `exports` changed.
+  (Feature 010.)
+
 ## [1.3.0] — 2026-05-30
 
 ### Added — outbound `traceparent` header injection (Feature 009)

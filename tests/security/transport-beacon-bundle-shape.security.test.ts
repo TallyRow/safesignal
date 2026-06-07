@@ -326,9 +326,28 @@ describe('(d) dist/transport-beacon.mjs gzipped size budget', () => {
  * core per research D6 — the +597 B mjs delta is within the ±1 KiB
  * invariance gate). This is a legitimate core-feature growth, not
  * beacon-subpath leakage (still guarded by groups (a)–(c) above).
+ *
+ * Re-baselined again in Feature 016 (opt-in error breadcrumbs): the core
+ * gained the off-by-default `src/breadcrumbs/` ring buffer + cause-chain
+ * walker + the `breadcrumbs` config option + the dispatcher/logger wiring
+ * (Option A — a core runtime option, not a subpath). The ~+1.0 KB mjs delta
+ * is a legitimate core-feature growth held within the ±1 KiB dynamic
+ * `bundle-invariance` gate (HEAD vs merge-base; see scripts/ci/
+ * bundle-invariance-check.sh) — NOT beacon leakage (still guarded by (a)–(c)).
+ * The gate moved (with this justification), it was not removed (Principle X).
+ *
+ * Re-baselined again in Feature 017 (readable error stacks): the core gained the
+ * tiny `normalizeStack` seam (the `StackFrame`/`StackNormalizer` types are erased;
+ * the runtime add is the `LoggerConfig.normalizeStack` config passthrough + the
+ * `emit()` wiring that stashes frames into `attributes['safesignal.stack']`). The
+ * heavy parser/trimmer/resolver lives in the `./stacks` SUBPATH (not the default
+ * entry). The +~100 B mjs seam delta is within the ±1 KiB dynamic
+ * `bundle-invariance` gate (HEAD vs the post-F016 merge-base) — gate moved with
+ * justification, not removed (Principle X). The `./stacks` bundle has its own
+ * shape/size test (`stacks-bundle-shape.security.test.ts`).
  */
-const DEFAULT_ENTRY_MJS_GZ_MAX = 8800; // observed: 8763 B (F008)
-const DEFAULT_ENTRY_CJS_GZ_MAX = 8850; // observed: 8806 B (F008)
+const DEFAULT_ENTRY_MJS_GZ_MAX = 9950; // observed: 9870 B (F017)
+const DEFAULT_ENTRY_CJS_GZ_MAX = 9990; // observed: 9910 B (F017)
 
 describe('(e) dist/index.{mjs,cjs} default-entry size lock (SC-007)', () => {
   it(`dist/index.mjs is ≤ ${DEFAULT_ENTRY_MJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {

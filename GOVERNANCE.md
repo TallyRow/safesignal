@@ -10,8 +10,8 @@ human-decision-making process for amending and applying it.
 
 SafeSignal is currently maintained by a **single maintainer**:
 
-- **John Goure** (GitLab handle: `johng`), under the
-  [TallyRow](https://gitlab.com/tallyrow) namespace.
+- **John Goure** (GitHub: [`JohnGoure`](https://github.com/JohnGoure)),
+  under the [TallyRow](https://github.com/TallyRow) organization.
 
 The single-maintainer state is a **transitional default**, not a
 design goal. As regular contributors join, the governance below is
@@ -23,18 +23,21 @@ path).
 The constitution at
 [`.specify/memory/constitution.md`](.specify/memory/constitution.md)
 is the **binding technical standard** for package decisions. Its
-nine principles are non-negotiable in their current form:
+eleven principles are non-negotiable in their current form:
 
-1. Stable Consumer API & Clear Boundaries
-2. Browser-First Runtime Resilience
-3. Framework-Neutral Structured Observability
-4. Secure & Privacy-Safe Logging by Default *(non-negotiable per
+1. Spec-Driven Development *(non-negotiable per the constitution
+   itself)*
+2. Stable Consumer API & Clear Boundaries
+3. Browser-First Runtime Resilience
+4. Framework-Neutral Structured Observability
+5. Secure & Privacy-Safe Logging by Default *(non-negotiable per
    the constitution itself)*
-5. Testable, Minimal, Maintainable Package Design
-6. Log Integrity & Monitoring Suitability
-7. Lightweight Logger Instances & Federated Runtime Discipline
-8. Reproducible Quality Verification
-9. Mechanical Enforcement of Documented Contracts
+6. Testable, Minimal, Maintainable Package Design
+7. Log Integrity & Monitoring Suitability
+8. Lightweight Logger Instances & Federated Runtime Discipline
+9. Reproducible Quality Verification
+10. Mechanical Enforcement of Documented Contracts
+11. Supply-Chain Integrity & Verifiable Provenance
 
 Work that violates a principle requires either:
 
@@ -49,20 +52,22 @@ the constitution wins.
 
 ## Decision authority
 
-### MR approval
+### Pull-request approval
 
-- **Currently**: the maintainer reviews and approves all merge
-  requests against `main`. No MR is merged without their explicit
-  approval. (The default branch was renamed from `master` to
-  `main` in Feature 005; GitLab serves automatic redirects from
-  the old `master` URL.)
-- **Required checks**: every MR must pass the project's CI checks
-  (see Feature 005 for the configured CI/CD pipeline), satisfy the Spec Kit workflow if
-  applicable, and follow the contributor expectations in
-  [CONTRIBUTING.md](CONTRIBUTING.md) (including DCO sign-off on
-  every commit).
+- **Branch protection**: `main` is governed by a GitHub branch
+  ruleset — every change lands through a **pull request**, the
+  **`ci-success`** status check must pass, and force-pushes and
+  deletions are blocked. As a solo-maintainer project the ruleset
+  requires **0 approvals** (a GitHub PR author cannot approve their
+  own PR); the maintainer remains the de-facto reviewer of every PR.
+- **Required checks**: every PR must pass CI (the `ci.yml` quality
+  workflow, aggregated by the required `ci-success` check), satisfy
+  the Spec Kit workflow when applicable, and follow
+  [CONTRIBUTING.md](CONTRIBUTING.md) (including DCO sign-off on every
+  commit, enforced by the `dco-check` job).
 - **Future state**: once 2+ regular contributors are active, a
-  CODEOWNERS file will gate review for sensitive paths
+  `CODEOWNERS` file plus a re-enabled code-owner-review requirement in
+  the ruleset will gate review for sensitive paths
   (`src/pipeline/**` for redaction/sanitizer/URL-scrubber,
   `src/transport-beacon/**` for the transport security contract,
   `.specify/memory/constitution.md` for governance changes).
@@ -98,11 +103,10 @@ the constitution wins.
   `@tallyrow/` npm scope.
 - **Account protections**: 2FA is enforced on the npm account.
   Long-lived publish tokens are NOT stored anywhere.
-- **CI-mediated publish**: configured in Feature 005 (CI/CD
-  pipeline). Setup: GitLab CI/CD using npm's OIDC
-  trusted-publisher mechanism — no long-lived token in CI
-  variables; publishes are tied verifiably to a specific GitLab
-  CI workflow run via npm provenance attestation. See
+- **CI-mediated publish**: the `release.yml` GitHub Actions workflow
+  publishes via npm's **GitHub Actions Trusted Publisher (OIDC)** — no
+  long-lived token anywhere; publishes are tied verifiably to a specific
+  GitHub Actions run via npm provenance attestation. See
   `CONTRIBUTING.md` § Cutting a release for the operator-facing
   release workflow.
 - **Manual publish fallback**: if the OIDC pipeline is unavailable,
@@ -152,9 +156,9 @@ are **suggestions**, not rules — adjusted as the project evolves.
   working groups, etc.) — out of scope for this document until it
   matters.
 
-"Regular contributor" here means someone with multiple merged MRs
-over a sustained period (e.g., 5+ MRs across 3+ months) — not a
-formal designation, just a useful heuristic.
+"Regular contributor" here means someone with multiple merged pull
+requests over a sustained period (e.g., 5+ PRs across 3+ months) — not
+a formal designation, just a useful heuristic.
 
 ## Conflict resolution
 
@@ -182,5 +186,5 @@ appeal process, etc.).
   2.1
 - [`LICENSE`](LICENSE) — MIT License
 - [`.specify/memory/constitution.md`](.specify/memory/constitution.md)
-  — binding technical standard (v1.3.0)
+  — binding technical standard (v1.4.0)
 - [`CHANGELOG.md`](CHANGELOG.md) — version-by-version release notes

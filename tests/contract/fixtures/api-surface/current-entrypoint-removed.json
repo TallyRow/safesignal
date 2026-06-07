@@ -1,0 +1,19 @@
+{
+  "version": "1.1.0",
+  "symbols": [
+    {
+      "entry": ".",
+      "name": "createLogger",
+      "kind": "function",
+      "signature": "function createLogger(options?: Options): Logger;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "oldHelper",
+      "kind": "function",
+      "signature": "function oldHelper(): void;",
+      "deprecated": true
+    }
+  ]
+}
