@@ -227,13 +227,62 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-8. **Report completion** to the user with:
+8. **Reflection Review** — Submit the spec to `@speckit-reviewer` for constitution-aware review before freezing:
+
+   a. **Initialize review tracking**:
+      - If `SPECIFY_FEATURE_DIRECTORY/review-log.md` does not exist, create it with:
+        ```markdown
+        # Review Log — [feature name]
+
+        ```
+      - Set `MAX_ROUNDS = 5` and `round = 0`.
+
+   b. **Review loop** (repeat until pass or hard cap):
+      1. Increment `round`.
+      2. Call `@speckit-reviewer` to review `SPEC_FILE`. Pass:
+         - The path to `SPEC_FILE` (the artifact under review)
+         - The feature directory path for context (explore-brief.md, if it exists)
+         - A note that this is a **spec.md** review (no frozen artifacts exist yet)
+      3. Parse the reviewer's output. Look for the heading `### 🔴 Remaining Issues`.
+      4. **If `### 🔴 Remaining Issues` is `*(none)*` or does not contain any 🔴-prefixed items**:
+         - Append to `review-log.md`:
+           ```markdown
+           ## Round {round} — spec.md (PASSED)
+           **Date**: {timestamp}
+           **Result**: No blocking issues. Spec frozen.
+
+           ```
+         - Mark `spec.md` as **frozen** (no further edits allowed unless a later artifact review surfaces a contradiction).
+         - Exit the review loop and proceed to step 9.
+      5. **If 🔴 issues remain**:
+         - Append the reviewer's full output to `review-log.md`:
+           ```markdown
+           ## Round {round} — spec.md
+           **Date**: {timestamp}
+
+           {reviewer output}
+
+           ---
+
+           ```
+         - Fix every 🔴 issue in `SPEC_FILE`. Address 🟡 issues that are cheap to fix.
+         - If `round >= MAX_ROUNDS`:
+           - **STOP the loop**. Do NOT freeze the spec.
+           - Warn the user: `⚠️ Spec review hit the hard cap ({MAX_ROUNDS} rounds). Remaining 🔴 issues are in review-log.md. Human decision required.`
+           - Present the remaining issues and ask whether to (a) fix and re-review, (b) accept as-is and proceed, or (c) revisit requirements.
+           - **Wait for user response** before continuing.
+         - Otherwise, go back to step 8b-1 (next round).
+
+   c. **Post-review**: If the spec was frozen, the spec is now the authoritative baseline. Plan and tasks phases MUST read this frozen spec and MUST NOT contradict it.
+
+9. **Report completion** to the user with:
    - `SPECIFY_FEATURE_DIRECTORY` — the feature directory path
    - `SPEC_FILE` — the spec file path
    - Checklist results summary
+   - Review results summary (rounds taken, pass/fail, link to review-log.md)
    - Readiness for the next phase (`/speckit-clarify` or `/speckit-plan`)
 
-9. **Check for extension hooks**: After reporting completion, check if `.specify/extensions.yml` exists in the project root.
+10. **Check for extension hooks**: After reporting completion, check if `.specify/extensions.yml` exists in the project root.
    - If it exists, read it and look for entries under the `hooks.after_specify` key
    - If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
    - Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.

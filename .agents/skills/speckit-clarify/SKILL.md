@@ -197,9 +197,49 @@ Execution steps:
 
 7. Write the updated spec back to `FEATURE_SPEC`.
 
-8. Report completion (after questioning loop ends or early termination):
+8. **Generate `explore-brief.md`** — capture the clarification session's decisions in a persistent file so downstream review phases (spec review, plan review, task review) have the full context even when the original session's context window is exhausted:
+
+   Create `FEATURE_DIR/explore-brief.md` with the following structure:
+
+   ```markdown
+   # Explore Brief — [feature name]
+
+   **Date**: [YYYY-MM-DD]
+   **Session**: /speckit-clarify
+
+   ## Scope Boundaries
+
+   - **In scope**: [concrete scope decisions — what this feature WILL do]
+   - **Out of scope**: [explicit exclusions — what this feature will NOT do]
+
+   ## Decisions Made
+
+   For each clarification Q&A from the session:
+   - **Q**: [question] → **A**: [final answer] — *Rationale*: [why this answer was chosen; what alternatives were rejected and why]
+
+   ## Deferred Items
+
+   - [Item] — *Why deferred*: [reason; when/under what conditions it should be revisited]
+
+   ## Terminology
+
+   - [Canonical term] = [definition] (replaces: [deprecated/avoided terms, if any])
+
+   ## Key Context for Reviewers
+
+   - [Any context that would help a downstream reviewer understand WHY certain choices were made — tradeoffs considered, constraints discovered, user feedback incorporated]
+   ```
+
+   Rules for the brief:
+   - Be **concise but complete**. A reviewer reading only explore-brief.md + the spec should understand the reasoning behind every non-obvious requirement.
+   - **No implementation details**. This is about WHAT and WHY, not HOW.
+   - **Record rejected alternatives** in decisions. Knowing what was considered and rejected is as valuable as knowing what was chosen.
+   - If no questions were asked (full coverage from the start), still generate the brief with Scope and Key Context — capture what was already clear and why.
+
+9. Report completion (after questioning loop ends or early termination):
    - Number of questions asked & answered.
    - Path to updated spec.
+   - Path to explore brief.
    - Sections touched (list names).
    - Coverage summary table listing each taxonomy category with Status: Resolved (was Partial/Missing and addressed), Deferred (exceeds question quota or better suited for planning), Clear (already sufficient), Outstanding (still Partial/Missing but low impact).
    - If any Outstanding or Deferred remain, recommend whether to proceed to `/speckit-plan` or run `/speckit-clarify` again later post-plan.
