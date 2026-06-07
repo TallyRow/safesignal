@@ -71,6 +71,10 @@ verify the transport receives roughly 10 events.
 3. **Given** `configureLogging()` called with `sampling` and multiple transports,
    **When** events are emitted, **Then** each transport independently samples
    (each gets its own sampler instance).
+4. **Given** `configureLogging()` called with `sampling: { type: 'head', rate: 0.1 }`
+   and one transport overrides with `sampling: false`, **When** events are
+   emitted, **Then** the overridden transport receives 100% of events (no
+   sampling) while the non-overridden transport receives ~10%.
 
 ---
 
@@ -113,11 +117,12 @@ structured metadata (event level, drop reason, sampler name, timestamp).
 - **Sampler error (fail-open)**: If the sampler's own decision logic throws or
   its random number source fails, the event passes through to the inner
   transport. A dropped event is wrong; a swallowed event is catastrophic.
-- **Rate-limit clock across browser tab throttling**: When a tab is
-  backgrounded and `setTimeout`/`requestAnimationFrame` are throttled, the
-  rate-limit sampler's time window accounting must remain correct (no burst
-  when the tab regains focus) or the behavior must be documented as a known
-  limitation.
+- **Rate-limit clock across browser tab throttling and system sleep**: The
+  token bucket uses `performance.now()` (monotonic). When a tab is
+  backgrounded, `performance.now()` continues advancing — tokens refill
+  normally. When the system sleeps, `performance.now()` pauses — tokens do NOT
+  refill during sleep (correct: no events were being emitted). No post-sleep
+  burst. System clock changes (`Date.now()`) do not affect the token bucket.
 - **Head sampling with very low rates**: At 0% rate, every event is dropped
   (the sampler is effectively a no-op transport). At 100% rate, every event
   passes through (identity sampler). Both extremes must work correctly.
@@ -206,12 +211,18 @@ structured metadata (event level, drop reason, sampler name, timestamp).
   sampled.
 - **FR-002**: System MUST provide a rate-limit sampler that drops events when
   the event rate exceeds a configurable threshold (events per second), using a
-  token bucket or equivalent algorithm with bounded state.
+  token bucket algorithm with configurable refill interval. The token bucket
+  MUST have bounded state (no unbounded timestamp tracking) and MUST
+  accumulate tokens during idle periods (preventing post-thaw bursts when
+  browser tabs regain focus).
 - **FR-003**: System MUST implement the sampler as a `Transport` wrapper so it
   can wrap any existing or future transport without the transport knowing about
   sampling.
 - **FR-004**: System MUST provide a declarative `sampling` configuration
   section in `LoggerConfig` that automatically wraps all configured transports.
+  Individual transports MAY override the global sampling by setting
+  `sampling: false` (opt out) or providing their own `sampling` config
+  (override with different type, rate, or `onDrop`).
 - **FR-005**: System MUST default to sampling OFF — no events are dropped
   unless the consumer explicitly configures a sampler.
 - **FR-006**: System MUST fire a documented `onDrop` callback for every dropped
@@ -286,18 +297,37 @@ structured metadata (event level, drop reason, sampler name, timestamp).
 - **SC-007**: Bundle size increase for the sampling feature is ≤ 2 KB gzipped
   over baseline (measured in CI).
 
+## Clarifications
+
+### Session 2026-06-07
+
+- Q: How should the rate-limit time window work? → A: Token bucket with configurable refill interval. Tokens refill at the configured rate per second, each event that passes consumes one token, bucket drains naturally — no fixed-window boundary bursts, smooth under load.
+- Q: Can individual transports override the global `sampling` config? → A: Global with opt-out per transport. The global `sampling` section sets the default; individual transports can set `sampling: false` to opt out, or provide their own `sampling` config to override. This mirrors the composable transport model — the easy path is one setting for everything, advanced consumers can tune per transport.
+- Q: Should `onDrop` support async (Promise-returning) callbacks? → A: Sync only — `(drop: DropNotification) => void`. The sampler must not gate event flow on consumer drop-handler completion. Consumers who need async delivery push to their own queue in the sync callback. Keeps `send()` predictable with no microtask injection.
+- Q: Is `Math.random()` acceptable as the sampling randomness source? → A: Yes — `Math.random()` is sufficient. Sampling is statistical, not cryptographic. The target precision (±5% at 99% confidence) is well within what modern `Math.random()` (xorshift128+ in all current browsers) provides. No crypto dependency needed.
+- Q: What clock source should the rate-limit sampler use? → A: `performance.now()` — monotonic (no backward jumps from NTP/system clock changes), high-resolution, and tokens correctly do NOT refill during system sleep. Easy to mock in tests via `vi.useFakeTimers()`.
+
 ## Assumptions
 
-- Head-based sampling uses `Math.random()` or `crypto.getRandomValues()` as the
-  randomness source — `crypto` preferred for uniformity, `Math` as fallback
-  with documented tradeoff.
-- Rate-limiting uses a token bucket algorithm with a configurable bucket size
-  (default: equal to the rate, allowing one burst of the full rate per second).
+- Head-based sampling uses `Math.random()` as the randomness source. Modern
+  browser implementations (xorshift128+) provide sufficient uniformity for
+  statistical sampling at the target precision. No `crypto.getRandomValues()`
+  dependency — the head sampler needs speed and synchrony, not cryptographic
+  entropy.
+- Rate-limiting uses a token bucket algorithm with configurable refill interval
+  (default: 1 second). Bucket capacity defaults to the rate (allowing one burst
+  of the full rate). Tokens accumulate during idle/background periods,
+  preventing post-thaw bursts when browser tabs regain focus. Clock source is
+  `performance.now()` (monotonic, no backward jumps, no refill during system
+  sleep).
 - The `sampling` config section wraps transports at `configureLogging()` time,
   before the dispatcher sees them — same lifecycle as `SafeTransport` wrapping.
-- The `onDrop` callback is called synchronously during `send()` for both
-  sampler types. It is the consumer's responsibility to avoid heavy work in
-  the callback.
+- The `onDrop` callback is synchronous (`(drop: DropNotification) => void`)
+  and called during `send()`. It is fire-and-forget from the sampler's
+  perspective — the sampler does not await or check a return value. Consumers
+  who need async delivery (e.g., shipping drops to their own monitoring)
+  should push to a queue in the sync callback and drain it elsewhere. Heavy
+  work in the callback will degrade logging throughput.
 - Browser tab throttling (background timer clamping) may cause rate-limit
   burst on tab refocus — this is a documented known limitation of
   browser-based rate limiting, not a defect.
