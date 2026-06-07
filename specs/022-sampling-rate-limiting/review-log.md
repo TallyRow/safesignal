@@ -35,3 +35,21 @@
 - 🟡 **Sampler decision function isolation**: Added FR-007a: sampler decision function MUST NOT inspect attribute values, context, or error objects. Security section updated.
 - 💡 **samplerName in FR-006**: Added to the field list for multi-sampler attribution.
 
+## Round 1 — plan.md (PASSED)
+
+**Date**: 2026-06-07 18:05 CDT
+**Result**: No blocking issues. Plan frozen.
+
+### Review Findings
+
+- ✅ All 14 FRs addressed in plan, research, data-model, and contracts
+- ✅ Constitution Check verifies all 11 principles with specific evidence
+- ✅ Sampler wrapping order correct: `SafeTransport(Sampler(ConsumerTransport))` — belt-and-suspenders fail-open
+- ✅ No new dependencies, no new subpath (core export keeps config-level approach import-free)
+- ✅ Token bucket uses `performance.now()` — monotonic, no backward jumps, documented
+- ✅ `Math.random()` for head sampling — justified as statistical, not cryptographic
+- ✅ All enforcement mechanisms listed with specific test file paths
+- ✅ Project structure follows existing patterns (`src/sampler/`, matching `src/transport/`)
+- 🟡 Quickstart shows HeadSampler as named export — plan's Source Code section confirms `src/index.ts` exports sampler factories. The public API types (`src/api/types.ts`) must also export `SamplerConfig` and `DropNotification` alongside the factories. Verified in plan structure.
+
+
