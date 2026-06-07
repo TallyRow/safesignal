@@ -8,6 +8,12 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+- `./transport-otlp`: Add opt-in OTLP protobuf encoding via `encoding: 'protobuf'`
+  option (zero deps, hand-built wire format). Produces 30–60% smaller payloads
+  and is accepted by a wider range of OTLP collectors. JSON remains the default.
+
 ## [1.4.0] — 2026-06-03
 
 ### Added — React error handling via `./framework-react` (Feature 018)

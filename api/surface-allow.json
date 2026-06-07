@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "entry": "./transport-otlp",
+    "name": "OtlpTransportOptions",
+    "from": "interface OtlpTransportOptions { endpoint: string; headers?: Record<string, string>; batching?: { maxBatchSize: number; maxBatchAgeMs?: number; }; maxBufferedEvents?: number; maxRecordBytes?: number; name?: string; allowInsecureLoopback?: boolean; injectTraceparent?: boolean; onInternalError?: (err: Error) => void; }",
+    "to": "interface OtlpTransportOptions { endpoint: string; headers?: Record<string, string>; batching?: { maxBatchSize: number; maxBatchAgeMs?: number; }; maxBufferedEvents?: number; maxRecordBytes?: number; name?: string; allowInsecureLoopback?: boolean; injectTraceparent?: boolean; onInternalError?: (err: Error) => void; encoding?: 'json' | 'protobuf'; }"
+  }
+]

@@ -153,6 +153,31 @@ describe('TO-2 — OTLP/HTTP+JSON delivery shape', () => {
   });
 });
 
+describe('encoding option validation', () => {
+  it('defaults to json when encoding is not specified', () => {
+    const t = createOtlpTransport({ endpoint: ENDPOINT });
+    // Should not throw, should create successfully
+    expect(t).toBeDefined();
+  });
+
+  it('accepts encoding: "json" explicitly', () => {
+    const t = createOtlpTransport({ endpoint: ENDPOINT, encoding: 'json' });
+    expect(t).toBeDefined();
+  });
+
+  it('accepts encoding: "protobuf"', () => {
+    const t = createOtlpTransport({ endpoint: ENDPOINT, encoding: 'protobuf' });
+    expect(t).toBeDefined();
+  });
+
+  it('throws TypeError for an invalid encoding value', () => {
+    expect(() =>
+      // biome-ignore lint/suspicious/noExplicitAny: testing invalid input validation
+      createOtlpTransport({ endpoint: ENDPOINT, encoding: 'msgpack' as any }),
+    ).toThrow(TypeError);
+  });
+});
+
 describe('TO-4 — send/flush/shutdown never throw', () => {
   beforeEach(() => {
     fetchDouble = installFetchDouble({ behavior: { kind: 'reject' } });

@@ -14,6 +14,8 @@
  * hand-serialized with zero runtime dependencies (research D1).
  */
 
+export type { OtlpEncoding } from './otlp-serializer.js';
+
 export {
   createOtlpTransport,
   type OtlpTransportOptions,

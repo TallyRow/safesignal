@@ -20,7 +20,10 @@
 import type { LogContext, LogEvent, LogLevel } from '../api/types.js';
 
 import { type AnyValue, type KeyValue, toKeyValues } from './attributes.js';
+import { encodeProtobuf } from './otlp-protobuf-encoder.js';
 import { buildResource } from './resource.js';
+
+export type OtlpEncoding = 'json' | 'protobuf';
 
 /** Constant instrumentation-scope name for every emitted ScopeLogs. */
 export const SCOPE_NAME = '@tallyrow/safesignal';
@@ -152,10 +155,15 @@ export function serializeBatch(
 
 /**
  * Encoding seam (FR-015). Turns the request object into the wire body.
- * The only encoding in this feature is JSON; protobuf is a roadmap
- * follow-up that slots in here without touching callers.
+ * Defaults to JSON (backward-compatible); pass `'protobuf'` for binary.
  */
-export function encode(request: OtlpLogsRequest): string {
+export function encode(
+  request: OtlpLogsRequest,
+  encoding: OtlpEncoding = 'json',
+): string | Uint8Array {
+  if (encoding === 'protobuf') {
+    return encodeProtobuf(request);
+  }
   return JSON.stringify(request);
 }
 
@@ -167,7 +175,7 @@ export function serializeOtlpJson(
   batch: ReadonlyArray<LogEvent>,
   fallbackTimeMs: number,
 ): string {
-  return encode(serializeBatch(batch, fallbackTimeMs));
+  return encode(serializeBatch(batch, fallbackTimeMs), 'json') as string;
 }
 
 // ---------------------------------------------------------------------------

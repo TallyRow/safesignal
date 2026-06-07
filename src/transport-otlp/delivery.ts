@@ -29,23 +29,30 @@ export type DeliveryResult =
  * static `headers` (e.g. auth) over the mandatory `content-type`.
  * `credentials: 'same-origin'` keeps cookies from leaking cross-origin by
  * default (Principle V); auth travels only in the explicit headers.
+ *
+ * When `encoding` is `'protobuf'`, `Content-Type` is `application/x-protobuf`
+ * and `body` is a `Uint8Array` — no JSON.parse validation is performed.
  */
 export async function deliver(
   endpoint: string,
   headers: Readonly<Record<string, string>>,
-  body: string,
+  body: string | Uint8Array,
+  encoding: 'json' | 'protobuf' = 'json',
 ): Promise<DeliveryResult> {
   const fetchFn = (globalThis as { fetch?: typeof fetch }).fetch;
   if (typeof fetchFn !== 'function') {
     return { kind: 'unavailable' };
   }
 
+  const contentType =
+    encoding === 'protobuf' ? 'application/x-protobuf' : 'application/json';
+
   let response: Response;
   try {
     response = await fetchFn(endpoint, {
       method: 'POST',
-      body,
-      headers: { 'content-type': 'application/json', ...headers },
+      body: body as BodyInit,
+      headers: { 'content-type': contentType, ...headers },
       keepalive: true,
       credentials: 'same-origin',
     });
@@ -55,6 +62,11 @@ export async function deliver(
 
   if (!response.ok) {
     return { kind: 'send_failed', detail: `HTTP ${response.status}` };
+  }
+
+  // For protobuf encoding the response body is not JSON; skip validation.
+  if (encoding === 'protobuf') {
+    return { kind: 'delivered' };
   }
 
   // 2xx — check for an OTLP partial-success rejection in the body. A
