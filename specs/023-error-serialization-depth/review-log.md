@@ -63,3 +63,41 @@ documents the url-scrubber name-exclusion parity precisely.
 
 ---
 
+## Round 1 — tasks.md
+**Date**: 2026-06-10
+
+### 🔴 Remaining Issues
+
+- **Wrong `api:update` script name** (`tasks.md:T032`): script does not exist
+  (only `api:extract` / `api:check`). **Fix applied**: T032 now instructs
+  `npm run api:extract` then `npm run api:check`, with the expected symbol
+  diff named.
+- **T021 security test written after implementation (TDD violation)**
+  (`tasks.md:Phase 4`): ES-9 member-coverage security test was placed after
+  T020. **Fix applied**: T021 moved into the US2 test-authoring block,
+  marked [P] [US2], before T020; T020 now "makes T018/T019/T021 pass";
+  dependency/parallel sections updated.
+
+### 🟡 / 💡 (addressed)
+
+- T006 split into T006a (walker only — unblocks T009–T011) and T006b
+  (budget + serializeError skeleton — unblocks T007); dependencies updated.
+- Phase 2 checkpoint clarifies T012 authoring vs passing (needs T007+T008).
+- Phase 3 checkpoint wording (ES-10 already green from Phase 2).
+- T033 names the concrete grep (`grep -rE "ES-[0-9]+" tests/`).
+- T028 notes path-verify-before-edit (cross-feature amendment, never a new
+  file).
+- T006a carries the new-directory/tsup-glob confirmation note.
+
+---
+
+## Round 2 — tasks.md (PASSED)
+**Date**: 2026-06-10
+**Result**: No blocking issues. Both round-1 🔴 fixes verified (api:extract
+script confirmed against package.json; T021 in US2 test block before T020).
+ES-1…ES-13 each map to a named, file-anchored failing test; FR/SC
+traceability complete. One 🟡 precision fix applied post-pass (parallel line:
+"T004 ∥ T006a (then T006b)"). Tasks frozen.
+
+---
+
