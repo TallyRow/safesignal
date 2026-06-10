@@ -71,7 +71,11 @@ function reduceErrorWithConfig(input: BuildLogEventInput): ErrorInfo {
     return reduceError(input.errorValue);
   }
   try {
-    return serializeError(input.errorValue, input.serializeErrors);
+    return serializeError(
+      input.errorValue,
+      input.serializeErrors,
+      input.onInternalError,
+    );
   } catch (err) {
     if (input.onInternalError !== undefined) {
       safeNotify(

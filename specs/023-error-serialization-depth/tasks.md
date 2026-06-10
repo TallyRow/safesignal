@@ -109,14 +109,14 @@ present; a throwing getter never drops the event (SC-003).
 
 ### Tests for User Story 3 ⚠️ write first, must fail
 
-- [ ] T022 [P] [US3] Write FAILING contract tests (append to tests/contract/error-serialization.contract.test.ts): ES-6 (own enumerable JSON-safe fields captured; functions/symbols/prototype props excluded; `maxFields` clip sets `fieldsTruncated`; DOMException `fields.code`), ES-7 (no nested node ever carries stack text; top-level `stack` unchanged)
-- [ ] T023 [P] [US3] Write FAILING fault-injection unit tests in tests/unit/errors/serialize-error-failsafe.test.ts: ES-8 (throwing property getters, throwing `cause` getter, exotic objects/Proxies → event still delivered with at least name/message; zero throws to caller; `onInternalError` receives `PackageError` with code `error_serialize_failed`; partial extraction keeps safely-extracted data — US3.4)
-- [ ] T024 [P] [US3] Write FAILING security tests (append to tests/security/error-serialization.security.test.ts): ES-9 fields coverage (key-based redaction: a `token`/`password` field value never reaches the transport — SC-004; megabyte field strings clipped to `maxStringLength`)
+- [x] T022 [P] [US3] Write FAILING contract tests (append to tests/contract/error-serialization.contract.test.ts): ES-6 (own enumerable JSON-safe fields captured; functions/symbols/prototype props excluded; `maxFields` clip sets `fieldsTruncated`; DOMException `fields.code`), ES-7 (no nested node ever carries stack text; top-level `stack` unchanged)
+- [x] T023 [P] [US3] Write FAILING fault-injection unit tests in tests/unit/errors/serialize-error-failsafe.test.ts: ES-8 (throwing property getters, throwing `cause` getter, exotic objects/Proxies → event still delivered with at least name/message; zero throws to caller; `onInternalError` receives `PackageError` with code `error_serialize_failed`; partial extraction keeps safely-extracted data — US3.4)
+- [x] T024 [P] [US3] Write FAILING security tests (append to tests/security/error-serialization.security.test.ts): ES-9 fields coverage (key-based redaction: a `token`/`password` field value never reaches the transport — SC-004; megabyte field strings clipped to `maxStringLength`)
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement value-filtered field capture in src/errors/serialize-error.ts: guarded own-enumerable reads (per-property try/catch), JSON-safe filter (primitives, plain objects/arrays via sanitizer-limit depth), skip name/message/stack/cause, `maxFields` + `fieldsTruncated`; DOMException special case reads prototype `code` (structural detection, R2) — makes T022/T023/T024 pass
-- [ ] T026 [US3] Confirm fail-safe wrapper end-to-end in src/pipeline/event-builder.ts against the fault-injection suite (fallback payload, single `safeNotify`, no double-notification) — adjust only if T023 exposes gaps
+- [x] T025 [US3] Implement value-filtered field capture in src/errors/serialize-error.ts: guarded own-enumerable reads (per-property try/catch), JSON-safe filter (primitives, plain objects/arrays via sanitizer-limit depth), skip name/message/stack/cause, `maxFields` + `fieldsTruncated`; DOMException special case reads prototype `code` (structural detection, R2) — makes T022/T023/T024 pass
+- [x] T026 [US3] Confirm fail-safe wrapper end-to-end in src/pipeline/event-builder.ts against the fault-injection suite (fallback payload, single `safeNotify`, no double-notification) — adjust only if T023 exposes gaps
 
 **Checkpoint**: All user stories independently functional.
 

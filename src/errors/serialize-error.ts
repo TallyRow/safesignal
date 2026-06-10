@@ -19,6 +19,10 @@
 
 import type { ErrorInfo, SerializedErrorNode } from '../api/types.js';
 import type { ResolvedSerializeErrorsLimits } from '../config/config.js';
+import {
+  safeNotify,
+  wrapAsPackageError,
+} from '../internal/errors/internal-errors.js';
 
 // ---------------------------------------------------------------------------
 // Guarded reads & detection
@@ -41,8 +45,14 @@ function safeGet(value: object, key: string): unknown {
 export function isErrorLike(
   value: unknown,
 ): value is object & { name: string; message: string } {
-  if (value instanceof Error) return true;
   if (value === null || typeof value !== 'object') return false;
+  try {
+    // `instanceof` invokes [[GetPrototypeOf]], which a hostile Proxy trap
+    // can throw from — hence the guard around the whole check.
+    if (value instanceof Error) return true;
+  } catch {
+    /* fall through to the structural check (also guarded) */
+  }
   return (
     typeof safeGet(value, 'name') === 'string' &&
     typeof safeGet(value, 'message') === 'string'
@@ -78,6 +88,11 @@ interface BudgetState {
   remaining: number;
   /** Set once the budget clipped anything, anywhere. */
   exhausted: boolean;
+  /**
+   * First contained per-property failure (hostile getter during field
+   * capture). Reported once per event via `onInternalError` (US3.4).
+   */
+  guardedFailure?: unknown;
 }
 
 /** Try to consume one node from the budget. */
@@ -177,6 +192,7 @@ function mapOneNode(
 export function serializeError(
   value: unknown,
   limits: ResolvedSerializeErrorsLimits,
+  onInternalError?: (err: Error) => void,
 ): ErrorInfo {
   const top = reduceToNameMessage(value);
   const info: ErrorInfo = { name: top.name, message: top.message };
@@ -192,6 +208,16 @@ export function serializeError(
   }
 
   if (budget.exhausted) info.budgetExhausted = true;
+  if (budget.guardedFailure !== undefined && onInternalError !== undefined) {
+    safeNotify(
+      onInternalError,
+      wrapAsPackageError(
+        'error_serialize_failed',
+        'a property accessor threw during deep error serialization; the event is delivered with the remaining error data.',
+        budget.guardedFailure,
+      ),
+    );
+  }
   return info;
 }
 
@@ -207,7 +233,7 @@ function applyDeepCapture(
 ): void {
   captureCauses(target, source, limits, budget);
   captureMembers(target, source, limits, budget);
-  // US3 (T025): value-filtered extra-field capture + DOMException code
+  captureFields(target, source, limits, budget);
 }
 
 /** Read `.cause` defensively; `undefined` means "no (further) cause". */
@@ -244,10 +270,12 @@ function captureCauses(
       break;
     }
     const entry: SerializedErrorNode = reduceToNameMessage(cursor);
-    // An AggregateError nested in a chain keeps its members on the chain
-    // entry (entries still never carry `causes` — the chain stays flat).
+    // An AggregateError nested in a chain keeps its members (and any extra
+    // fields) on the chain entry — entries still never carry `causes`, the
+    // chain stays flat.
     if (typeof cursor === 'object' && cursor !== null) {
       captureMembers(entry, cursor, limits, budget);
+      captureFields(entry, cursor, limits, budget);
     }
     entries.push(entry);
     cursor = getCauseOf(cursor);
@@ -284,12 +312,105 @@ function captureMembers(
     if (members.length >= limits.maxMembers || !takeNode(budget)) break;
     const node: SerializedErrorNode = reduceToNameMessage(item);
     if (typeof item === 'object' && item !== null) {
-      captureCauses(node, item, limits, budget);
-      captureMembers(node, item, limits, budget);
+      applyDeepCapture(node, item, limits, budget);
     }
     members.push(node);
   }
 
   if (members.length > 0) target.members = members;
   if (members.length < raw.length) target.membersTotal = raw.length;
+}
+
+// ---------------------------------------------------------------------------
+// Extra fields (US3 / ES-6)
+// ---------------------------------------------------------------------------
+
+/** Standard error keys never duplicated into `fields`. */
+const EXCLUDED_FIELD_KEYS = new Set([
+  'name',
+  'message',
+  'stack',
+  'cause',
+  'errors',
+]);
+
+/**
+ * Value filter (FR-005, clarified 2026-06-10): JSON-safe primitives plus
+ * plain objects/arrays. Functions, symbols, undefined, and class instances
+ * are never captured. Captured object references are deep-copied and
+ * depth/type-bounded by the sanitizer stage before any transport sees them.
+ */
+function isCapturableFieldValue(value: unknown): boolean {
+  if (value === null) return true;
+  const t = typeof value;
+  if (t === 'string' || t === 'number' || t === 'boolean' || t === 'bigint') {
+    return true;
+  }
+  if (t !== 'object') return false; // function | symbol | undefined
+  if (Array.isArray(value)) return true;
+  try {
+    const proto = Object.getPrototypeOf(value) as object | null;
+    return proto === null || proto === Object.prototype;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * US3 / ES-6: capture `source`'s safe own enumerable properties (beyond the
+ * standard error keys) onto `target.fields`, value-filtered and clipped to
+ * `maxFields` with `fieldsTruncated`. The sole prototype special case is
+ * `DOMException`'s legacy numeric `code` (a prototype getter that generic
+ * own-property capture cannot see). Hostile getters are skipped, recorded
+ * once on the budget state, and reported by `serializeError` (US3.4).
+ */
+function captureFields(
+  target: ErrorInfo | SerializedErrorNode,
+  source: object,
+  limits: ResolvedSerializeErrorsLimits,
+  budget: BudgetState,
+): void {
+  if (limits.maxFields === 0) return;
+
+  const fields: Record<string, unknown> = {};
+  let count = 0;
+  let truncated = false;
+
+  let keys: string[];
+  try {
+    keys = Object.keys(source);
+  } catch {
+    keys = [];
+  }
+
+  for (const key of keys) {
+    if (EXCLUDED_FIELD_KEYS.has(key)) continue;
+    let raw: unknown;
+    try {
+      raw = (source as Record<string, unknown>)[key];
+    } catch (err) {
+      budget.guardedFailure ??= err;
+      continue;
+    }
+    if (!isCapturableFieldValue(raw)) continue;
+    if (count >= limits.maxFields) {
+      truncated = true;
+      break;
+    }
+    fields[key] = raw;
+    count++;
+  }
+
+  // DOMException legacy `code` (R2): structural detection — a numeric,
+  // positive `code` reachable via the prototype and not already captured.
+  if (!('code' in fields) && count < limits.maxFields) {
+    const code = safeGet(source, 'code');
+    if (typeof code === 'number' && Number.isFinite(code) && code > 0) {
+      fields.code = code;
+      count++;
+    }
+  }
+
+  if (count > 0) target.fields = fields;
+  if (truncated) target.fieldsTruncated = true;
 }

@@ -265,3 +265,85 @@ describe('ES-9 (members): member-node strings pass redaction and URL scrubbing a
     expect(member.message).toContain('api_key=%5BREDACTED%5D');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ES-9 — pipeline coverage of extra fields (FR-008 / SC-004) [US3]
+// ---------------------------------------------------------------------------
+
+describe('ES-9 (fields): key-based redaction and bounds reach error.fields', () => {
+  it('a token field value never reaches the transport', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const err = new Error('auth failed') as Error & Record<string, unknown>;
+    err.token = 'sk-live-very-secret-value';
+    err.requestId = 'req-1';
+    createLogger().error('boom', {}, err);
+
+    const fields = capture.calls[0]!.error!.fields!;
+    expect(fields.token).toBe('[REDACTED]');
+    expect(fields.requestId).toBe('req-1');
+    expect(JSON.stringify(capture.calls[0])).not.toContain(
+      'sk-live-very-secret-value',
+    );
+  });
+
+  it('a secret key nested inside a plain-object field is redacted at depth', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const err = new Error('ctx') as Error & Record<string, unknown>;
+    err.requestContext = {
+      headers: { authorization: 'Bearer abc.def.ghi' },
+      path: '/orders',
+    };
+    createLogger().error('boom', {}, err);
+
+    const ctx = capture.calls[0]!.error!.fields!.requestContext as {
+      headers: { authorization: string };
+      path: string;
+    };
+    expect(ctx.headers.authorization).toBe('[REDACTED]');
+    expect(ctx.path).toBe('/orders');
+  });
+
+  it('a megabyte field string is clipped to maxStringLength (SC-006 fields aspect)', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      sanitizerLimits: { maxStringLength: 64 },
+      serializeErrors: true,
+      onInternalError,
+    });
+    const err = new Error('big') as Error & Record<string, unknown>;
+    err.payload = 'z'.repeat(1024 * 1024);
+    createLogger().error('boom', {}, err);
+
+    const fields = capture.calls[0]!.error!.fields!;
+    expect(fields.payload).toBe(`${'z'.repeat(64)}...[truncated]`);
+  });
+
+  it('a function-valued field never appears in transport output', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const err = new Error('fn') as Error & Record<string, unknown>;
+    err.callback = () => 'leak?';
+    createLogger().error('boom', {}, err);
+
+    expect(capture.calls[0]!.error!.fields).toBeUndefined();
+  });
+});
