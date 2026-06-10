@@ -104,3 +104,120 @@ describe('ES-10: serializeErrors off (default) → error payload is exactly { na
     expect(error.name).toBe('AggregateError');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ES-11 — feature-016 cause-chain attribute suppression (FR-014) [US1]
+// ---------------------------------------------------------------------------
+
+describe('ES-11: safesignal.errorCauses is never populated while serializeErrors is enabled', () => {
+  it('enabled + breadcrumbs on: no errorCauses attribute; breadcrumb trail unaffected', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      breadcrumbs: true,
+      serializeErrors: true,
+      onInternalError,
+    });
+    const log = createLogger();
+    log.info('crumb one');
+    log.error('boom', {}, makeChainedError());
+
+    const event = capture.calls.at(-1)!;
+    expect(event.attributes['safesignal.errorCauses']).toBeUndefined();
+    expect(event.error!.causes).toBeDefined();
+    expect(event.attributes['safesignal.breadcrumbs']).toBeDefined();
+  });
+
+  it('enabled, breadcrumbs off: no errorCauses attribute', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    createLogger().error('boom', {}, makeChainedError());
+
+    expect(
+      capture.calls[0]!.attributes['safesignal.errorCauses'],
+    ).toBeUndefined();
+  });
+
+  it('disabled + breadcrumbs on: feature-016 errorCauses behavior is unchanged', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      breadcrumbs: true,
+      onInternalError,
+    });
+    createLogger().error('boom', {}, makeChainedError());
+
+    const causes = capture.calls[0]!.attributes['safesignal.errorCauses'];
+    expect(causes).toEqual([
+      { name: 'Error', message: 'mid failure' },
+      { name: 'TypeError', message: 'root failure' },
+    ]);
+    expect(capture.calls[0]!.error!.causes).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ES-9 — pipeline coverage of cause-chain nodes (FR-008 / SC-004) [US1]
+// ---------------------------------------------------------------------------
+
+describe('ES-9 (chains): cause-entry strings pass redaction and URL scrubbing', () => {
+  const JWT =
+    'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+
+  it('a JWT-shaped cause message is shape-redacted before the transport', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const top = new Error('top', { cause: new Error(JWT) });
+    createLogger().error('boom', {}, top);
+
+    const entry = capture.calls[0]!.error!.causes![0]!;
+    expect(entry.message).toBe('[REDACTED]');
+    expect(JSON.stringify(capture.calls[0])).not.toContain(JWT);
+  });
+
+  it('a token query param inside a cause message URL is scrubbed', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const top = new Error('top', {
+      cause: new Error('https://api.example.com/path?token=supersecret123&x=1'),
+    });
+    createLogger().error('boom', {}, top);
+
+    const entry = capture.calls[0]!.error!.causes![0]!;
+    expect(entry.message).toContain('token=%5BREDACTED%5D');
+    expect(entry.message).not.toContain('supersecret123');
+  });
+
+  it('a huge cause message is bounded by maxStringLength', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      sanitizerLimits: { maxStringLength: 64 },
+      serializeErrors: true,
+      onInternalError,
+    });
+    const top = new Error('top', { cause: new Error('y'.repeat(10000)) });
+    createLogger().error('boom', {}, top);
+
+    const entry = capture.calls[0]!.error!.causes![0]!;
+    expect(entry.message).toBe(`${'y'.repeat(64)}...[truncated]`);
+  });
+});

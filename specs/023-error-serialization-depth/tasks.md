@@ -60,14 +60,14 @@ from `safesignal.errorCauses` while enabled.
 
 ### Tests for User Story 1 ⚠️ write first, must fail
 
-- [ ] T013 [P] [US1] Write FAILING contract tests in tests/contract/error-serialization.contract.test.ts: ES-1 (flat ordered chain incl. `entry.causes === undefined` flatness assertion; absent when no cause), ES-3 (depth clip sets `causesTruncated: true`), US1.3 (`NonError` coercion of non-error causes)
-- [ ] T014 [P] [US1] Write FAILING unit tests in tests/unit/errors/serialize-error.test.ts: ES-2 (cycle terminates, no hang; terminating node does NOT carry `causesTruncated`), cross-realm error-like objects serialized structurally (R3), depth bound + budget interaction on chains
-- [ ] T015 [P] [US1] Write FAILING security tests (append to tests/security/error-serialization.security.test.ts): ES-11 (enabled → `safesignal.errorCauses` never populated, with and without breadcrumbs on; disabled + breadcrumbs → 016 output unchanged) and ES-9 chain coverage (shape-rule redaction applies to cause-entry `name`/`message`; URL scrubbing applies to cause messages)
+- [x] T013 [P] [US1] Write FAILING contract tests in tests/contract/error-serialization.contract.test.ts: ES-1 (flat ordered chain incl. `entry.causes === undefined` flatness assertion; absent when no cause), ES-3 (depth clip sets `causesTruncated: true`), US1.3 (`NonError` coercion of non-error causes)
+- [x] T014 [P] [US1] Write FAILING unit tests in tests/unit/errors/serialize-error.test.ts: ES-2 (cycle terminates, no hang; terminating node does NOT carry `causesTruncated`), cross-realm error-like objects serialized structurally (R3), depth bound + budget interaction on chains
+- [x] T015 [P] [US1] Write FAILING security tests (append to tests/security/error-serialization.security.test.ts): ES-11 (enabled → `safesignal.errorCauses` never populated, with and without breadcrumbs on; disabled + breadcrumbs → 016 output unchanged) and ES-9 chain coverage (shape-rule redaction applies to cause-entry `name`/`message`; URL scrubbing applies to cause messages)
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Implement flat cause-chain capture in src/errors/serialize-error.ts: defensive `.cause` walk (seen-set cycle guard), flatten outermost-first into `causes`, clip at `maxCauseDepth`/budget with `causesTruncated`, entries never carry their own `causes` — makes T013/T014 pass
-- [ ] T017 [US1] Apply FR-014 gate in src/api/logger.ts (016 block at logger.ts:221–238 runs only when `serializeErrors` is disabled) — makes T015 ES-11 pass; verify ES-9 chain assertions pass via T009–T011 coverage
+- [x] T016 [US1] Implement flat cause-chain capture in src/errors/serialize-error.ts: defensive `.cause` walk (seen-set cycle guard), flatten outermost-first into `causes`, clip at `maxCauseDepth`/budget with `causesTruncated`, entries never carry their own `causes` — makes T013/T014 pass
+- [x] T017 [US1] Apply FR-014 gate in src/api/logger.ts (016 block at logger.ts:221–238 runs only when `serializeErrors` is disabled) — makes T015 ES-11 pass; verify ES-9 chain assertions pass via T009–T011 coverage
 
 **Checkpoint**: US1 fully functional — MVP. ES-1/2/3/9(chains)/11 green
 (ES-10 already green from Phase 2).

@@ -198,8 +198,6 @@ export function serializeError(
 /**
  * Capture causes / members / fields of `source` onto `target` (the payload
  * or a member node), depth-first: chain before members before fields.
- * Story-phase capture functions land here (US1 causes, US2 members, US3
- * fields).
  */
 function applyDeepCapture(
   target: ErrorInfo | SerializedErrorNode,
@@ -207,11 +205,48 @@ function applyDeepCapture(
   limits: ResolvedSerializeErrorsLimits,
   budget: BudgetState,
 ): void {
-  // US1 (T016): flat cause-chain capture
+  captureCauses(target, source, limits, budget);
   // US2 (T020): recursive AggregateError member capture
   // US3 (T025): value-filtered extra-field capture + DOMException code
-  void target;
-  void source;
-  void limits;
-  void budget;
+}
+
+/** Read `.cause` defensively; `undefined` means "no (further) cause". */
+function getCauseOf(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return undefined;
+  return safeGet(value, 'cause');
+}
+
+/**
+ * US1 / ES-1..ES-3: flatten `source`'s linear cause chain into
+ * `target.causes`, outermost cause first. Cycle-safe (a revisited object
+ * ends the chain WITHOUT a truncation marker — a cycle is an end, not a
+ * clip); clipped by `maxCauseDepth` and the node budget WITH the marker.
+ * Chain entries never carry their own `causes`.
+ */
+function captureCauses(
+  target: ErrorInfo | SerializedErrorNode,
+  source: object,
+  limits: ResolvedSerializeErrorsLimits,
+  budget: BudgetState,
+): void {
+  const entries: SerializedErrorNode[] = [];
+  const seen = new Set<unknown>([source]);
+  let truncated = false;
+  let cursor = getCauseOf(source);
+
+  while (cursor !== undefined) {
+    if (typeof cursor === 'object' && cursor !== null) {
+      if (seen.has(cursor)) break; // cycle — terminate, no marker
+      seen.add(cursor);
+    }
+    if (entries.length >= limits.maxCauseDepth || !takeNode(budget)) {
+      truncated = true;
+      break;
+    }
+    entries.push(reduceToNameMessage(cursor));
+    cursor = getCauseOf(cursor);
+  }
+
+  if (entries.length > 0) target.causes = entries;
+  if (truncated) target.causesTruncated = true;
 }
