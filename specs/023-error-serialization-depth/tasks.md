@@ -85,13 +85,13 @@ with names/messages (SC-002); 1,000 members → exactly `maxMembers` +
 
 ### Tests for User Story 2 ⚠️ write first, must fail
 
-- [ ] T018 [P] [US2] Write FAILING contract tests (append to tests/contract/error-serialization.contract.test.ts): ES-4 (members in original order; clip to `maxMembers` sets `membersTotal` = original count; member with its own cause chain captured within bounds — US2.3)
-- [ ] T019 [P] [US2] Write FAILING unit tests (append to tests/unit/errors/serialize-error.test.ts): ES-5 pathological inputs per SC-006 (1,000-member aggregates, aggregates-in-causes and causes-in-members nesting, total nodes ≤ `maxNodes`, `budgetExhausted` on top-level payload, depth-first emission order, inner limits subordinate to budget)
-- [ ] T021 [P] [US2] Write FAILING ES-9 member-coverage security tests (append to tests/security/error-serialization.security.test.ts): redaction shape rules + URL scrub reach member node `name`/`message` at arbitrary nesting depth (out-of-sequence ID kept after review reorder — runs with T018/T019)
+- [x] T018 [P] [US2] Write FAILING contract tests (append to tests/contract/error-serialization.contract.test.ts): ES-4 (members in original order; clip to `maxMembers` sets `membersTotal` = original count; member with its own cause chain captured within bounds — US2.3)
+- [x] T019 [P] [US2] Write FAILING unit tests (append to tests/unit/errors/serialize-error.test.ts): ES-5 pathological inputs per SC-006 (1,000-member aggregates, aggregates-in-causes and causes-in-members nesting, total nodes ≤ `maxNodes`, `budgetExhausted` on top-level payload, depth-first emission order, inner limits subordinate to budget)
+- [x] T021 [P] [US2] Write FAILING ES-9 member-coverage security tests (append to tests/security/error-serialization.security.test.ts): redaction shape rules + URL scrub reach member node `name`/`message` at arbitrary nesting depth (out-of-sequence ID kept after review reorder — runs with T018/T019)
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Implement recursive member capture in src/errors/serialize-error.ts: detect aggregate errors structurally (array-valued `errors` own property), emit member nodes (each may carry causes/members/fields) bounded by `maxMembers` + budget — makes T018/T019/T021 pass
+- [x] T020 [US2] Implement recursive member capture in src/errors/serialize-error.ts: detect aggregate errors structurally (array-valued `errors` own property), emit member nodes (each may carry causes/members/fields) bounded by `maxMembers` + budget — makes T018/T019/T021 pass
 
 **Checkpoint**: US1 + US2 independently functional.
 

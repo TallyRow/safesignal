@@ -148,3 +148,80 @@ describe('ES-3: chains longer than maxCauseDepth clip with causesTruncated', () 
     expect(error.causesTruncated).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// ES-4 — AggregateError members [US2]
+// ---------------------------------------------------------------------------
+
+describe('ES-4: AggregateError members appear as error.members', () => {
+  it('three members are listed in original order with names and messages (SC-002)', () => {
+    configure();
+    const agg = new AggregateError(
+      [new TypeError('first'), new Error('second'), new RangeError('third')],
+      'all failed',
+    );
+    createLogger().error('boom', {}, agg);
+
+    const error = capture.calls[0]!.error!;
+    expect(error.name).toBe('AggregateError');
+    expect(error.members).toEqual([
+      { name: 'TypeError', message: 'first' },
+      { name: 'Error', message: 'second' },
+      { name: 'RangeError', message: 'third' },
+    ]);
+    expect(error.membersTotal).toBeUndefined();
+  });
+
+  it('members above maxMembers clip and record the original count', () => {
+    configure({ maxMembers: 2 });
+    const agg = new AggregateError(
+      [new Error('m0'), new Error('m1'), new Error('m2'), new Error('m3')],
+      'all failed',
+    );
+    createLogger().error('boom', {}, agg);
+
+    const error = capture.calls[0]!.error!;
+    expect(error.members).toHaveLength(2);
+    expect(error.members![0]!.message).toBe('m0');
+    expect(error.members![1]!.message).toBe('m1');
+    expect(error.membersTotal).toBe(4);
+  });
+
+  it('a member with its own cause chain captures it within bounds (US2.3)', () => {
+    configure();
+    const member = new Error('member failed', {
+      cause: new TypeError('member root'),
+    });
+    const agg = new AggregateError([member], 'all failed');
+    createLogger().error('boom', {}, agg);
+
+    const error = capture.calls[0]!.error!;
+    expect(error.members![0]!.causes).toEqual([
+      { name: 'TypeError', message: 'member root' },
+    ]);
+  });
+
+  it('an AggregateError nested inside a cause chain carries members on the chain entry', () => {
+    configure();
+    const agg = new AggregateError([new Error('inner member')], 'agg failed');
+    const top = new Error('top', { cause: agg });
+    createLogger().error('boom', {}, top);
+
+    const error = capture.calls[0]!.error!;
+    const entry = error.causes![0]!;
+    expect(entry.name).toBe('AggregateError');
+    expect(entry.members).toEqual([{ name: 'Error', message: 'inner member' }]);
+    expect(entry.causes).toBeUndefined();
+  });
+
+  it('non-error members coerce to NonError', () => {
+    configure();
+    const agg = new AggregateError(['raw failure', 7], 'all failed');
+    createLogger().error('boom', {}, agg);
+
+    expect(capture.calls[0]!.error!.members).toEqual([
+      { name: 'NonError', message: 'raw failure' },
+      { name: 'NonError', message: '7' },
+    ]);
+  });
+});

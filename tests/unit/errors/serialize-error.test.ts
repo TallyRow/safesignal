@@ -113,3 +113,99 @@ describe('depth and budget interaction on chains', () => {
     expect(info.causesTruncated).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ES-5 — node budget binding (pathological inputs, SC-006) [US2]
+// ---------------------------------------------------------------------------
+
+interface Nodeish {
+  causes?: Nodeish[];
+  members?: Nodeish[];
+}
+
+function countNodes(info: Nodeish): number {
+  let count = 0;
+  const walk = (node: Nodeish): void => {
+    for (const child of node.causes ?? []) {
+      count++;
+      walk(child);
+    }
+    for (const child of node.members ?? []) {
+      count++;
+      walk(child);
+    }
+  };
+  walk(info);
+  return count;
+}
+
+describe('ES-5: the node budget is the binding outer limit', () => {
+  it('a 1000-member aggregate clips to maxMembers with the original count recorded', () => {
+    const members = Array.from(
+      { length: 1000 },
+      (_, i) => new Error(`m${String(i)}`),
+    );
+    const info = serializeError(
+      new AggregateError(members, 'huge'),
+      DEFAULT_LIMITS,
+    );
+    expect(info.members).toHaveLength(10);
+    expect(info.membersTotal).toBe(1000);
+    expect(info.budgetExhausted).toBeUndefined(); // inner limit clipped first
+  });
+
+  it('deeply nested aggregates never exceed maxNodes and set budgetExhausted', () => {
+    // Each level: aggregate of 3 members, nested 10 deep - far over budget 12.
+    const makeTree = (depth: number): Error =>
+      depth === 0
+        ? new Error('leaf')
+        : new AggregateError(
+            [makeTree(depth - 1), makeTree(depth - 1), makeTree(depth - 1)],
+            `level-${String(depth)}`,
+          );
+    const info = serializeError(makeTree(10), {
+      ...DEFAULT_LIMITS,
+      maxNodes: 12,
+    });
+    expect(countNodes(info as Nodeish)).toBeLessThanOrEqual(12);
+    expect(info.budgetExhausted).toBe(true);
+  });
+
+  it('depth-first order: a node chain is captured before its members', () => {
+    // Budget 3: chain (2 entries) wins over members; only 1 member fits.
+    const top = new AggregateError(
+      [new Error('m0'), new Error('m1'), new Error('m2')],
+      'top',
+    );
+    (top as Error & { cause: unknown }).cause = new Error('c0', {
+      cause: new Error('c1'),
+    });
+    const info = serializeError(top, { ...DEFAULT_LIMITS, maxNodes: 3 });
+    expect(info.causes).toHaveLength(2);
+    expect(info.members).toHaveLength(1);
+    expect(info.membersTotal).toBe(3);
+    expect(info.budgetExhausted).toBe(true);
+  });
+
+  it('a self-containing aggregate terminates within the budget', () => {
+    const agg = new AggregateError([new Error('seed')], 'self');
+    (agg.errors as unknown[]).push(agg);
+    const info = serializeError(agg, { ...DEFAULT_LIMITS, maxNodes: 20 });
+    expect(countNodes(info as Nodeish)).toBeLessThanOrEqual(20);
+  });
+
+  it('inner limits stay subordinate: high maxMembers cannot exceed the budget', () => {
+    const members = Array.from(
+      { length: 90 },
+      (_, i) => new Error(`m${String(i)}`),
+    );
+    const info = serializeError(new AggregateError(members, 'wide'), {
+      ...DEFAULT_LIMITS,
+      maxMembers: 100,
+      maxNodes: 5,
+    });
+    expect(info.members).toHaveLength(5);
+    expect(info.membersTotal).toBe(90);
+    expect(info.budgetExhausted).toBe(true);
+  });
+});

@@ -221,3 +221,47 @@ describe('ES-9 (chains): cause-entry strings pass redaction and URL scrubbing', 
     expect(entry.message).toBe(`${'y'.repeat(64)}...[truncated]`);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ES-9 — pipeline coverage of aggregate member nodes (FR-008) [US2]
+// ---------------------------------------------------------------------------
+
+describe('ES-9 (members): member-node strings pass redaction and URL scrubbing at depth', () => {
+  it('a JWT-shaped message on a nested member is shape-redacted', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const jwt =
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+    const inner = new AggregateError([new Error(jwt)], 'inner agg');
+    const top = new AggregateError([inner], 'top agg');
+    createLogger().error('boom', {}, top);
+
+    const deepMember = capture.calls[0]!.error!.members![0]!.members![0]!;
+    expect(deepMember.message).toBe('[REDACTED]');
+    expect(JSON.stringify(capture.calls[0])).not.toContain(jwt);
+  });
+
+  it('a URL with a secret param in a member message is scrubbed', () => {
+    configureLogging({
+      application: APP,
+      level: 'debug',
+      transports: [capture],
+      serializeErrors: true,
+      onInternalError,
+    });
+    const agg = new AggregateError(
+      [new Error('https://api.example.com/cb?api_key=sk-live-12345&ok=1')],
+      'agg',
+    );
+    createLogger().error('boom', {}, agg);
+
+    const member = capture.calls[0]!.error!.members![0]!;
+    expect(member.message).not.toContain('sk-live-12345');
+    expect(member.message).toContain('api_key=%5BREDACTED%5D');
+  });
+});

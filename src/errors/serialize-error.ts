@@ -206,7 +206,7 @@ function applyDeepCapture(
   budget: BudgetState,
 ): void {
   captureCauses(target, source, limits, budget);
-  // US2 (T020): recursive AggregateError member capture
+  captureMembers(target, source, limits, budget);
   // US3 (T025): value-filtered extra-field capture + DOMException code
 }
 
@@ -243,10 +243,53 @@ function captureCauses(
       truncated = true;
       break;
     }
-    entries.push(reduceToNameMessage(cursor));
+    const entry: SerializedErrorNode = reduceToNameMessage(cursor);
+    // An AggregateError nested in a chain keeps its members on the chain
+    // entry (entries still never carry `causes` — the chain stays flat).
+    if (typeof cursor === 'object' && cursor !== null) {
+      captureMembers(entry, cursor, limits, budget);
+    }
+    entries.push(entry);
     cursor = getCauseOf(cursor);
   }
 
   if (entries.length > 0) target.causes = entries;
   if (truncated) target.causesTruncated = true;
+}
+
+/** Read an aggregate's `errors` array defensively (structural detection). */
+function getMembersOf(value: object): ReadonlyArray<unknown> | undefined {
+  const errors = safeGet(value, 'errors');
+  return Array.isArray(errors) ? errors : undefined;
+}
+
+/**
+ * US2 / ES-4..ES-5: capture `source`'s aggregate members onto
+ * `target.members` (original order). Members recurse — each gets its own
+ * flat chain and members — depth-first under the shared node budget.
+ * Clipping by `maxMembers` or the budget records the original count in
+ * `membersTotal`. Self-referential aggregates terminate via the budget.
+ */
+function captureMembers(
+  target: ErrorInfo | SerializedErrorNode,
+  source: object,
+  limits: ResolvedSerializeErrorsLimits,
+  budget: BudgetState,
+): void {
+  const raw = getMembersOf(source);
+  if (raw === undefined || raw.length === 0) return;
+
+  const members: SerializedErrorNode[] = [];
+  for (const item of raw) {
+    if (members.length >= limits.maxMembers || !takeNode(budget)) break;
+    const node: SerializedErrorNode = reduceToNameMessage(item);
+    if (typeof item === 'object' && item !== null) {
+      captureCauses(node, item, limits, budget);
+      captureMembers(node, item, limits, budget);
+    }
+    members.push(node);
+  }
+
+  if (members.length > 0) target.members = members;
+  if (members.length < raw.length) target.membersTotal = raw.length;
 }
