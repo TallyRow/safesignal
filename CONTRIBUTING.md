@@ -306,8 +306,8 @@ git config core.hooksPath                  # should print: scripts/hooks
   format:check, test, api:check) — and **blocks the push** on failure.
 
 `npm run verify` is the one-command local gate; run it anytime to reproduce the
-high-frequency CI verdict. (CI additionally runs bundle-invariance, a container
-secret-scan, and full coverage — those stay CI-side.) **Emergency bypass:**
+high-frequency CI verdict. (CI additionally runs a container secret-scan and
+full coverage — those stay CI-side.) **Emergency bypass:**
 `git commit --no-verify` / `git push --no-verify` — these are guardrails, not
 locks. **CI remains the authoritative gate**, so an un-hooked clone still cannot
 bypass these checks.
@@ -536,7 +536,7 @@ GitHub → **Actions** → the **Release** run for your tag. Stages:
    against `.github/allowed_signers`, and the tagged commit must be on
    `main`.
 2. **build / typecheck / test** — Node 20 + 22 matrix.
-3. **bundle-invariance**, **dependency-pins**, **changelog-validate**.
+3. **dependency-pins**, **changelog-validate**.
 4. **publish** — `npm publish --provenance` via the npm GitHub Actions
    Trusted Publisher (OIDC, no token).
 5. **provenance-verify** — confirms the version + attestation on npm.

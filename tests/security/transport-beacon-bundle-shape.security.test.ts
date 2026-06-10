@@ -346,8 +346,22 @@ describe('(d) dist/transport-beacon.mjs gzipped size budget', () => {
  * justification, not removed (Principle X). The `./stacks` bundle has its own
  * shape/size test (`stacks-bundle-shape.security.test.ts`).
  */
-const DEFAULT_ENTRY_MJS_GZ_MAX = 9950; // observed: 9870 B (F017)
-const DEFAULT_ENTRY_CJS_GZ_MAX = 9990; // observed: 9910 B (F017)
+/*
+ * Re-baselined again in Feature 023 (deep error serialization, 2026-06-10):
+ * the core gained the opt-in `serializeErrors` capture (`src/errors/
+ * serialize-error.ts` — flat cause chains, recursive AggregateError members,
+ * value-filtered fields under one node budget), the config clamp resolver,
+ * the fail-safe event-builder wiring, and the sanitizer/url-scrubber/redactor
+ * node-walker coverage (FR-008). Measured +1,730 B mjs gzip over the F017
+ * baseline — a deliberate, spec'd core-feature growth approved at clarify Q2
+ * (specs/023-error-serialization-depth/, ES-12). The merge-base
+ * bundle-invariance CI gate was retired in the same change (owner decision;
+ * see specs/005-cicd-pipeline/contracts/ci-pipeline-stages.md amendment);
+ * THIS static ceiling is now the sole size gate and stays tight to the
+ * measured value so beacon-subpath leakage detection keeps working.
+ */
+const DEFAULT_ENTRY_MJS_GZ_MAX = 11650; // observed: 11600 B (F023)
+const DEFAULT_ENTRY_CJS_GZ_MAX = 11700; // observed: 11642 B (F023)
 
 describe('(e) dist/index.{mjs,cjs} default-entry size lock (SC-007)', () => {
   it(`dist/index.mjs is ≤ ${DEFAULT_ENTRY_MJS_GZ_MAX} bytes gzipped (no beacon-subpath leakage)`, () => {

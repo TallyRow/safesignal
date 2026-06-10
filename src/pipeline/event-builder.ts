@@ -82,7 +82,7 @@ function reduceErrorWithConfig(input: BuildLogEventInput): ErrorInfo {
         input.onInternalError,
         wrapAsPackageError(
           'error_serialize_failed',
-          'deep error serialization threw; event delivered with flat error info.',
+          'deep error serialization threw; event delivered with flat error info',
           err,
         ),
       );

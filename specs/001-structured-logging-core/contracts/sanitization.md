@@ -123,3 +123,23 @@ Documentation calls this out as the recommended pattern.
 | S-8 | Attribute count limit produces the documented truncation marker |
 | S-9 | String length limit truncates with `"...[truncated]"` suffix |
 | S-10 | `sanitizerLimits` outside Min..Max clamps and emits one `onInternalError` |
+
+## Amendment — 2026-06-10 (Feature 023: deep error serialization)
+
+When `LoggerConfig.serializeErrors` is enabled (off by default), the
+**error payload** (`event.error`) may additionally carry `causes`,
+`members`, and `fields` per
+`specs/023-error-serialization-depth/contracts/error-serialization.md`.
+Sanitizer coverage for that data (ES-9):
+
+- Every nested node's `name` and `message` is bounded by `maxStringLength`
+  (same truncation suffix as S-9).
+- Every `fields` object passes through the attribute-value sanitizer:
+  depth-bounded (S-6), array-bounded (S-7), string-bounded (S-9),
+  type-tagged for class instances (S-3), cycle-safe (S-5), and counted
+  toward `maxAttributeCount` (S-8).
+
+**Unchanged**: the S-3 rule that an `Error` instance encountered **inside
+attributes** is reduced to `{ name, message, stack? }` and never recursed
+into its own properties. Deep capture reads the raw error only at event
+construction (event-builder), never in this sanitizer.

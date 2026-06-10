@@ -86,7 +86,9 @@ describe('ES-1: cause chains appear as flat ordered error.causes', () => {
 
     const error = capture.calls[0]!.error!;
     expect(error.stack).toBeDefined();
-    expect((error.causes![0] as Record<string, unknown>).stack).toBeUndefined();
+    expect(
+      (error.causes![0] as unknown as Record<string, unknown>).stack,
+    ).toBeUndefined();
   });
 });
 
@@ -356,7 +358,7 @@ describe('ES-7: nested nodes never carry stack text', () => {
 
     const error = capture.calls[0]!.error!;
     expect(error.stack).toBeDefined();
-    const member = error.members![0]! as Record<string, unknown>;
+    const member = error.members![0]! as unknown as Record<string, unknown>;
     expect(member.stack).toBeUndefined();
     const memberCause = (member.causes as Array<Record<string, unknown>>)[0]!;
     expect(memberCause.stack).toBeUndefined();

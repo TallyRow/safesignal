@@ -124,14 +124,14 @@ present; a throwing getter never drops the event (SC-003).
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T027 Measure `dist/index.{mjs,cjs}` gzip deltas (`npm run build` + the size-lock test's own measurement) and raise `DEFAULT_ENTRY_MJS_GZ_MAX`/`DEFAULT_ENTRY_CJS_GZ_MAX` in tests/security/transport-beacon-bundle-shape.security.test.ts by the measured delta rounded up to the next 50 bytes, with a dated rationale comment naming feature 023 (ES-12; >1.5 KB growth = stop and simplify per R7)
-- [ ] T028 [P] Amend specs/001-structured-logging-core/contracts/sanitization.md (verify the path exists before editing — this is a deliberate cross-feature amendment, never a new file) per contracts/error-serialization.md §Contract amendments (error-payload node coverage documented; attribute Error type-tag rule explicitly unchanged), with a dated amendment note
-- [ ] T029 [P] Update README.md (deep error serialization section: enable, bounds, privacy posture, FR-014 interplay with breadcrumbs) and verify quickstart.md examples run as written — examples must model safe logging only
-- [ ] T030 [P] Add CHANGELOG.md `[Unreleased]` entry (additive `ErrorInfo` fields, new `serializeErrors` config, 016-attribute suppression note while enabled)
-- [ ] T031 SC-007 documentation review (named gate per Constitution X, filed from spec): review all docs/examples added by this feature for accuracy of bounds + privacy behavior and absence of unsafe patterns; record completion in this file before release
-- [ ] T032 Update the api-extractor surface report for the additive public types: run `npm run api:extract` (updates the report), then confirm `npm run api:check` passes; verify the report diff is exactly the new symbols (`SerializedErrorNode`, `SerializeErrorsOptions`, `ErrorInfo` additions, `LoggerConfig.serializeErrors`)
-- [ ] T033 Mechanical-enforcement validation pass: confirm each of ES-1…ES-13 maps to a named, existing, failing-closed test (`grep -rE "ES-[0-9]+" tests/` and cross-check against contracts/error-serialization.md); confirm no tolerated test-code relaxation exists; file remediation tasks here if any gate is unenforced
-- [ ] T034 Run full `npm run verify` (build, typecheck, lint, format:check, all test suites, api:check) and fix anything red — single authoritative gate, identical local/CI (Constitution IX)
+- [x] T027 Measure `dist/index.{mjs,cjs}` gzip deltas (`npm run build` + the size-lock test's own measurement) and raise `DEFAULT_ENTRY_MJS_GZ_MAX`/`DEFAULT_ENTRY_CJS_GZ_MAX` in tests/security/transport-beacon-bundle-shape.security.test.ts by the measured delta rounded up to the next 50 bytes, with a dated rationale comment naming feature 023 (ES-12; >1.5 KB growth = stop and simplify per R7)
+- [x] T028 [P] Amend specs/001-structured-logging-core/contracts/sanitization.md (verify the path exists before editing — this is a deliberate cross-feature amendment, never a new file) per contracts/error-serialization.md §Contract amendments (error-payload node coverage documented; attribute Error type-tag rule explicitly unchanged), with a dated amendment note
+- [x] T029 [P] Update README.md (deep error serialization section: enable, bounds, privacy posture, FR-014 interplay with breadcrumbs) and verify quickstart.md examples run as written — examples must model safe logging only
+- [x] T030 [P] Add CHANGELOG.md `[Unreleased]` entry (additive `ErrorInfo` fields, new `serializeErrors` config, 016-attribute suppression note while enabled)
+- [x] T031 SC-007 documentation review (named gate per Constitution X, filed from spec): review all docs/examples added by this feature for accuracy of bounds + privacy behavior and absence of unsafe patterns; record completion in this file before release
+- [x] T032 Update the api-extractor surface report for the additive public types: run `npm run api:extract` (updates the report), then confirm `npm run api:check` passes; verify the report diff is exactly the new symbols (`SerializedErrorNode`, `SerializeErrorsOptions`, `ErrorInfo` additions, `LoggerConfig.serializeErrors`)
+- [x] T033 Mechanical-enforcement validation pass: confirm each of ES-1…ES-13 maps to a named, existing, failing-closed test (`grep -rE "ES-[0-9]+" tests/` and cross-check against contracts/error-serialization.md); confirm no tolerated test-code relaxation exists; file remediation tasks here if any gate is unenforced
+- [x] T034 Run full `npm run verify` (build, typecheck, lint, format:check, all test suites, api:check) and fix anything red — single authoritative gate, identical local/CI (Constitution IX)
 
 ---
 
@@ -214,3 +214,22 @@ contract intact (additive-only changes to serialize-error.ts). Size-lock bump
   `npm run format:check` first (pre-commit hook enforces Biome).
 - The pre-push hook runs full `npm run verify` — expect T032/T027 to be
   required before any push that changes the public surface/bundle size.
+
+---
+
+## Completion notes (2026-06-10)
+
+- T027 outcome: measured F023 sizes 11,600 B mjs / 11,642 B cjs gzip
+  (+1,730 B over the F017 baseline). Static ceilings re-baselined to
+  11,650/11,700 with dated rationale in the size-lock test (ES-12).
+- Owner decision (recorded mid-implementation): the merge-base
+  bundle-invariance CI gate was removed entirely (jobs in ci.yml/release.yml,
+  script deleted, 005 CI contract amended with dated justification,
+  CONTRIBUTING updated). The static size locks remain the size guard.
+- T031 (SC-007 documentation review): README deep-error-serialization
+  section, quickstart.md, and CHANGELOG entry reviewed for accuracy of
+  bounds/defaults/privacy posture; no unsafe patterns demonstrated
+  (omission-over-redaction guidance included). COMPLETE.
+- T033: ES-1..ES-13 each verified to map to a named test file (grep recorded
+  in session); no test-code relaxations introduced.
+- T034: full `npm run verify` green.

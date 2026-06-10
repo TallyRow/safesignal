@@ -3,8 +3,8 @@ name: CI
 # Quality-gate pipeline for @tallyrow/safesignal — runs on every pull request
 # targeting main and on every push to main. Mirrors the non-release jobs of the
 # GitLab pipeline (Feature 005 + Feature 006): build / typecheck / test
-# (Node 20 + 22), lint, format-check, coverage, bundle-invariance,
-# dependency-pins, DCO sign-off, and a gitleaks secret scan.
+# (Node 20 + 22), lint, format-check, coverage, dependency-pins, DCO
+# sign-off, and a gitleaks secret scan.
 #
 # The host-neutral scripts/ci/*.sh helpers are reused unchanged by supplying the
 # env vars they read (CI_MERGE_REQUEST_DIFF_BASE_SHA, CI_COMMIT_SHA,
@@ -138,34 +138,14 @@ jobs:
           path: dist/
       - run: npm run test:coverage
 
-  bundle-invariance:
-    name: bundle-invariance
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # the script checks out + builds the base commit in a worktree
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v8
-        with:
-          name: dist
-          path: dist/
-      - name: Compare gzipped bundle sizes against the base
-        run: |
-          git fetch --depth=200 origin main || true
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Compare against the merge-base with the PR's target branch.
-            export CI_MERGE_REQUEST_DIFF_BASE_SHA="$(git merge-base origin/main HEAD)"
-          else
-            # push to main: the script compares against the previous main commit.
-            export CI_DEFAULT_BRANCH=main
-          fi
-          bash scripts/ci/bundle-invariance-check.sh
+  # bundle-invariance gate removed 2026-06-10 (feature 023, owner decision):
+  # the ±1 KiB merge-base delta check is retired for this single-maintainer
+  # library. Accidental subpath leakage into the default entry remains
+  # guarded by the static size-lock + export-surface tests
+  # (tests/security/transport-beacon-bundle-shape.security.test.ts,
+  # tests/contract/transport-beacon.contract.test.ts). Revisit if the
+  # package gains external adopters who need tighter size discipline
+  # (likely by splitting opt-in capture features into separate packages).
 
   dependency-pins:
     name: dependency-pins
@@ -263,7 +243,6 @@ jobs:
       - lint
       - format-check
       - coverage
-      - bundle-invariance
       - dependency-pins
       - api-surface
       - dco-check

@@ -14,8 +14,8 @@ source for what each stage does and when it fails.
 
 | Trigger | Pipeline type | Jobs run |
 |---|---|---|
-| `$CI_PIPELINE_SOURCE == "merge_request_event"` | MR pipeline | typecheck × 2, test × 2, build × 2, bundle-invariance, dependency-pins, dco-check |
-| `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH` | Default-branch pipeline | typecheck × 2, test × 2, build × 2, bundle-invariance, dependency-pins (no dco-check — DCO was already enforced on the MR) |
+| `$CI_PIPELINE_SOURCE == "merge_request_event"` | MR pipeline | typecheck × 2, test × 2, build × 2, dependency-pins, dco-check (bundle-invariance removed 2026-06-10 — see amendment below) |
+| `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH` | Default-branch pipeline | typecheck × 2, test × 2, build × 2, dependency-pins (no dco-check — DCO was already enforced on the MR) |
 | `$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[\w.]+)?$/` | Release pipeline | See `release-pipeline.md` |
 | anything else | no pipeline | — |
 
@@ -59,21 +59,25 @@ count matches an arbitrary baseline number".
 | Matrix | `NODE_VERSION: ["20", "22"]` (2 parallel jobs) |
 | Pass | exit 0 + `dist/index.mjs`, `dist/index.cjs`, `dist/testing.mjs`, `dist/testing.cjs`, `dist/transport-beacon.mjs`, `dist/transport-beacon.cjs` all present |
 | Fail | tsup build error, OR any expected dist file missing post-build |
-| Artifact | `dist/` directory (1-day TTL); consumed by `bundle-invariance` stage |
+| Artifact | `dist/` directory (1-day TTL); consumed by the audit stages |
 | Expected runtime | < 30 sec per arm on shared runner |
 
-### `bundle-invariance` stage
+### `bundle-invariance` stage — REMOVED 2026-06-10 (Feature 023 amendment)
 
-| Field | Value |
-|---|---|
-| Command | `scripts/ci/bundle-invariance-check.sh` |
-| Matrix | none (single Node `22` job) |
-| Needs | `build` job artifact (`dist/` from the Node `22` matrix arm) |
-| Pass | `abs(gzipped_post - gzipped_pre) <= 1024` bytes for BOTH `dist/index.mjs` and `dist/transport-beacon.mjs` |
-| Fail | either delta > 1024 bytes gzipped |
-| Failure output | per-bundle pre/post/delta table + bold FAIL marker |
-| Expected runtime | < 90 sec (includes worktree checkout + dual `npm ci` + dual `npm run build`) |
-| Skip rules | This stage SKIPS (status = "manual") on the very first MR of a brand-new branch with no merge-base in `origin/main` (rare edge case; only happens on the very first MR ever) |
+> **Amendment (2026-06-10, feature 023-error-serialization-depth, owner
+> decision):** this stage and `scripts/ci/bundle-invariance-check.sh` are
+> retired. The ±1 KiB merge-base delta gate was sized for incidental changes
+> and blocked legitimate, spec'd core-feature growth on a single-maintainer
+> library. Accidental subpath leakage into the default entry — the failure
+> mode this stage existed to catch — remains mechanically enforced by the
+> static export-surface lock (`tests/contract/transport-beacon.contract.test.ts`
+> TB-2) and the static gzip ceilings
+> (`tests/security/transport-beacon-bundle-shape.security.test.ts` group (e)),
+> both part of `npm run verify` locally and in CI. Revisit if the package
+> gains external adopters needing tighter size discipline (then prefer
+> splitting opt-in capture features into separate npm packages over
+> reinstating a delta gate). The original stage definition is preserved in
+> git history at this file's prior revision.
 
 ### `dependency-pins` stage
 
@@ -106,14 +110,14 @@ typecheck (×2) ──┐
                  ├──> [success required for: merge button on MR]
 test (×2) ───────┤
                  │
-build (×2) ──────┴──> dist/ artifact ──> bundle-invariance ──┐
+build (×2) ──────┴──> dist/ artifact ─────────────────────────┐
                                                               │
 dependency-pins ──────────────────────────────────────────────┤
                                                               ├──> all green = merge unblocked
 dco-check (MR only) ──────────────────────────────────────────┘
 ```
 
-All `audit` stage jobs (`bundle-invariance`, `dependency-pins`,
+All `audit` stage jobs (`dependency-pins`,
 `dco-check`) run in parallel after the build/test/typecheck
 stages complete. Total wall-clock for an MR pipeline is roughly
 `max(typecheck, test, build) + max(audit jobs)` ≈ 30s + 90s
@@ -140,9 +144,8 @@ is acceptable.
 - **PASS**: All stages succeed; merge button enabled.
 - **FAIL**: Any stage fails; merge button disabled with stage
   name + failure reason surfaced in GitLab MR UI.
-- **MANUAL**: `bundle-invariance` may be MANUAL on first-ever MR
-  (no merge-base available); maintainer manually advances after
-  confirming no regression possible.
+- **MANUAL**: (no longer applicable — the only MANUAL-capable stage,
+  `bundle-invariance`, was removed 2026-06-10; see amendment above.)
 
 ## Out-of-band considerations
 
