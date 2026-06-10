@@ -366,7 +366,7 @@ async function settleInFlight(state: OtlpTransportState): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Lazy pagehide best-effort flush (Principle VII — nothing at Logger create)
+// Lazy pagehide best-effort flush (Principle VIII — nothing at Logger create)
 // ---------------------------------------------------------------------------
 
 function ensurePagehide(state: OtlpTransportState): void {

@@ -44,7 +44,7 @@ jobs:
     name: verify-tag-signed
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # full history: verify the tag object + ancestry on main
 
@@ -90,8 +90,8 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -99,7 +99,7 @@ jobs:
       - run: npm run build
       - name: Upload dist (Node 22 artifact, reused downstream)
         if: matrix.node == '22'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -114,13 +114,13 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -134,13 +134,13 @@ jobs:
       matrix:
         node: ['20', '22']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -155,15 +155,15 @@ jobs:
       # main; setting CI_DEFAULT_BRANCH makes it fetch + build origin/main^.
       CI_DEFAULT_BRANCH: main
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # the script checks out + builds the base commit in a worktree
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -174,20 +174,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
       - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      # Bundle-shape tests inspect dist/, so they consume the build artifact.
-      - run: >
+      # Packaging-contract tests inspect dist/, so they consume the build
+      # artifact. Includes the distributed-surface parity gate (Feature 012 /
+      # issue #6): `npm pack` ↔ exports ↔ docs parity, fail-closed.
+      - name: "Packaging contracts: dependency-pins, bundle-shape, distributed-surface parity"
+        run: >
           npm test --
           tests/contract/dependency-pins.test.ts
+          tests/contract/distributed-surface.contract.test.ts
           tests/security/bundle-shape.security.test.ts
           tests/security/transport-beacon-bundle-shape.security.test.ts
           tests/security/transport-otlp-bundle-shape.security.test.ts
@@ -196,11 +200,43 @@ jobs:
     name: changelog-validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate CHANGELOG has an entry for the tag
         env:
           CI_COMMIT_TAG: ${{ github.ref_name }}
         run: bash scripts/ci/changelog-validate.sh
+
+  # Deprecate-before-remove baseline freshness (Feature 011 / issue #5):
+  # re-extract the surface from the tagged build and assert it equals the
+  # committed api/surface.json, so every published version refreshes the
+  # baseline (FR-007). Mirrors changelog-validate's "the entry must exist"
+  # discipline — see CONTRIBUTING.md § Cutting a release.
+  api-surface-freshness:
+    name: api-surface-freshness
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - name: Assert api/surface.json is fresh for this release
+        run: |
+          npm run api:extract
+          if ! git diff --quiet -- api/surface.json; then
+            echo "api/surface.json is stale for this release tag."
+            echo "Run 'npm run api:extract', commit the refreshed baseline, and"
+            echo "reset api/surface-allow.json to [] before tagging."
+            git --no-pager diff -- api/surface.json
+            exit 1
+          fi
+          echo "api/surface.json matches the tagged build's public surface."
 
   # --------------------------------------------------------------------------
   # Publish with provenance via npm OIDC Trusted Publisher. No NPM_TOKEN: the
@@ -216,16 +252,17 @@ jobs:
       - bundle-invariance
       - dependency-pins
       - changelog-validate
+      - api-surface-freshness
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # OIDC for Trusted Publisher auth + provenance attestation
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
-      - uses: actions/download-artifact@v4
+          node-version: '24'
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -248,9 +285,9 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Verify published version + provenance attestation (soft-fail)
         run: bash scripts/ci/provenance-verify.sh "${GITHUB_REF_NAME}"

@@ -12,10 +12,7 @@
  * permitted (T014 enforces).
  */
 
-import type {
-  LogRecordProcessor,
-  LogRecord as SdkLogRecord,
-} from '@opentelemetry/sdk-logs';
+import type { LogRecordProcessor, SdkLogRecord } from '@opentelemetry/sdk-logs';
 
 import type { LogEvent, Transport } from '../../../api/types.js';
 import { fromLogRecord } from './mapping.js';

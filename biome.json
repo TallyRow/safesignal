@@ -12,6 +12,8 @@
       "!**/node_modules",
       "!.specify",
       "!**/*.d.ts",
+      "!**/*.d.mts",
+      "!**/*.d.cts",
       "!**/*.map",
       "!package-lock.json",
       "!coverage"
@@ -46,5 +48,21 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/framework-vue/**",
+        "tests/contract/framework-vue.contract.test.ts",
+        "tests/integration/framework-vue.integration.test.ts"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -95,7 +95,7 @@ export function tryBeacon(endpoint: string, payload: string): boolean {
  *     carrying `.cause` per F-7.
  *
  * The `credentials: 'same-origin'` choice keeps cookies from leaking
- * cross-origin by default (Principle IV). Consumers who need credentialed
+ * cross-origin by default (Principle V). Consumers who need credentialed
  * delivery to a same-origin endpoint inherit the correct behaviour
  * automatically; cross-origin endpoints get no cookies, which is the
  * safer default.

@@ -270,11 +270,61 @@ export interface LoggerConfig {
   /** Tighten sanitizer bounds. Values above documented Max are clamped. */
   sanitizerLimits?: Partial<SanitizerLimits>;
   /**
+   * Opt-in **error breadcrumbs** (off by default). When enabled, an error log
+   * automatically carries the most recent events (`attributes['safesignal.breadcrumbs']`)
+   * and the error's cause chain (`attributes['safesignal.errorCauses']`), built only
+   * from the already sanitized + redacted event. `true` enables defaults; an object
+   * overrides them. See {@link BreadcrumbsOptions}.
+   */
+  breadcrumbs?: boolean | BreadcrumbsOptions;
+  /**
+   * Opt-in **error-stack normalization** (off by default). When set, an error
+   * log's `error.stack` is parsed into trimmed, optionally source-map-resolved
+   * structured frames and attached as `attributes['safesignal.stack']` (the raw
+   * `error.stack` is preserved). Supply via the `./stacks` subpath:
+   * `createStackNormalizer({ resolver })`. See {@link StackNormalizer}.
+   */
+  normalizeStack?: StackNormalizer;
+  /**
    * Diagnostics hook for internal failures (transport throws, init failure,
    * redactor throw, sanitizer-limit clamp). Fires at most once per
    * failing transport per session.
    */
   onInternalError?: (err: Error) => void;
+}
+
+/**
+ * One parsed call-site of a normalized error stack (Feature 017). All fields
+ * optional. Frames ride in `attributes['safesignal.stack']` so the pipeline
+ * scrubs/bounds them like any attribute.
+ */
+export interface StackFrame {
+  function?: string;
+  /** File path or URL; URL query/fragment params are scrubbed by the pipeline. */
+  file?: string;
+  line?: number;
+  column?: number;
+  /** Original source position when source-map-resolved. */
+  original?: { file?: string; line?: number; column?: number; name?: string };
+}
+
+/**
+ * Maps a raw `error.stack` string to trimmed structured frames, or `null` when
+ * nothing parses (the raw stack stands). Synchronous. Produced by the `./stacks`
+ * subpath's `createStackNormalizer`; configured once via `LoggerConfig.normalizeStack`.
+ */
+export type StackNormalizer = (stack: string) => StackFrame[] | null;
+
+/**
+ * Options for opt-in **error breadcrumbs** (Feature 016). Enable via
+ * `LoggerConfig.breadcrumbs`. Off by default.
+ */
+export interface BreadcrumbsOptions {
+  /**
+   * Ring-buffer capacity — how many recent events an error log carries.
+   * Default `20`; clamped to `[1, 100]` (one `onInternalError` notice on clamp).
+   */
+  maxEvents?: number;
 }
 
 /**

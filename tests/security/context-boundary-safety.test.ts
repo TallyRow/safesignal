@@ -64,7 +64,7 @@ function findLeaks(event: LogEvent): string[] {
   // (e.g. the cvv fixture '123' vs a `…44.123Z` timestamp), a flaky
   // false-positive. The timestamp is never consumer-supplied. Mirrors the
   // fix in secret-leakage.test.ts + secret-sweep.integration.test.ts
-  // (Principle VIII: same source, same result).
+  // (Principle IX: same source, same result).
   const { timestamp: _timestamp, ...scannable } = safe;
   const serialized = JSON.stringify(scannable);
   return FIXTURE_VALUES.filter((v) => serialized.includes(v));

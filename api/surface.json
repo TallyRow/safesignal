@@ -1,0 +1,264 @@
+{
+  "version": "1.4.0",
+  "symbols": [
+    {
+      "entry": ".",
+      "name": "AppIdentity",
+      "kind": "interface",
+      "signature": "interface AppIdentity { name: string; version?: string; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "Attributes",
+      "kind": "type",
+      "signature": "type Attributes = Record<string, AttributeValue>;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "AttributeValue",
+      "kind": "type",
+      "signature": "type AttributeValue = string | number | boolean | null | AttributeValue[] | { [key: string]: AttributeValue; };",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "BreadcrumbsOptions",
+      "kind": "interface",
+      "signature": "interface BreadcrumbsOptions { maxEvents?: number; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "configureLogging",
+      "kind": "function",
+      "signature": "function configureLogging(config: LoggerConfig): void;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "ConsoleTransport",
+      "kind": "const",
+      "signature": "ConsoleTransport: TransportFactory",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "createLogger",
+      "kind": "function",
+      "signature": "function createLogger(options?: CreateLoggerOptions): Logger;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "CreateLoggerOptions",
+      "kind": "interface",
+      "signature": "interface CreateLoggerOptions { name?: string; module?: ModuleIdentity; context?: Partial<LogContext>; level?: LogLevel; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "createRedactor",
+      "kind": "function",
+      "signature": "function createRedactor(rules?: RedactionRule[]): Redactor;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "ErrorInfo",
+      "kind": "interface",
+      "signature": "interface ErrorInfo { name: string; message: string; stack?: string; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "getRootLogger",
+      "kind": "function",
+      "signature": "function getRootLogger(): Logger;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "LevelMap",
+      "kind": "type",
+      "signature": "type LevelMap = Partial<Record<'production' | 'development' | 'test', LogLevel>>;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "LogContext",
+      "kind": "interface",
+      "signature": "interface LogContext { application?: AppIdentity; module?: ModuleIdentity; environment?: string; attributes?: Attributes; trace?: TraceContext; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "LogEvent",
+      "kind": "interface",
+      "signature": "interface LogEvent { timestamp: string; level: LogLevel; message: string; attributes: Attributes; context: LogContext; error?: ErrorInfo; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "Logger",
+      "kind": "interface",
+      "signature": "interface Logger { debug(message: string, attributes?: Attributes): void; info(message: string, attributes?: Attributes): void; warn(message: string, attributes?: Attributes): void; error(message: string, attributes?: Attributes, error?: unknown): void; child(context: Partial<LogContext>): Logger; withContext(context: Partial<LogContext>): Logger; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "LoggerConfig",
+      "kind": "interface",
+      "signature": "interface LoggerConfig { application?: AppIdentity; module?: ModuleIdentity; environment?: string; level?: LogLevel | LevelMap; context?: Partial<LogContext>; correlation?: () => Partial<LogContext>; transports?: Array<Transport | TransportFactory>; redactor?: Redactor; sanitizerLimits?: Partial<SanitizerLimits>; breadcrumbs?: boolean | BreadcrumbsOptions; normalizeStack?: StackNormalizer; onInternalError?: (err: Error) => void; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "LogLevel",
+      "kind": "type",
+      "signature": "type LogLevel = 'debug' | 'info' | 'warn' | 'error';",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "ModuleIdentity",
+      "kind": "interface",
+      "signature": "interface ModuleIdentity { name: string; version?: string; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "NoopTransport",
+      "kind": "const",
+      "signature": "NoopTransport: TransportFactory",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "parseTraceparent",
+      "kind": "function",
+      "signature": "function parseTraceparent(traceparent: string, tracestate?: string): TraceContext | undefined;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "RedactionRule",
+      "kind": "interface",
+      "signature": "interface RedactionRule { key?: string | RegExp; shape?: RegExp; replacement?: string; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "Redactor",
+      "kind": "type",
+      "signature": "type Redactor = (event: LogEvent) => LogEvent | null;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "SanitizerLimits",
+      "kind": "interface",
+      "signature": "interface SanitizerLimits { maxDepth: number; maxStringLength: number; maxArrayLength: number; maxAttributeCount: number; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "scrubUrl",
+      "kind": "function",
+      "signature": "function scrubUrl(url: string, options?: ScrubUrlOptions): string;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "ScrubUrlOptions",
+      "kind": "interface",
+      "signature": "interface ScrubUrlOptions { extraParams?: ReadonlyArray<string | RegExp>; fragment?: boolean; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "StackFrame",
+      "kind": "interface",
+      "signature": "interface StackFrame { function?: string; file?: string; line?: number; column?: number; original?: { file?: string; line?: number; column?: number; name?: string; }; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "StackNormalizer",
+      "kind": "type",
+      "signature": "type StackNormalizer = (stack: string) => StackFrame[] | null;",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "TraceContext",
+      "kind": "interface",
+      "signature": "interface TraceContext { traceId: string; spanId: string; traceFlags?: number; traceState?: string; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "Transport",
+      "kind": "interface",
+      "signature": "interface Transport { name: string; send(event: LogEvent): void | Promise<void>; flush?(): Promise<void>; shutdown?(): Promise<void>; }",
+      "deprecated": false
+    },
+    {
+      "entry": ".",
+      "name": "TransportFactory",
+      "kind": "type",
+      "signature": "type TransportFactory = () => Transport;",
+      "deprecated": false
+    },
+    {
+      "entry": "./testing",
+      "name": "assertTransportContract",
+      "kind": "function",
+      "signature": "function assertTransportContract(transport: Transport): Promise<void>;",
+      "deprecated": false
+    },
+    {
+      "entry": "./testing",
+      "name": "FIXTURE_VALUES",
+      "kind": "const",
+      "signature": "FIXTURE_VALUES: ReadonlyArray<string>",
+      "deprecated": false
+    },
+    {
+      "entry": "./testing",
+      "name": "makeSecretFixture",
+      "kind": "function",
+      "signature": "function makeSecretFixture(): SecretFixture;",
+      "deprecated": false
+    },
+    {
+      "entry": "./transport-beacon",
+      "name": "BeaconTransportOptions",
+      "kind": "interface",
+      "signature": "interface BeaconTransportOptions { endpoint: string; batching?: { maxBatchSize: number; maxBatchAgeMs?: number; }; allowInsecureLoopback?: boolean; name?: string; onInternalError?: (err: Error) => void; }",
+      "deprecated": false
+    },
+    {
+      "entry": "./transport-beacon",
+      "name": "createBeaconTransport",
+      "kind": "function",
+      "signature": "function createBeaconTransport(options: BeaconTransportOptions): Transport;",
+      "deprecated": false
+    },
+    {
+      "entry": "./transport-otlp",
+      "name": "createOtlpTransport",
+      "kind": "function",
+      "signature": "function createOtlpTransport(options: OtlpTransportOptions): Transport;",
+      "deprecated": false
+    },
+    {
+      "entry": "./transport-otlp",
+      "name": "OtlpTransportOptions",
+      "kind": "interface",
+      "signature": "interface OtlpTransportOptions { endpoint: string; headers?: Record<string, string>; batching?: { maxBatchSize: number; maxBatchAgeMs?: number; }; maxBufferedEvents?: number; maxRecordBytes?: number; name?: string; allowInsecureLoopback?: boolean; injectTraceparent?: boolean; onInternalError?: (err: Error) => void; }",
+      "deprecated": false
+    }
+  ]
+}
