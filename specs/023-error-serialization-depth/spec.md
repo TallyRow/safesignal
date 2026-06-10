@@ -8,6 +8,26 @@
 
 **Input**: User description: "Structured Error serialization depth (roadmap S9, GitHub issue #22). Turn rich Error objects into structured event fields: (a) serialize error.cause chains as structured data with the error itself, not just opt-in via breadcrumbs; (b) serialize AggregateError.errors arrays (currently ignored); (c) capture DOMException specifics; (d) capture safe own enumerable properties of custom Error subclasses. All output must be bounded (depth/count/string-length caps, reusing sanitizer-limit patterns), fail-safe (extraction failure never drops the event or throws into the host app — Constitution III), and privacy-safe (every extracted field flows through the sanitize → scrub → redact pipeline before any transport — Constitution V). Distinct from feature 017 stack normalization; must reconcile with feature 016's existing safesignal.errorCauses cause-chain capture."
 
+## Clarifications
+
+### Session 2026-06-10
+
+- Q: How should custom Error subclass extra fields be captured when deep error
+  serialization is enabled? → A: Value-filtered — capture own enumerable
+  JSON-safe properties; existing redaction rules are the privacy control (no
+  allowlist mechanism in this feature).
+- Q: Default-entry bundle size is mechanically locked; what is the size
+  posture for this feature's core-pipeline code? → A: A minimal, justified
+  ceiling increase in the size-lock test is acceptable (rationale recorded in
+  the test; exact number set at plan time). No new exports subpath.
+- Q: What shape should the opt-in configuration take? → A: One config key
+  accepting `true` (safe defaults) or an options object for tuning the
+  serialization limits.
+- Q: What is the wire shape of the structured error data? → A: Flat chain +
+  recursive members — each error node carries a flat, ordered cause-chain
+  array; aggregate nodes additionally carry a members array of nodes that
+  recurse the same way.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cause chains travel with the error (Priority: P1)
@@ -131,9 +151,10 @@ log a `DOMException` and verify its distinguishing fields are present.
 
 - **Public API Surface**: Additive. The event's error payload gains optional
   structured fields (cause chain, aggregate members, extra fields, truncation
-  indicators), and the logger configuration gains an option to enable/tune deep
-  error serialization (depth, member count, field count caps). No existing
-  exported function, type, or event field changes meaning.
+  indicators), and the logger configuration gains one option to enable/tune
+  deep error serialization: `true` enables it with safe defaults, or an
+  options object tunes the serialization limits (clarified 2026-06-10). No
+  existing exported function, type, or event field changes meaning.
 - **Compatibility Impact**: Backward compatible / additive. All new event fields
   are optional; consumers ignoring them see today's shape. Default behavior is
   unchanged unless the feature is enabled (see Assumptions).
@@ -179,10 +200,11 @@ log a `DOMException` and verify its distinguishing fields are present.
   behavior is unchanged (isolated, as today).
 - **Supply-Chain / Distribution Impact**: No new entry point or `exports`
   subpath is anticipated; the capability extends the existing core pipeline. The
-  default-entry bundle-size locks must continue to pass; any justified ceiling
-  adjustment must be made consciously in the size-lock test with rationale, not
-  silently. Release pipeline, dependency set, DCO, and attestation are
-  untouched.
+  default-entry bundle-size locks must continue to pass; a minimal, justified
+  ceiling increase in the size-lock test is permitted for this feature
+  (clarified 2026-06-10), made consciously with rationale recorded in the
+  test — never silently. Release pipeline, dependency set, DCO, and
+  attestation are untouched.
 - **Verification & Enforcement**: All new behavior is verified by the single
   authoritative `npm run verify` gate (build, typecheck, lint, format, tests,
   API surface check) identically in CI and locally. New invariants (bounded
@@ -274,9 +296,12 @@ log a `DOMException` and verify its distinguishing fields are present.
 ### Key Entities
 
 - **Serialized Error Node**: The structured representation of one error: name,
-  message, optionally stack (top-level only, as today), optionally a cause
-  chain, optionally aggregate member nodes, optionally extra captured fields,
-  and truncation indicators. Nodes compose recursively under one overall budget.
+  message, optionally stack (top-level only, as today), optionally a flat,
+  ordered cause-chain array (outermost cause first — linear chains are never
+  nested), optionally aggregate member nodes (which recurse: each member is
+  itself a node with its own flat chain and possible members), optionally
+  extra captured fields, and truncation indicators. All nodes count against
+  one overall node budget (clarified 2026-06-10).
 - **Serialization Limits**: The bounds governing capture, each with a safe
   default and a clamped configurable range, following the same clamp-and-notify
   behavior as existing event limits. Intended values (exact numbers confirmed
@@ -345,9 +370,9 @@ log a `DOMException` and verify its distinguishing fields are present.
   is disabled. When this feature is enabled, it owns cause-chain serialization
   and the 016 attribute is not additionally populated (FR-014); no contract is
   deprecated or removed by this feature.
-- **Extra-field capture policy**: Own enumerable properties are captured
-  value-filtered (JSON-safe primitives, plain objects/arrays) rather than via an
-  explicit per-field allowlist; the existing redaction rules remain the privacy
-  control. A stricter allowlist mode can be considered at clarify/design time.
+- **Extra-field capture policy (decided)**: Own enumerable properties are
+  captured value-filtered (JSON-safe primitives, plain objects/arrays) rather
+  than via an explicit per-field allowlist; the existing redaction rules remain
+  the privacy control. No allowlist mechanism ships in this feature.
 - **No new entry point**: The capability ships inside the existing default entry
   and existing configuration surface; no new `exports` subpath is required.
