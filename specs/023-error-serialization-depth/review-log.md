@@ -42,3 +42,24 @@ Post-pass cleanups applied (round-2 🟡 + 💡, all low-risk wording tightening
 
 ---
 
+## Round 1 — plan.md (PASSED)
+**Date**: 2026-06-10
+**Result**: No blocking issues. Reviewer verified all claimed code anchors
+against source (reduceError, 016 cause block, sanitizeErrorInfo, redactor
+error handling, size-lock constants) and cross-checked FR-001..FR-014 +
+SC-001..SC-007 coverage across plan/research/data-model/contracts. Plan
+frozen.
+
+🟡 fixes applied post-pass:
+- ES-2 now locks cycle termination NOT setting `causesTruncated` (explicit
+  assertion required).
+- ES-1 now locks chain flatness (`entry.causes === undefined` asserted).
+- R4 explicitly names extending `PackageErrorCode` with
+  `'error_serialize_failed'` as the first source-touching step.
+
+💡 fixes applied: R8 line anchor corrected to logger.ts:221–238; R9 notes the
+walker is a pure throw-free iterator (sanitizer-never-throws preserved) and
+documents the url-scrubber name-exclusion parity precisely.
+
+---
+
