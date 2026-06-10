@@ -22,6 +22,8 @@ export type PackageErrorCode =
   | 'breadcrumbs_max_clamped'
   | 'breadcrumb_failed'
   | 'stack_normalize_failed'
+  | 'error_serialize_clamped'
+  | 'error_serialize_failed'
   | 'no_transport_configured';
 
 export interface PackageErrorOptions {

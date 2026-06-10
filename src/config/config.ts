@@ -19,6 +19,7 @@ import type {
   ModuleIdentity,
   Redactor,
   SanitizerLimits,
+  SerializeErrorsOptions,
   StackNormalizer,
   Transport,
 } from '../api/types.js';
@@ -35,9 +36,14 @@ import {
 
 import {
   DEFAULT_SANITIZER_LIMITS,
+  DEFAULT_SERIALIZE_ERRORS_LIMITS,
   defaultLevelForEnvironment,
   SANITIZER_LIMIT_BOUNDS,
+  SERIALIZE_ERRORS_LIMIT_BOUNDS,
 } from './env-defaults.js';
+
+/** Fully-resolved deep-error-serialization limits (Feature 023). */
+export type ResolvedSerializeErrorsLimits = Required<SerializeErrorsOptions>;
 
 /**
  * Fully-normalized configuration produced by `normalizeConfig`. Internal
@@ -62,6 +68,8 @@ export interface NormalizedConfig {
   readonly breadcrumbs: BreadcrumbBuffer | undefined;
   /** Consumer error-stack normalizer (`./stacks`), or undefined when off (default). */
   readonly normalizeStack: StackNormalizer | undefined;
+  /** Resolved deep-error-serialization limits, or undefined when off (default). */
+  readonly serializeErrors: ResolvedSerializeErrorsLimits | undefined;
   readonly onInternalError: (err: Error) => void;
 }
 
@@ -100,8 +108,63 @@ export function normalizeConfig(config: LoggerConfig): NormalizedConfig {
     sanitizerLimits,
     breadcrumbs: resolveBreadcrumbs(config.breadcrumbs, onInternalError),
     normalizeStack: config.normalizeStack,
+    serializeErrors: resolveSerializeErrors(
+      config.serializeErrors,
+      onInternalError,
+    ),
     onInternalError,
   };
+}
+
+/**
+ * Resolve the opt-in `serializeErrors` config (Feature 023) into fully
+ * resolved limits, or `undefined` when off — the default. Out-of-range
+ * values clamp to the documented bounds with one `onInternalError` notice
+ * per clamped key (`error_serialize_clamped`), mirroring the sanitizer-limit
+ * clamp. Non-finite values fall back to the key's default without a notice.
+ */
+function resolveSerializeErrors(
+  option: boolean | SerializeErrorsOptions | undefined,
+  onInternalError: (err: Error) => void,
+): ResolvedSerializeErrorsLimits | undefined {
+  if (option === undefined || option === false) return undefined;
+  const limits: ResolvedSerializeErrorsLimits = {
+    ...DEFAULT_SERIALIZE_ERRORS_LIMITS,
+  };
+  if (option === true) return limits;
+
+  const keys = Object.keys(SERIALIZE_ERRORS_LIMIT_BOUNDS) as Array<
+    keyof ResolvedSerializeErrorsLimits
+  >;
+  for (const key of keys) {
+    const requested = option[key];
+    if (requested === undefined || !Number.isFinite(requested)) continue;
+
+    const bounds = SERIALIZE_ERRORS_LIMIT_BOUNDS[key];
+    const floored = Math.floor(requested);
+    if (floored > bounds.max) {
+      limits[key] = bounds.max;
+      safeNotify(
+        onInternalError,
+        new PackageError(
+          'error_serialize_clamped',
+          `serializeErrors.${key} value ${String(requested)} exceeds max ${String(bounds.max)}; clamped to ${String(bounds.max)}`,
+        ),
+      );
+    } else if (floored < bounds.min) {
+      limits[key] = bounds.min;
+      safeNotify(
+        onInternalError,
+        new PackageError(
+          'error_serialize_clamped',
+          `serializeErrors.${key} value ${String(requested)} is below min ${String(bounds.min)}; clamped to ${String(bounds.min)}`,
+        ),
+      );
+    } else {
+      limits[key] = floored;
+    }
+  }
+  return limits;
 }
 
 /**

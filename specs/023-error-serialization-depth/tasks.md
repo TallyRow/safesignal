@@ -18,8 +18,8 @@ AggregateError P2 · US3 fields/DOMException P3), each independently testable.
 
 **Purpose**: Tiny shared prerequisites with no behavioral effect.
 
-- [ ] T001 Extend `PackageErrorCode` union with `'error_serialize_failed'` (plus its JSDoc) in src/internal/errors/internal-errors.ts — first source-touching step (R4: `safeNotify` accepts only `PackageError`)
-- [ ] T002 [P] Add `DEFAULT_SERIALIZE_ERRORS_LIMITS` (maxCauseDepth 8, maxMembers 10, maxFields 16, maxNodes 50) and `SERIALIZE_ERRORS_LIMIT_BOUNDS` (clamps [1,16]/[1,100]/[0,64]/[1,256] per data-model.md) in src/config/env-defaults.ts
+- [x] T001 Extend `PackageErrorCode` union with `'error_serialize_failed'` (plus its JSDoc) in src/internal/errors/internal-errors.ts — first source-touching step (R4: `safeNotify` accepts only `PackageError`)
+- [x] T002 [P] Add `DEFAULT_SERIALIZE_ERRORS_LIMITS` (maxCauseDepth 8, maxMembers 10, maxFields 16, maxNodes 50) and `SERIALIZE_ERRORS_LIMIT_BOUNDS` (clamps [1,16]/[1,100]/[0,64]/[1,256] per data-model.md) in src/config/env-defaults.ts
 
 ---
 
@@ -30,17 +30,17 @@ integration, and pipeline node coverage that every user story flows through.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Define `SerializedErrorNode`, `SerializeErrorsOptions`, extend `ErrorInfo` (causes/members/fields + truncation markers incl. `budgetExhausted`), add `LoggerConfig.serializeErrors?: boolean | SerializeErrorsOptions` — exactly per data-model.md — in src/api/types.ts
-- [ ] T004 [P] Write FAILING unit tests for config normalization (ES-13: `true` → defaults; per-key clamp-and-notify, one `onInternalError` notice per clamped key; absent/false → disabled) in tests/unit/config/serialize-errors-config.test.ts
-- [ ] T005 Implement `serializeErrors` normalization in src/config/config.ts (resolved limits object or `undefined`, stored beside `sanitizerLimits`; reuse the sanitizer clamp-and-notify flow) — makes T004 pass
-- [ ] T006a Create src/errors/serialize-error.ts (NEW directory — confirm `src/errors/` is picked up by existing tsup/tsconfig globs before writing) with the pure, throw-free `forEachErrorNode(error, cb)` walker only (R9) — prerequisite for T009–T011
-- [ ] T006b Add to src/errors/serialize-error.ts: error-like structural detection (R3), `NonError` coercion, node-budget machinery (data-model §Budget semantics: budget binding, depth-first, top-level payload not counted), and `serializeError(value, limits): ErrorInfo` returning name/message/stack for the top-level value (capture specifics land per story) — prerequisite for T007
-- [ ] T007 Integrate into src/pipeline/event-builder.ts: extend `BuildLogEventInput` with optional resolved limits; when present call `serializeError` in try/catch with fallback to `reduceError` + `safeNotify(PackageError('error_serialize_failed'))` (FR-006)
-- [ ] T008 Thread normalized limits from config into `buildLogEvent` input in src/api/logger.ts
-- [ ] T009 Extend `sanitizeErrorInfo` in src/pipeline/sanitizer.ts: via `forEachErrorNode`, bound every node `name`/`message` and every string in `fields` to `maxStringLength`; pass `fields` values through the existing attribute-value sanitizer (depth-bounded, type-tagged) (R9, FR-008)
-- [ ] T010 [P] Extend src/pipeline/url-scrubber.ts: scrub node `message` and `fields` strings via the walker (names excluded — exact parity with flat-field behavior, R9)
-- [ ] T011 [P] Extend src/pipeline/redactor.ts: shape rules on every node `name`/`message` (parity with redactor.ts:138–158); key-based redaction rules on `fields` entries (parity with attributes); existing fail-closed `redactor_failed` behavior preserved (FR-008)
-- [ ] T012 [P] Write the ES-10 off-by-default shape lock as the first block of tests/security/error-serialization.security.test.ts: with `serializeErrors` absent/false, `event.error` is exactly `{ name, message, stack? }` and no new attributes appear (SC-005)
+- [x] T003 Define `SerializedErrorNode`, `SerializeErrorsOptions`, extend `ErrorInfo` (causes/members/fields + truncation markers incl. `budgetExhausted`), add `LoggerConfig.serializeErrors?: boolean | SerializeErrorsOptions` — exactly per data-model.md — in src/api/types.ts
+- [x] T004 [P] Write FAILING unit tests for config normalization (ES-13: `true` → defaults; per-key clamp-and-notify, one `onInternalError` notice per clamped key; absent/false → disabled) in tests/unit/config/serialize-errors-config.test.ts
+- [x] T005 Implement `serializeErrors` normalization in src/config/config.ts (resolved limits object or `undefined`, stored beside `sanitizerLimits`; reuse the sanitizer clamp-and-notify flow) — makes T004 pass
+- [x] T006a Create src/errors/serialize-error.ts (NEW directory — confirm `src/errors/` is picked up by existing tsup/tsconfig globs before writing) with the pure, throw-free `forEachErrorNode(error, cb)` walker only (R9) — prerequisite for T009–T011
+- [x] T006b Add to src/errors/serialize-error.ts: error-like structural detection (R3), `NonError` coercion, node-budget machinery (data-model §Budget semantics: budget binding, depth-first, top-level payload not counted), and `serializeError(value, limits): ErrorInfo` returning name/message/stack for the top-level value (capture specifics land per story) — prerequisite for T007
+- [x] T007 Integrate into src/pipeline/event-builder.ts: extend `BuildLogEventInput` with optional resolved limits; when present call `serializeError` in try/catch with fallback to `reduceError` + `safeNotify(PackageError('error_serialize_failed'))` (FR-006)
+- [x] T008 Thread normalized limits from config into `buildLogEvent` input in src/api/logger.ts
+- [x] T009 Extend `sanitizeErrorInfo` in src/pipeline/sanitizer.ts: via `forEachErrorNode`, bound every node `name`/`message` and every string in `fields` to `maxStringLength`; pass `fields` values through the existing attribute-value sanitizer (depth-bounded, type-tagged) (R9, FR-008)
+- [x] T010 [P] Extend src/pipeline/url-scrubber.ts: scrub node `message` and `fields` strings via the walker (names excluded — exact parity with flat-field behavior, R9)
+- [x] T011 [P] Extend src/pipeline/redactor.ts: shape rules on every node `name`/`message` (parity with redactor.ts:138–158); key-based redaction rules on `fields` entries (parity with attributes); existing fail-closed `redactor_failed` behavior preserved (FR-008)
+- [x] T012 [P] Write the ES-10 off-by-default shape lock as the first block of tests/security/error-serialization.security.test.ts: with `serializeErrors` absent/false, `event.error` is exactly `{ name, message, stack? }` and no new attributes appear (SC-005)
 
 **Checkpoint**: Foundation ready — `npm test` green, ES-10 + ES-13 enforced
 (T012 can be authored in parallel with T007/T008 but passes green only after

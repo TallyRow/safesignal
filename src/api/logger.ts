@@ -216,6 +216,8 @@ function makeLogger(
       attributes,
       context,
       errorValue,
+      serializeErrors: cfg.serializeErrors,
+      onInternalError: cfg.onInternalError,
     });
 
     // Error-breadcrumbs cause chain (Feature 016) — opt-in, off by default.

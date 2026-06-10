@@ -36,6 +36,7 @@ import type {
   LogEvent,
   ScrubUrlOptions,
 } from '../api/types.js';
+import { hasDeepErrorData, mapErrorNodes } from '../errors/serialize-error.js';
 import type { PipelineStage } from './dispatcher.js';
 
 const REDACTED = '[REDACTED]';
@@ -117,12 +118,22 @@ export const urlScrub: PipelineStage = (event, _config) => {
 
   let error: ErrorInfo | undefined;
   if (event.error !== undefined) {
-    const scrubbedMessage = maybeScrubString(event.error.message);
+    // Deep error data (Feature 023): scrub nested node messages and `fields`
+    // strings with the same rules as the flat fields (names excluded, exact
+    // parity with the flat handling below).
+    error = hasDeepErrorData(event.error)
+      ? mapErrorNodes(event.error, {
+          message: maybeScrubString,
+          fields: (f) => walkAttributes(f as Attributes) as typeof f,
+        })
+      : { name: event.error.name, message: event.error.message };
+    error.message = maybeScrubString(event.error.message);
     const stack = event.error.stack;
-    const scrubbedStack =
-      stack === undefined ? undefined : maybeScrubString(stack);
-    error = { name: event.error.name, message: scrubbedMessage };
-    if (scrubbedStack !== undefined) error.stack = scrubbedStack;
+    if (stack !== undefined) {
+      error.stack = maybeScrubString(stack);
+    } else {
+      delete error.stack;
+    }
   }
 
   const noChange =

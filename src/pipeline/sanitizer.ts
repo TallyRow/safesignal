@@ -29,6 +29,7 @@ import type {
   LogEvent,
 } from '../api/types.js';
 import type { NormalizedConfig } from '../config/config.js';
+import { hasDeepErrorData, mapErrorNodes } from '../errors/serialize-error.js';
 import type { PipelineStage } from './dispatcher.js';
 
 const TRUNCATION_MARKER_KEY = '__truncated__';
@@ -100,12 +101,23 @@ function sanitizeContext(source: LogContext, ctx: SanitizeContext): LogContext {
 }
 
 function sanitizeErrorInfo(error: ErrorInfo, ctx: SanitizeContext): ErrorInfo {
-  const info: ErrorInfo = {
-    name: truncateString(error.name, ctx.maxStringLength),
-    message: truncateString(error.message, ctx.maxStringLength),
-  };
+  // Deep error data (Feature 023): bound every nested node's name/message
+  // and run `fields` through the attribute-value sanitizer (depth-bounded,
+  // type-tagged, counted toward maxAttributeCount). The walker operates on
+  // already-extracted plain data and never throws.
+  const info: ErrorInfo = hasDeepErrorData(error)
+    ? mapErrorNodes(error, {
+        name: (v) => truncateString(v, ctx.maxStringLength),
+        message: (v) => truncateString(v, ctx.maxStringLength),
+        fields: (f) => sanitizeObject(f, 0, ctx),
+      })
+    : { name: error.name, message: error.message };
+  info.name = truncateString(error.name, ctx.maxStringLength);
+  info.message = truncateString(error.message, ctx.maxStringLength);
   if (error.stack !== undefined) {
     info.stack = truncateString(error.stack, ctx.maxStringLength);
+  } else {
+    delete info.stack;
   }
   return info;
 }
