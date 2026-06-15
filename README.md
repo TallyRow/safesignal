@@ -64,6 +64,19 @@ Core features (no subpath needed):
   `./transport-otlp` populates OTLP `traceId`/`spanId` fields.
 - **Error breadcrumbs** — opt-in bounded ring buffer attaches recent-event
   trail and cause chain to every error.
+- **Deep error serialization** — opt-in (`serializeErrors: true`): the error
+  payload carries the full `cause` chain (`error.causes`, flat and ordered),
+  `AggregateError` members (`error.members`, recursive), and safe own
+  enumerable extra properties (`error.fields`, incl. `DOMException.code`) —
+  bounded by clamped limits under one node budget, fail-safe (a hostile
+  getter never drops the event), and passed through the same sanitize →
+  scrub → redact pipeline as all event data. Truncation is always explicit
+  (`causesTruncated`, `membersTotal`, `fieldsTruncated`, `budgetExhausted`).
+  Tune via `serializeErrors: { maxCauseDepth, maxMembers, maxFields,
+  maxNodes }`. While enabled, the breadcrumbs `safesignal.errorCauses`
+  attribute is not additionally populated — one chain, one place. As with
+  attributes, redaction key rules apply to `fields`; still, prefer omission
+  over redaction: don't stash secrets on Error objects.
 
 Full details: [`docs/subpaths.md`](docs/subpaths.md)
 

@@ -216,13 +216,19 @@ function makeLogger(
       attributes,
       context,
       errorValue,
+      serializeErrors: cfg.serializeErrors,
+      onInternalError: cfg.onInternalError,
     });
 
     // Error-breadcrumbs cause chain (Feature 016) — opt-in, off by default.
     // Write the bounded, cycle-safe cause chain into attributes BEFORE dispatch
     // so the existing sanitizer + redactor process it like any attribute.
+    // Suppressed entirely while deep error serialization (Feature 023) is
+    // enabled: the chain then lives on `event.error.causes` and is never
+    // serialized twice in one event (FR-014 / ES-11).
     if (
       cfg.breadcrumbs !== undefined &&
+      cfg.serializeErrors === undefined &&
       level === 'error' &&
       errorValue !== undefined
     ) {

@@ -8,6 +8,53 @@ and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added — Deep error serialization (Feature 023, Issue #22)
+
+Opt-in `serializeErrors` config (off by default; `true` = safe defaults, or
+`{ maxCauseDepth, maxMembers, maxFields, maxNodes }` with documented
+clamp-and-notify ranges). When enabled, `event.error` additionally carries:
+
+- **`causes`** — the error's `cause` chain, flat and ordered (outermost
+  first), cycle-safe, depth-bounded with explicit `causesTruncated`.
+- **`members`** — `AggregateError` constituents (recursive: members carry
+  their own chains/members/fields), count-bounded with the original count in
+  `membersTotal`.
+- **`fields`** — value-filtered own enumerable extra properties (JSON-safe
+  primitives and plain objects/arrays only; never functions, symbols, or
+  prototype data), plus `DOMException`'s legacy numeric `code`; clipped with
+  `fieldsTruncated`.
+- One binding node budget (`maxNodes`) caps total output regardless of input
+  shape (`budgetExhausted` marks budget clips).
+
+Fail-safe (FR-006/ES-8): hostile getters, cyclic structures, and exotic
+objects never throw into the host or drop the event — delivery falls back to
+the flat `{ name, message, stack? }` with one
+`onInternalError(PackageError('error_serialize_failed'))` notice. Privacy
+(FR-008/ES-9): the sanitizer, URL scrubber, and redactor now traverse every
+nested error node, so string bounds, URL param scrubbing, and key/shape
+redaction rules apply to all captured data. With the feature disabled, the
+error payload shape is unchanged (locked by ES-10). While enabled, the
+feature-016 `safesignal.errorCauses` attribute is never additionally
+populated (FR-014). New public types: `SerializedErrorNode`,
+`SerializeErrorsOptions`; `ErrorInfo` extended additively.
+
+### Changed — Default-entry size ceilings re-baselined (Feature 023)
+
+`dist/index.{mjs,cjs}` gzip ceilings re-baselined for the deliberate core
+growth above (+1,730 B mjs; rationale in
+`tests/security/transport-beacon-bundle-shape.security.test.ts`).
+
+### Removed — `bundle-invariance` CI gate (owner decision, 2026-06-10)
+
+The ±1 KiB merge-base bundle-delta CI job and
+`scripts/ci/bundle-invariance-check.sh` are retired (single-maintainer
+library; the gate blocked legitimate spec'd core growth). Accidental
+subpath leakage remains guarded by the static export-surface lock (TB-2)
+and the static gzip ceilings, both in `npm run verify`. Documented in the
+`specs/005-cicd-pipeline` CI contract amendment; revisit (likely by
+splitting opt-in features into separate packages) if the library gains
+external adopters.
+
 ## [1.4.0] — 2026-06-03
 
 ### Added — React error handling via `./framework-react` (Feature 018)

@@ -21,6 +21,12 @@ import type {
   LogEvent,
   LogLevel,
 } from '../api/types.js';
+import type { ResolvedSerializeErrorsLimits } from '../config/config.js';
+import { serializeError } from '../errors/serialize-error.js';
+import {
+  safeNotify,
+  wrapAsPackageError,
+} from '../internal/errors/internal-errors.js';
 
 export interface BuildLogEventInput {
   level: LogLevel;
@@ -29,6 +35,14 @@ export interface BuildLogEventInput {
   context: LogContext;
   /** Raw caught value from `logger.error(msg, attrs, err)`; reduced to `ErrorInfo`. */
   errorValue: unknown;
+  /**
+   * Resolved deep-error-serialization limits (Feature 023), or undefined
+   * when the feature is off (default) — in which case `reduceError` runs
+   * exactly as before.
+   */
+  serializeErrors?: ResolvedSerializeErrorsLimits | undefined;
+  /** Diagnostics hook for contained serialization failures (Feature 023). */
+  onInternalError?: ((err: Error) => void) | undefined;
 }
 
 /** Build a canonical `LogEvent` from already-merged inputs. */
@@ -41,9 +55,40 @@ export function buildLogEvent(input: BuildLogEventInput): LogEvent {
     context: input.context,
   };
   if (input.errorValue !== undefined) {
-    event.error = reduceError(input.errorValue);
+    event.error = reduceErrorWithConfig(input);
   }
   return event;
+}
+
+/**
+ * Reduce the raw error value: deep serialization (Feature 023) when enabled,
+ * else the documented flat `reduceError`. Fail-safe per ES-8: any throw from
+ * deep serialization is contained, the event still carries the flat
+ * reduction, and `onInternalError` receives `error_serialize_failed`.
+ */
+function reduceErrorWithConfig(input: BuildLogEventInput): ErrorInfo {
+  if (input.serializeErrors === undefined) {
+    return reduceError(input.errorValue);
+  }
+  try {
+    return serializeError(
+      input.errorValue,
+      input.serializeErrors,
+      input.onInternalError,
+    );
+  } catch (err) {
+    if (input.onInternalError !== undefined) {
+      safeNotify(
+        input.onInternalError,
+        wrapAsPackageError(
+          'error_serialize_failed',
+          'deep error serialization threw; event delivered with flat error info',
+          err,
+        ),
+      );
+    }
+    return reduceError(input.errorValue);
+  }
 }
 
 /**

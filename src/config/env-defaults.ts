@@ -9,7 +9,11 @@
  * the value the consumer supplied.
  */
 
-import type { LogLevel, SanitizerLimits } from '../api/types.js';
+import type {
+  LogLevel,
+  SanitizerLimits,
+  SerializeErrorsOptions,
+} from '../api/types.js';
 
 /** Per-environment baseline minimum level. Unknown environments fall back to `warn`. */
 export const DEFAULT_LEVEL_BY_ENVIRONMENT: Readonly<Record<string, LogLevel>> =
@@ -42,6 +46,37 @@ export const SANITIZER_LIMIT_BOUNDS: Readonly<{
   maxStringLength: { min: 64, max: 65536 },
   maxArrayLength: { min: 1, max: 10000 },
   maxAttributeCount: { min: 1, max: 4096 },
+};
+
+/**
+ * Default deep-error-serialization limits (Feature 023) per
+ * `specs/023-error-serialization-depth/contracts/error-serialization.md`
+ * ES-13. Applied when `serializeErrors: true` or a partial options object.
+ */
+export const DEFAULT_SERIALIZE_ERRORS_LIMITS: Readonly<
+  Required<SerializeErrorsOptions>
+> = {
+  maxCauseDepth: 8,
+  maxMembers: 10,
+  maxFields: 16,
+  maxNodes: 50,
+};
+
+/**
+ * Min/Max bounds per deep-error-serialization limit. Out-of-range values
+ * clamp to the nearest bound and emit one `onInternalError` notice
+ * (`error_serialize_clamped`), mirroring the sanitizer-limit behavior.
+ */
+export const SERIALIZE_ERRORS_LIMIT_BOUNDS: Readonly<{
+  [K in keyof Required<SerializeErrorsOptions>]: Readonly<{
+    min: number;
+    max: number;
+  }>;
+}> = {
+  maxCauseDepth: { min: 1, max: 16 },
+  maxMembers: { min: 1, max: 100 },
+  maxFields: { min: 0, max: 64 },
+  maxNodes: { min: 1, max: 256 },
 };
 
 /**

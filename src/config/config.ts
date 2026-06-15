@@ -19,6 +19,7 @@ import type {
   ModuleIdentity,
   Redactor,
   SanitizerLimits,
+  SerializeErrorsOptions,
   StackNormalizer,
   Transport,
 } from '../api/types.js';
@@ -35,9 +36,14 @@ import {
 
 import {
   DEFAULT_SANITIZER_LIMITS,
+  DEFAULT_SERIALIZE_ERRORS_LIMITS,
   defaultLevelForEnvironment,
   SANITIZER_LIMIT_BOUNDS,
+  SERIALIZE_ERRORS_LIMIT_BOUNDS,
 } from './env-defaults.js';
+
+/** Fully-resolved deep-error-serialization limits (Feature 023). */
+export type ResolvedSerializeErrorsLimits = Required<SerializeErrorsOptions>;
 
 /**
  * Fully-normalized configuration produced by `normalizeConfig`. Internal
@@ -62,6 +68,8 @@ export interface NormalizedConfig {
   readonly breadcrumbs: BreadcrumbBuffer | undefined;
   /** Consumer error-stack normalizer (`./stacks`), or undefined when off (default). */
   readonly normalizeStack: StackNormalizer | undefined;
+  /** Resolved deep-error-serialization limits, or undefined when off (default). */
+  readonly serializeErrors: ResolvedSerializeErrorsLimits | undefined;
   readonly onInternalError: (err: Error) => void;
 }
 
@@ -100,8 +108,76 @@ export function normalizeConfig(config: LoggerConfig): NormalizedConfig {
     sanitizerLimits,
     breadcrumbs: resolveBreadcrumbs(config.breadcrumbs, onInternalError),
     normalizeStack: config.normalizeStack,
+    serializeErrors: resolveSerializeErrors(
+      config.serializeErrors,
+      onInternalError,
+    ),
     onInternalError,
   };
+}
+
+/**
+ * Resolve the opt-in `serializeErrors` config (Feature 023) into fully
+ * resolved limits, or `undefined` when off — the default. Out-of-range
+ * values clamp to the documented bounds with one `onInternalError` notice
+ * per clamped key (`error_serialize_clamped`), mirroring the sanitizer-limit
+ * clamp. Non-finite values fall back to the key's default without a notice;
+ * non-integer values floor.
+ */
+function resolveSerializeErrors(
+  option: boolean | SerializeErrorsOptions | undefined,
+  onInternalError: (err: Error) => void,
+): ResolvedSerializeErrorsLimits | undefined {
+  if (option === undefined || option === false) return undefined;
+  if (option === true) return { ...DEFAULT_SERIALIZE_ERRORS_LIMITS };
+  return clampLimits(
+    DEFAULT_SERIALIZE_ERRORS_LIMITS,
+    option,
+    SERIALIZE_ERRORS_LIMIT_BOUNDS,
+    'serializeErrors',
+    'error_serialize_clamped',
+    onInternalError,
+    true,
+  );
+}
+
+/**
+ * Shared clamp-and-notify limit resolution (sanitizer limits LC-10 and
+ * Feature 023 serialization limits ES-13): apply consumer overrides on top
+ * of `defaults`, clamping each to its documented `min`/`max` with one
+ * `onInternalError` notice per clamped key. Non-finite overrides are
+ * ignored; `floor` additionally floors non-integer overrides.
+ */
+function clampLimits<T extends { [K in keyof T]: number }>(
+  defaults: Readonly<T>,
+  overrides: { [K in keyof T]?: number },
+  bounds: Readonly<{ [K in keyof T]: Readonly<{ min: number; max: number }> }>,
+  label: string,
+  code: ConstructorParameters<typeof PackageError>[0],
+  onInternalError: (err: Error) => void,
+  floor: boolean,
+): T {
+  const limits: Record<string, number> = { ...defaults };
+  for (const key of Object.keys(bounds) as Array<keyof T & string>) {
+    const requested = overrides[key];
+    if (requested === undefined || !Number.isFinite(requested)) continue;
+    const value = floor ? Math.floor(requested) : requested;
+    const { min, max } = bounds[key];
+    if (value > max || value < min) {
+      const clamped = value > max ? max : min;
+      limits[key] = clamped;
+      safeNotify(
+        onInternalError,
+        new PackageError(
+          code,
+          `${label}.${key} value ${String(requested)} ${value > max ? 'exceeds max' : 'is below min'} ${String(clamped)}; clamped to ${String(clamped)}`,
+        ),
+      );
+    } else {
+      limits[key] = value;
+    }
+  }
+  return limits as unknown as T;
 }
 
 /**
@@ -171,39 +247,13 @@ function resolveSanitizerLimits(
   if (overrides === undefined) {
     return { ...DEFAULT_SANITIZER_LIMITS };
   }
-
-  const limits: SanitizerLimits = { ...DEFAULT_SANITIZER_LIMITS };
-  const keys = Object.keys(SANITIZER_LIMIT_BOUNDS) as Array<
-    keyof SanitizerLimits
-  >;
-
-  for (const key of keys) {
-    const requested = overrides[key];
-    if (requested === undefined) continue;
-
-    const bounds = SANITIZER_LIMIT_BOUNDS[key];
-    if (requested > bounds.max) {
-      limits[key] = bounds.max;
-      safeNotify(
-        onInternalError,
-        new PackageError(
-          'sanitizer_limit_clamped',
-          `sanitizerLimits.${key} value ${String(requested)} exceeds max ${String(bounds.max)}; clamped to ${String(bounds.max)}`,
-        ),
-      );
-    } else if (requested < bounds.min) {
-      limits[key] = bounds.min;
-      safeNotify(
-        onInternalError,
-        new PackageError(
-          'sanitizer_limit_clamped',
-          `sanitizerLimits.${key} value ${String(requested)} is below min ${String(bounds.min)}; clamped to ${String(bounds.min)}`,
-        ),
-      );
-    } else {
-      limits[key] = requested;
-    }
-  }
-
-  return limits;
+  return clampLimits(
+    DEFAULT_SANITIZER_LIMITS,
+    overrides,
+    SANITIZER_LIMIT_BOUNDS,
+    'sanitizerLimits',
+    'sanitizer_limit_clamped',
+    onInternalError,
+    false,
+  );
 }

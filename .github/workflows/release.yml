@@ -5,7 +5,7 @@ name: Release
 # Mirrors the GitLab release pipeline (Feature 005) on GitHub Actions:
 #   verify-tag-signed (fail-fast)
 #     → build / typecheck / test  (Node 20 + 22 matrix)
-#     → bundle-invariance, dependency-pins, changelog-validate
+#     → dependency-pins, changelog-validate
 #     → npm publish --provenance  (OIDC Trusted Publisher — no long-lived token)
 #     → provenance-verify
 #
@@ -146,28 +146,8 @@ jobs:
           path: dist/
       - run: npm test
 
-  bundle-invariance:
-    name: bundle-invariance
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      # The script compares HEAD's bundle sizes against the merge-base with
-      # main; setting CI_DEFAULT_BRANCH makes it fetch + build origin/main^.
-      CI_DEFAULT_BRANCH: main
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # the script checks out + builds the base commit in a worktree
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci --prefer-offline --no-audit --no-fund
-      - uses: actions/download-artifact@v8
-        with:
-          name: dist
-          path: dist/
-      - run: bash scripts/ci/bundle-invariance-check.sh
+  # bundle-invariance gate removed 2026-06-10 (feature 023, owner decision) —
+  # see the matching note in ci.yml; static size-lock tests remain the guard.
 
   dependency-pins:
     name: dependency-pins
@@ -249,7 +229,6 @@ jobs:
       - verify-tag-signed
       - typecheck
       - test
-      - bundle-invariance
       - dependency-pins
       - changelog-validate
       - api-surface-freshness

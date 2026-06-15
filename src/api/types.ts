@@ -121,6 +121,80 @@ export interface ErrorInfo {
   name: string;
   message: string;
   stack?: string;
+  /**
+   * Flat, ordered cause chain of the logged error, outermost cause first.
+   * Present only when deep error serialization (Feature 023) is enabled and
+   * the error has a cause; never empty.
+   */
+  causes?: SerializedErrorNode[];
+  /**
+   * `AggregateError` member nodes, original order, count-bounded. Present
+   * only when deep error serialization is enabled; never empty.
+   */
+  members?: SerializedErrorNode[];
+  /**
+   * Value-filtered own enumerable properties beyond name/message/stack/cause
+   * (plus `DOMException`'s legacy numeric `code`). Present only when deep
+   * error serialization is enabled; never empty.
+   */
+  fields?: Record<string, unknown>;
+  /** Set when the cause chain was clipped (depth or node budget). */
+  causesTruncated?: true;
+  /** Original member count, set only when members were omitted. */
+  membersTotal?: number;
+  /** Set when the field set was clipped (`maxFields`). */
+  fieldsTruncated?: true;
+  /** Set on the top-level payload when the node budget clipped anything. */
+  budgetExhausted?: true;
+}
+
+/**
+ * Structured representation of one serialized error (Feature 023): a
+ * cause-chain entry or an `AggregateError` member. Recursive only through
+ * `members` — entries inside a `causes` array never carry `causes` of their
+ * own (linear chains are always flattened into the containing array).
+ * Nested nodes never carry stack text.
+ */
+export interface SerializedErrorNode {
+  /** Error name (`'NonError'` for coerced non-error cause values). */
+  name: string;
+  /** Error message (`String(value)` for coerced non-error values). */
+  message: string;
+  /**
+   * Flat, ordered cause chain of THIS node, outermost cause first. Present
+   * only on aggregate members; never empty.
+   */
+  causes?: SerializedErrorNode[];
+  /** `AggregateError` member nodes of this node; never empty. */
+  members?: SerializedErrorNode[];
+  /** Value-filtered own enumerable extra properties; never empty. */
+  fields?: Record<string, unknown>;
+  /** Set when this node's cause chain was clipped (depth or node budget). */
+  causesTruncated?: true;
+  /** Original member count, set only when members were omitted. */
+  membersTotal?: number;
+  /** Set when this node's field set was clipped (`maxFields`). */
+  fieldsTruncated?: true;
+}
+
+/**
+ * Tuning options for opt-in **deep error serialization** (Feature 023).
+ * Enable via `LoggerConfig.serializeErrors`. Off by default. Out-of-range
+ * values clamp to the documented bounds with one `onInternalError` notice
+ * per clamped key.
+ */
+export interface SerializeErrorsOptions {
+  /** Max cause-chain entries per node. Default `8`; clamped to `[1, 16]`. */
+  maxCauseDepth?: number;
+  /** Max aggregate members per node. Default `10`; clamped to `[1, 100]`. */
+  maxMembers?: number;
+  /** Max extra fields per node. Default `16`; clamped to `[0, 64]`. */
+  maxFields?: number;
+  /**
+   * Binding outer limit: max total serialized nodes per event (chain entries
+   * and members combined, recursively). Default `50`; clamped to `[1, 256]`.
+   */
+  maxNodes?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -277,6 +351,19 @@ export interface LoggerConfig {
    * overrides them. See {@link BreadcrumbsOptions}.
    */
   breadcrumbs?: boolean | BreadcrumbsOptions;
+  /**
+   * Opt-in **deep error serialization** (off by default, Feature 023). When
+   * enabled, the event's `error` payload additionally carries the error's
+   * flat `cause` chain (`error.causes`), `AggregateError` members
+   * (`error.members`), and value-filtered own enumerable extra properties
+   * (`error.fields`, incl. `DOMException.code`) — bounded, fail-safe, and
+   * passed through the same sanitize → scrub → redact pipeline as all event
+   * data. `true` enables safe defaults; an object tunes the limits. While
+   * enabled, the breadcrumbs cause-chain attribute
+   * (`attributes['safesignal.errorCauses']`) is never populated.
+   * See {@link SerializeErrorsOptions}.
+   */
+  serializeErrors?: boolean | SerializeErrorsOptions;
   /**
    * Opt-in **error-stack normalization** (off by default). When set, an error
    * log's `error.stack` is parsed into trimmed, optionally source-map-resolved

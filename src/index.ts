@@ -37,6 +37,8 @@ export type {
   Redactor,
   SanitizerLimits,
   ScrubUrlOptions,
+  SerializedErrorNode,
+  SerializeErrorsOptions,
   StackFrame,
   StackNormalizer,
   TraceContext,

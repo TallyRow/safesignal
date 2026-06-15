@@ -59,6 +59,7 @@ import type {
   RedactionRule,
   Redactor,
 } from '../api/types.js';
+import { hasDeepErrorData, mapErrorNodes } from '../errors/serialize-error.js';
 import { PackageError } from '../internal/errors/internal-errors.js';
 import type { PipelineStage } from './dispatcher.js';
 
@@ -147,13 +148,31 @@ export function createRedactor(rules?: RedactionRule[]): Redactor {
         stack === undefined
           ? undefined
           : applyShapeRules(stack, compiled.shapeRules);
-      const errorChanged =
-        escName !== event.error.name ||
-        escMessage !== event.error.message ||
-        escStack !== stack;
-      if (errorChanged) {
-        error = { name: escName, message: escMessage };
-        if (escStack !== undefined) error.stack = escStack;
+      if (hasDeepErrorData(event.error)) {
+        // Deep error data (Feature 023): shape rules on every nested node's
+        // name/message; key + shape rules on `fields` entries (exact parity
+        // with attribute redaction via `walkObject`).
+        error = mapErrorNodes(event.error, {
+          name: (v) => applyShapeRules(v, compiled.shapeRules),
+          message: (v) => applyShapeRules(v, compiled.shapeRules),
+          fields: (f) => walkObject(f as Attributes, compiled) as typeof f,
+        });
+        error.name = escName;
+        error.message = escMessage;
+        if (escStack !== undefined) {
+          error.stack = escStack;
+        } else {
+          delete error.stack;
+        }
+      } else {
+        const errorChanged =
+          escName !== event.error.name ||
+          escMessage !== event.error.message ||
+          escStack !== stack;
+        if (errorChanged) {
+          error = { name: escName, message: escMessage };
+          if (escStack !== undefined) error.stack = escStack;
+        }
       }
     }
 
